@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ポケモンマスターズEX ダメージ計算機</title>
+<style>
+  :root{
+    --bg:#12161f;
+    --panel:#1b2130;
+    --panel2:#232a3d;
+    --accent:#5b9dff;
+    --accent2:#ffb454;
+    --text:#e8ecf5;
+    --sub:#9aa5bd;
+    --border:#2e3752;
+    --good:#5be0a0;
+  }
+  *{box-sizing:border-box;max-width:100%;}
+  html,body{overflow-x:hidden;}
+  body{
+    margin:0;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    background:linear-gradient(160deg,#0e111a,#161d2c 60%,#0e111a);
+    color:var(--text);
+    padding:16px;
+  }
+  .container{max-width:1180px;margin:0 auto;}
+  h1{
+    font-size:18px;
+    margin:0 0 4px;
+    letter-spacing:.03em;
+  }
+  .subtitle{color:var(--sub);font-size:11px;margin-bottom:16px;}
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:10px;
+  }
+  fieldset{
+    border:1px solid var(--border);
+    background:var(--panel);
+    border-radius:10px;
+    padding:10px 10px 12px;
+    min-width:0;
+  }
+  legend{
+    padding:0 8px;
+    font-size:13px;
+    font-weight:bold;
+    color:var(--accent);
+  }
+  .row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:6px;
+    margin:6px 0;
+    font-size:12px;
+    flex-wrap:wrap;
+  }
+  .row label{flex:1 1 auto;color:var(--sub);min-width:0;}
+  .row .inputs{display:flex;gap:4px;flex:0 1 auto;min-width:0;}
+  input[type=number], select{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:6px;
+    padding:4px 6px;
+    font-size:12px;
+    width:80px;
+    min-width:0;
+  }
+  select{width:auto;min-width:64px;}
+  .triple select{width:44px;min-width:0;margin-left:2px;padding:4px 2px;}
+  @media (max-width:520px){
+    body{padding:10px;}
+    .grid{grid-template-columns:1fr;gap:8px;}
+    fieldset[style]{grid-column:auto !important;}
+    .row{flex-direction:column;align-items:flex-start;gap:4px;}
+    .row .inputs{width:100%;}
+    .row .inputs:not(.triple) input[type=number],
+    .row .inputs:not(.triple) select{width:100%;}
+    .triple{width:100%;justify-content:space-between;}
+    .triple select{flex:1 1 0;width:auto;}
+    table{font-size:10.5px;}
+    th,td{padding:3px 3px;}
+    .summary{gap:6px;}
+    .summary .card{min-width:0;flex:1 1 30%;padding:8px 6px;}
+    .summary .card .value{font-size:16px;}
+    button#calcBtn{width:100%;padding:12px 0;}
+  }
+  .note{
+    font-size:11px;
+    color:var(--sub);
+    margin-top:6px;
+    line-height:1.5;
+    border-top:1px dashed var(--border);
+    padding-top:6px;
+  }
+  .actions{
+    margin:20px 0;
+    text-align:center;
+  }
+  button#calcBtn{
+    background:linear-gradient(135deg,var(--accent),#3d7de0);
+    color:#0e111a;
+    border:none;
+    font-weight:bold;
+    font-size:15px;
+    padding:12px 40px;
+    border-radius:30px;
+    cursor:pointer;
+    box-shadow:0 4px 14px rgba(91,157,255,.35);
+  }
+  button#calcBtn:hover{filter:brightness(1.08);}
+  fieldset button{
+    background:var(--panel2);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:7px 10px;
+    font-size:12.5px;
+    cursor:pointer;
+  }
+  fieldset button:hover{border-color:var(--accent);color:var(--accent);}
+  .radio-group{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    font-size:12px;
+  }
+  .radio-group label{
+    display:flex;
+    align-items:center;
+    gap:3px;
+    color:var(--text);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .radio-group input[type=radio]{
+    accent-color:var(--accent);
+    margin:0;
+    cursor:pointer;
+  }
+  #result{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px 12px;
+    display:none;
+    overflow-x:auto;
+  }
+  #result.show{display:block;}
+  #result table{min-width:560px;}
+  .summary{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  .summary .card{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:10px 16px;
+    min-width:120px;
+    text-align:center;
+  }
+  .summary .card .label{font-size:11px;color:var(--sub);}
+  .summary .card .value{font-size:20px;font-weight:bold;color:var(--good);margin-top:2px;}
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12.5px;
+    margin-top:6px;
+  }
+  th,td{
+    border:1px solid var(--border);
+    padding:5px 6px;
+    text-align:center;
+  }
+  th{background:var(--panel2);color:var(--sub);font-weight:normal;}
+  .breakdown{
+    margin-top:14px;
+    font-size:12px;
+    color:var(--sub);
+  }
+  .breakdown table{font-size:12px;}
+  .breakdown td:first-child{color:var(--text);text-align:left;width:45%;}
+  .hl-min{color:#ff8f8f;}
+  .hl-max{color:var(--accent2);}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>ポケモンマスターズEX ダメージ計算機</h1>
+  <div class="subtitle">ローカル動作 / 数値を入力して「計算する」を押してください</div>
+
+  <div class="grid">
+
+    <!-- 攻撃 -->
+    <fieldset>
+      <legend>攻撃</legend>
+      <div class="row"><label>①攻撃力</label><div class="inputs"><input type="number" id="atk_power" value="0"></div></div>
+      <div class="row"><label>②装備</label><div class="inputs"><input type="number" id="atk_equip" value="0"></div></div>
+      <div class="row"><label>③フォルムチェンジ</label><div class="inputs"><select id="atk_form"></select></div></div>
+      <div class="row"><label>④ボード</label><div class="inputs"><input type="number" id="atk_board" value="0"></div></div>
+      <div class="row"><label>⑤チームパワー</label><div class="inputs"><input type="number" id="atk_team" value="0"></div></div>
+      <div class="row"><label>⑥攻撃力補正</label><div class="inputs"><input type="number" step="0.01" id="atk_correction" value="1"></div></div>
+      <div class="note">攻撃 = ((①+②)×③+④+⑤)×⑥</div>
+    </fieldset>
+
+    <!-- 攻撃ランク補正 -->
+    <fieldset>
+      <legend>攻撃ランク補正</legend>
+      <div class="row"><label>①攻撃ランク</label><div class="inputs"><select id="atk_rank"></select></div></div>
+      <div class="note">急所有効時は -1以下 のランクを 0 として扱います</div>
+    </fieldset>
+
+    <!-- 防御 -->
+    <fieldset>
+      <legend>防御</legend>
+      <div class="row"><label>①防御力</label><div class="inputs"><input type="number" id="def_power" value="0"></div></div>
+      <div class="row"><label>②防御力補正</label><div class="inputs"><input type="number" step="0.01" id="def_correction" value="1"></div></div>
+      <div class="note">防御 = ①×②</div>
+    </fieldset>
+
+    <!-- 防御ランク補正 -->
+    <fieldset>
+      <legend>防御ランク補正</legend>
+      <div class="row"><label>①防御ランク</label><div class="inputs"><select id="def_rank"></select></div></div>
+      <div class="row"><label>②防御ダウン耐性</label><div class="inputs"><select id="def_tolerance"></select></div></div>
+      <div class="note">急所有効時は +1以上 のランクを 0 として扱います</div>
+    </fieldset>
+
+    <!-- 技威力 -->
+    <fieldset>
+      <legend>技威力</legend>
+      <div class="row"><label>①威力</label><div class="inputs"><input type="number" id="move_power" value="0"></div></div>
+      <div class="row"><label>②ボード</label><div class="inputs"><input type="number" id="move_board" value="0"></div></div>
+      <div class="row"><label>③倍率</label><div class="inputs"><input type="number" step="0.01" id="move_multiplier" value="1"></div></div>
+      <div class="row"><label>④範囲減衰</label><div class="inputs radio-group">
+        <label><input type="radio" name="move_falloff" value="1" checked> なし</label>
+        <label><input type="radio" name="move_falloff" value="0.5"> あり</label>
+      </div></div>
+      <div class="note">技威力 = (①+②)×③×④</div>
+    </fieldset>
+
+    <!-- 各種補正（単体項目） -->
+    <fieldset>
+      <legend>各種補正</legend>
+      <div class="row"><label>②WTZ補正</label><div class="inputs"><select id="wtz">
+        <option value="1">無し</option><option value="1.5">通常</option><option value="3">EX</option>
+      </select></div></div>
+      <div class="row"><label>③タイプ抵抗</label><div class="inputs"><select id="resist"></select></div></div>
+      <div class="row"><label>④抜群</label><div class="inputs radio-group">
+        <label><input type="radio" name="effective" value="1" checked> 等倍</label>
+        <label><input type="radio" name="effective" value="2"> 抜群</label>
+      </div></div>
+      <div class="row"><label>&nbsp;&nbsp;抜群アップ</label><div class="inputs radio-group">
+        <label><input type="radio" name="effective_up" value="1" checked> なし</label>
+        <label><input type="radio" name="effective_up" value="1.5"> あり</label>
+      </div></div>
+      <div class="row"><label>⑤急所</label><div class="inputs radio-group">
+        <label><input type="radio" name="critical" value="0" checked> 無効</label>
+        <label><input type="radio" name="critical" value="1"> 有効</label>
+      </div></div>
+      <div class="row"><label>⑥ブレイク</label><div class="inputs radio-group">
+        <label><input type="radio" name="breakcorr" value="1" checked> 無効</label>
+        <label><input type="radio" name="breakcorr" value="1.5"> 有効</label>
+      </div></div>
+      <div class="row"><label>⑧スキル装備</label><div class="inputs"><select id="skill_equip"></select></div></div>
+      <div class="row"><label>⑨軽減</label><div class="inputs"><select id="reduction"></select></div></div>
+      <div class="row"><label>&nbsp;&nbsp;軽減の場</label><div class="inputs radio-group">
+        <label><input type="radio" name="reduction_field" value="1" checked> なし</label>
+        <label><input type="radio" name="reduction_field" value="0.6667"> あり</label>
+      </div></div>
+      <div class="row"><label>⑩ボルテージ</label><div class="inputs"><select id="voltage"></select></div></div>
+      <div class="note">急所有効時は「軽減の場」を無視します<br>ボルテージ補正 = 1+数値×0.5</div>
+    </fieldset>
+
+    <!-- サークル補正 -->
+    <fieldset>
+      <legend>サークル補正</legend>
+      <div class="row"><label>①攻撃サークル(×3)</label><div class="inputs triple">
+        <select id="circle_atk1"></select><select id="circle_atk2"></select><select id="circle_atk3"></select>
+      </div></div>
+      <div class="row"><label>②防御サークル(×3)</label><div class="inputs triple">
+        <select id="circle_def1"></select><select id="circle_def2"></select><select id="circle_def3"></select>
+      </div></div>
+      <div class="note">サークル補正 = ①×①×①×②×②×②</div>
+    </fieldset>
+
+    <!-- 威力補正 -->
+    <fieldset style="grid-column: span 2;">
+      <legend>①威力補正（内訳）</legend>
+      <div class="row"><label>ポテンシャル</label><div class="inputs"><select id="potential"></select></div></div>
+      <div class="row"><label>先導マスパ(×3)</label><div class="inputs triple">
+        <select id="lead1"></select><select id="lead2"></select><select id="lead3"></select>
+      </div></div>
+      <div class="row"><label>闘志マスパ(×3)</label><div class="inputs triple">
+        <select id="toukon1"></select><select id="toukon2"></select><select id="toukon3"></select>
+      </div></div>
+      <div class="row"><label>EXマスパ(×3)</label><div class="inputs triple">
+        <select id="ex1"></select><select id="ex2"></select><select id="ex3"></select>
+      </div></div>
+      <div class="row"><label>ブースト</label><div class="inputs"><select id="boost"></select></div></div>
+      <div class="row"><label>Bブースト</label><div class="inputs"><select id="bboost"></select></div></div>
+      <div class="row"><label>スキル(×3)</label><div class="inputs triple">
+        <select id="skill1"></select><select id="skill2"></select><select id="skill3"></select>
+      </div></div>
+      <div class="row"><label>その他</label><div class="inputs"><input type="number" step="0.01" id="other" value="0"></div></div>
+      <div class="note">威力補正 = 1 + (各項目の合計) として計算しています</div>
+    </fieldset>
+
+  </div>
+
+  <fieldset style="margin-top:14px;">
+    <legend>保存・読み込み</legend>
+    <div class="row">
+      <label>保存名</label>
+      <div class="inputs" style="flex:1 1 auto;">
+        <input type="text" id="preset_name" placeholder="例：ピカチュウ_通常技" style="width:100%;">
+      </div>
+    </div>
+    <div class="row">
+      <div class="inputs" style="flex:1 1 auto;">
+        <button id="saveBtn" type="button" style="flex:1;">保存する</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>保存済みデータ</label>
+      <div class="inputs" style="flex:1 1 auto;">
+        <select id="preset_select" style="width:100%;"></select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="inputs" style="flex:1 1 auto;gap:8px;">
+        <button id="loadBtn" type="button" style="flex:1;">読み込む</button>
+        <button id="deleteBtn" type="button" style="flex:1;">削除する</button>
+      </div>
+    </div>
+    <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。</div>
+  </fieldset>
+
+  <div class="actions">
+    <button id="calcBtn">計算する</button>
+  </div>
+
+  <div id="result">
+    <div class="summary">
+      <div class="card"><div class="label">最小ダメージ (0.90倍)</div><div class="value" id="res_min">-</div></div>
+      <div class="card"><div class="label">最大ダメージ (1.00倍)</div><div class="value" id="res_max">-</div></div>
+      <div class="card"><div class="label">平均ダメージ</div><div class="value" id="res_avg">-</div></div>
+    </div>
+    <table id="res_table">
+      <thead><tr id="res_table_head"></tr></thead>
+      <tbody><tr id="res_table_body"></tr></tbody>
+    </table>
+    <div class="breakdown">
+      <table id="breakdown_table"></table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---------- ユーティリティ ----------
+function addOptions(select, values, {selectedValue=null, labelFn=null}={}){
+  values.forEach(v=>{
+    const opt=document.createElement('option');
+    opt.value=v;
+    opt.textContent = labelFn ? labelFn(v) : v;
+    if(selectedValue!==null && String(v)===String(selectedValue)) opt.selected=true;
+    select.appendChild(opt);
+  });
+}
+function range(a,b){ // inclusive
+  const arr=[];
+  for(let i=a;i<=b;i++) arr.push(i);
+  return arr;
+}
+function $(id){ return document.getElementById(id); }
+function num(id){ return parseFloat($(id).value) || 0; }
+function sel(id){ return parseFloat($(id).value); }
+function getRadioValue(name){
+  const el = document.querySelector(`input[name="${name}"]:checked`);
+  return el ? parseFloat(el.value) : 0;
+}
+
+// ---------- ランク補正テーブル ----------
+const rankNumerator = {1:125,2:140,3:150,4:160,5:170,6:180}; // 段階nに対応する数値
+function rankCorrection(rank){
+  if(rank===0) return 1;
+  if(rank>0) return rankNumerator[rank]/100;
+  const n=-rank;
+  return 100/rankNumerator[n];
+}
+function defRankCorrectionWithTolerance(rank, tolerance){
+  if(rank>=0) return rankCorrection(rank);
+  const n=-rank;
+  const D=rankNumerator[n];
+  const diff=D-100;
+  const newNum=100 + diff*(tolerance*0.1);
+  return newNum/D;
+}
+
+// ---------- タイプ抵抗テーブル ----------
+const resistTable = {3:10/16,2:10/15,1:10/13,0:1,'-1':13/10,'-2':15/10,'-3':16/10};
+
+// ---------- セレクトの初期化 ----------
+window.addEventListener('DOMContentLoaded', ()=>{
+  // フォルムチェンジ 1.0〜1.5 (0.1刻み)
+  const forms=[];
+  for(let v=1.0; v<=1.500001; v+=0.1) forms.push(Math.round(v*10)/10);
+  addOptions($('atk_form'), forms, {selectedValue:1.0});
+
+  // 攻撃ランク / 防御ランク -6〜6
+  const ranks=range(-6,6).reverse();
+  addOptions($('atk_rank'), ranks, {selectedValue:0, labelFn:v=>v});
+  addOptions($('def_rank'), ranks, {selectedValue:0, labelFn:v=>v});
+
+  // 防御ダウン耐性 0〜9
+  addOptions($('def_tolerance'), range(0,9), {selectedValue:0});
+
+  // タイプ抵抗 -3〜3
+  addOptions($('resist'), range(-3,3).reverse(), {selectedValue:0});
+
+  // スキル装備 0〜45
+  addOptions($('skill_equip'), range(0,45), {selectedValue:0});
+
+  // 軽減 0〜9
+  addOptions($('reduction'), range(0,9), {selectedValue:0});
+
+  // ボルテージ 0〜20
+  addOptions($('voltage'), range(0,20), {selectedValue:0});
+
+  // サークル 0〜3 ×6
+  ['circle_atk1','circle_atk2','circle_atk3','circle_def1','circle_def2','circle_def3'].forEach(id=>{
+    addOptions($(id), range(0,3), {selectedValue:0});
+  });
+
+  // 威力補正内訳
+  addOptions($('potential'), range(0,9), {selectedValue:0});
+  ['lead1','lead2','lead3','toukon1','toukon2','toukon3','ex1','ex2','ex3'].forEach(id=>{
+    addOptions($(id), range(0,3), {selectedValue:0});
+  });
+  addOptions($('boost'), range(0,10), {selectedValue:0});
+  addOptions($('bboost'), range(0,10), {selectedValue:0});
+  ['skill1','skill2','skill3'].forEach(id=>{
+    addOptions($(id), range(0,12), {selectedValue:0});
+  });
+});
+
+// ---------- 保存・読み込み ----------
+const ALL_FIELD_IDS = [
+  'atk_power','atk_equip','atk_form','atk_board','atk_team','atk_correction',
+  'atk_rank',
+  'def_power','def_correction',
+  'def_rank','def_tolerance',
+  'move_power','move_board','move_multiplier',
+  'wtz','resist','skill_equip','reduction','voltage',
+  'circle_atk1','circle_atk2','circle_atk3','circle_def1','circle_def2','circle_def3',
+  'potential','lead1','lead2','lead3','toukon1','toukon2','toukon3','ex1','ex2','ex3','boost','bboost','skill1','skill2','skill3','other'
+];
+const RADIO_GROUPS = ['move_falloff','effective','effective_up','critical','breakcorr','reduction_field'];
+const PRESET_KEY = 'pokemasDamageCalcPresets';
+
+function loadPresets(){
+  try{ return JSON.parse(localStorage.getItem(PRESET_KEY) || '{}'); }
+  catch(e){ return {}; }
+}
+function savePresetsObj(obj){
+  localStorage.setItem(PRESET_KEY, JSON.stringify(obj));
+}
+function getRadioValueStr(name){
+  const el = document.querySelector(`input[name="${name}"]:checked`);
+  return el ? el.value : null;
+}
+function setRadioValue(name, value){
+  document.querySelectorAll(`input[name="${name}"]`).forEach(r=>{
+    r.checked = (r.value === value);
+  });
+}
+function getAllValues(){
+  const data={};
+  ALL_FIELD_IDS.forEach(id=>{
+    const el=$(id);
+    if(el) data[id]=el.value;
+  });
+  RADIO_GROUPS.forEach(name=>{
+    data[name]=getRadioValueStr(name);
+  });
+  return data;
+}
+function setAllValues(data){
+  ALL_FIELD_IDS.forEach(id=>{
+    const el=$(id);
+    if(el && Object.prototype.hasOwnProperty.call(data,id)) el.value=data[id];
+  });
+  RADIO_GROUPS.forEach(name=>{
+    if(Object.prototype.hasOwnProperty.call(data,name) && data[name]!==null){
+      setRadioValue(name, data[name]);
+    }
+  });
+}
+function refreshPresetSelect(){
+  const presets=loadPresets();
+  const sel=$('preset_select');
+  const names=Object.keys(presets);
+  sel.innerHTML='';
+  if(names.length===0){
+    const opt=document.createElement('option');
+    opt.value='';
+    opt.textContent='（保存済みデータなし）';
+    sel.appendChild(opt);
+    return;
+  }
+  names.forEach(name=>{
+    const opt=document.createElement('option');
+    opt.value=name;
+    opt.textContent=name;
+    sel.appendChild(opt);
+  });
+}
+
+// ---------- 計算処理 ----------
+document.addEventListener('DOMContentLoaded', ()=>{
+  $('calcBtn').addEventListener('click', calculate);
+
+  refreshPresetSelect();
+
+  $('saveBtn').addEventListener('click', ()=>{
+    const name = $('preset_name').value.trim();
+    if(!name){ alert('保存名を入力してください'); return; }
+    const presets = loadPresets();
+    presets[name] = getAllValues();
+    savePresetsObj(presets);
+    refreshPresetSelect();
+    $('preset_select').value = name;
+    alert(`「${name}」として保存しました`);
+  });
+
+  $('loadBtn').addEventListener('click', ()=>{
+    const name = $('preset_select').value;
+    const presets = loadPresets();
+    if(!name || !presets[name]){ alert('読み込むデータがありません'); return; }
+    setAllValues(presets[name]);
+    $('preset_name').value = name;
+  });
+
+  $('deleteBtn').addEventListener('click', ()=>{
+    const name = $('preset_select').value;
+    if(!name){ return; }
+    const presets = loadPresets();
+    if(!presets[name]) return;
+    if(!confirm(`「${name}」を削除しますか？`)) return;
+    delete presets[name];
+    savePresetsObj(presets);
+    refreshPresetSelect();
+  });
+});
+
+function calculate(){
+  // 攻撃
+  const atk = ((num('atk_power')+num('atk_equip'))*parseFloat($('atk_form').value) + num('atk_board') + num('atk_team')) * num('atk_correction');
+
+  // 急所判定
+  const isCritical = getRadioValue('critical')===1;
+
+  // 攻撃ランク補正（急所時は-1以下を0扱い）
+  let atkRankValue = parseInt($('atk_rank').value,10);
+  if(isCritical && atkRankValue<=-1) atkRankValue=0;
+  const atkRankCorr = rankCorrection(atkRankValue);
+
+  // 防御
+  const def = num('def_power') * num('def_correction');
+
+  // 防御ランク補正（急所時は+1以上を0扱い）
+  let defRankValue = parseInt($('def_rank').value,10);
+  if(isCritical && defRankValue>=1) defRankValue=0;
+  const defTolerance = parseInt($('def_tolerance').value,10);
+  const defRankCorr = defRankCorrectionWithTolerance(defRankValue, defTolerance);
+
+  // 技威力
+  const movePower = (num('move_power')+num('move_board')) * num('move_multiplier') * getRadioValue('move_falloff');
+
+  // ---- 威力補正 ----
+  const potential = parseInt($('potential').value,10)*0.1;
+  const leadSum = ['lead1','lead2','lead3'].reduce((s,id)=> s + parseInt($(id).value,10)*0.1, 0);
+  const toukonFn = v => v===0 ? 0 : 0.05 + v*0.15;
+  const toukonSum = ['toukon1','toukon2','toukon3'].reduce((s,id)=> s + toukonFn(parseInt($(id).value,10)), 0);
+  const exFn = v => v===0 ? 0 : 0.05 + v*0.15;
+  const exSum = ['ex1','ex2','ex3'].reduce((s,id)=> s + exFn(parseInt($(id).value,10)), 0);
+  const boostVal = parseInt($('boost').value,10)*0.4;
+  const bBoostVal = parseInt($('bboost').value,10)*0.1;
+  const skillSum = ['skill1','skill2','skill3'].reduce((s,id)=> s + parseInt($(id).value,10)*0.1, 0);
+  const otherVal = num('other');
+  const powerUpTotal = potential + leadSum + toukonSum + exSum + boostVal + bBoostVal + skillSum + otherVal;
+  const powerUpCorr = 1 + powerUpTotal;
+
+  // ---- WTZ / タイプ抵抗 / 抜群 / 急所 / ブレイク ----
+  const wtzCorr = parseFloat($('wtz').value);
+  const resistCorr = resistTable[parseInt($('resist').value,10)];
+  const effectiveBase = getRadioValue('effective');
+  const effectiveUp = getRadioValue('effective_up');
+  const effectiveCorr = effectiveBase===1 ? 1 : effectiveBase*effectiveUp;
+  const criticalCorr = isCritical ? 1.5 : 1;
+  const breakCorr = getRadioValue('breakcorr');
+
+  // ---- サークル補正 ----
+  function circleAtkFn(v){ return v===0 ? 1 : 1.1 + v*0.1; }
+  function circleDefFn(v){ return v===0 ? 1 : 1.05 + v*0.05; }
+  const circleCorr =
+    circleAtkFn(parseInt($('circle_atk1').value,10)) *
+    circleAtkFn(parseInt($('circle_atk2').value,10)) *
+    circleAtkFn(parseInt($('circle_atk3').value,10)) *
+    circleDefFn(parseInt($('circle_def1').value,10)) *
+    circleDefFn(parseInt($('circle_def2').value,10)) *
+    circleDefFn(parseInt($('circle_def3').value,10));
+
+  // ---- スキル装備補正 ----
+  const skillEquipCorr = 1 + parseInt($('skill_equip').value,10)*0.01;
+
+  // ---- 軽減補正（急所時は軽減の場を無視） ----
+  const reductionCorr = 1 - parseInt($('reduction').value,10)*0.1;
+  const reductionFieldCorr = isCritical ? 1 : getRadioValue('reduction_field');
+  const totalReductionCorr = reductionCorr * reductionFieldCorr;
+
+  // ---- ボルテージ補正 ----
+  const voltageCorr = 1 + parseInt($('voltage').value,10)*0.5;
+
+  // ---- 各種補正 合算 ----
+  const variousCorr = powerUpCorr * wtzCorr * resistCorr * effectiveCorr * criticalCorr * breakCorr * circleCorr * skillEquipCorr * totalReductionCorr * voltageCorr;
+
+  // ---- ランク補正乗算時は切り捨て ----
+  const atkAfterRank = Math.floor(atk * atkRankCorr);
+  const defAfterRank = Math.floor(def * defRankCorr);
+
+  // ---- 乱数 0.90〜1.00 (0.01刻み) ----
+  const randoms=[];
+  for(let i=90;i<=100;i++) randoms.push(i/100);
+
+  const damages = randoms.map(r=>{
+    const raw = (atkAfterRank * movePower * variousCorr / defAfterRank) * r;
+    return Math.floor(raw);
+  });
+
+  const minDmg = damages[0];
+  const maxDmg = damages[damages.length-1];
+  const avgDmg = Math.round(damages.reduce((a,b)=>a+b,0)/damages.length);
+
+  // ---- 結果表示 ----
+  $('res_min').textContent = minDmg.toLocaleString();
+  $('res_max').textContent = maxDmg.toLocaleString();
+  $('res_avg').textContent = avgDmg.toLocaleString();
+
+  const head = $('res_table_head');
+  const body = $('res_table_body');
+  head.innerHTML='';
+  body.innerHTML='';
+  randoms.forEach(r=>{
+    const th=document.createElement('th');
+    th.textContent = r.toFixed(2)+'倍';
+    head.appendChild(th);
+  });
+  damages.forEach((d,i)=>{
+    const td=document.createElement('td');
+    td.textContent=d.toLocaleString();
+    if(i===0) td.classList.add('hl-min');
+    if(i===damages.length-1) td.classList.add('hl-max');
+    body.appendChild(td);
+  });
+
+  // ---- 内訳表示 ----
+  const bd = $('breakdown_table');
+  const rows = [
+    ['攻撃', atk.toFixed(3)],
+    ['攻撃ランク補正', atkRankCorr.toFixed(4) + (isCritical && parseInt($('atk_rank').value,10)<=-1 ? '（急所により0扱い）':'')],
+    ['floor(攻撃×攻撃ランク補正)', atkAfterRank],
+    ['防御', def.toFixed(3)],
+    ['防御ランク補正', defRankCorr.toFixed(4) + (isCritical && parseInt($('def_rank').value,10)>=1 ? '（急所により0扱い）':'')],
+    ['floor(防御×防御ランク補正)', defAfterRank],
+    ['技威力', movePower.toFixed(3)],
+    ['威力補正', powerUpCorr.toFixed(4)],
+    ['WTZ補正', wtzCorr],
+    ['タイプ抵抗補正', resistCorr.toFixed(4)],
+    ['抜群補正', effectiveCorr.toFixed(4)],
+    ['急所補正', criticalCorr],
+    ['ブレイク補正', breakCorr],
+    ['サークル補正', circleCorr.toFixed(4)],
+    ['スキル装備補正', skillEquipCorr.toFixed(4)],
+    ['軽減補正', totalReductionCorr.toFixed(4) + (isCritical ? '（急所により軽減の場を無視）':'')],
+    ['ボルテージ補正', voltageCorr.toFixed(4)],
+    ['各種補正 合計', variousCorr.toFixed(4)],
+  ];
+  bd.innerHTML = rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+
+  $('result').classList.add('show');
+}
+</script>
+</body>
+</html>
