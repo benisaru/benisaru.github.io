@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>四則演算電卓</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: #f2f2f7;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 上部：結果表示エリア（広く余白を取る） */
+  .display-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 20px 12px;
+    overflow: hidden;
+    min-height: 0;
+  }
+  h1 {
+    font-size: 15px;
+    color: #888;
+    margin: 0 0 8px;
+    font-weight: normal;
+    flex: none;
+  }
+  #result {
+    font-size: 40px;
+    font-weight: bold;
+    color: #007aff;
+    word-break: break-all;
+    text-align: right;
+    line-height: 1.3;
+    flex: none;
+  }
+  #error {
+    color: #d00;
+    font-size: 14px;
+    text-align: right;
+    min-height: 18px;
+    flex: none;
+  }
+
+  /* 下部：操作エリア */
+  .control-area {
+    background: #fff;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+    border-top: 1px solid #e0e0e0;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  }
+  input#expr {
+    width: 100%;
+    padding: 16px;
+    font-size: 20px;
+    border: 1px solid #ccc;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+  .btn-row {
+    display: flex;
+    gap: 10px;
+  }
+  button {
+    flex: 1;
+    padding: 16px;
+    font-size: 16px;
+    border: none;
+    border-radius: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #resetBtn {
+    background: #eee;
+    color: #444;
+  }
+  #resetBtn:active {
+    background: #ddd;
+  }
+  #copyBtn {
+    background: #007aff;
+    color: #fff;
+  }
+  #copyBtn:active {
+    background: #005ecb;
+  }
+  .hint {
+    font-size: 12px;
+    color: #999;
+    margin-top: 10px;
+    text-align: center;
+  }
+  .toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* 履歴エリア（上部・スクロール可能） */
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0 0 4px;
+    flex: none;
+  }
+  .history-header span {
+    font-size: 12px;
+    color: #999;
+  }
+  .history-header button {
+    flex: none;
+    padding: 6px 10px;
+    font-size: 12px;
+    background: none;
+    color: #999;
+    text-decoration: underline;
+  }
+  #historyList {
+    flex: 1;
+    overflow-y: auto;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 8px;
+    min-height: 0;
+  }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 4px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .history-item:active {
+    background: #f5f5f5;
+  }
+  .history-item .h-expr {
+    color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 10px;
+  }
+  .history-item .h-result {
+    color: #007aff;
+    font-weight: bold;
+    flex: none;
+  }
+  .history-empty {
+    font-size: 13px;
+    color: #bbb;
+    text-align: center;
+    padding: 12px 0;
+  }
+  .storage-note {
+    font-size: 11px;
+    color: #c00;
+    text-align: center;
+    margin-top: 4px;
+    display: none;
+    flex: none;
+  }
+</style>
+</head>
+<body>
+
+  <div class="display-area">
+    <h1>四則演算電卓</h1>
+    <div class="history-header">
+      <span>計算履歴</span>
+      <button id="clearHistoryBtn">全削除</button>
+    </div>
+    <div id="historyList"></div>
+    <div class="storage-note" id="storageNote">このブラウザでは履歴の保存ができません（file://で開いている場合など）</div>
+    <div id="result"></div>
+    <div id="error"></div>
+  </div>
+
+  <div class="control-area">
+    <input type="text" id="expr" placeholder="例: 3 + 4 * (2 - 1)" autofocus>
+    <div class="btn-row">
+      <button id="resetBtn">リセット</button>
+      <button id="copyBtn">結果をコピー</button>
+    </div>
+    <div class="hint">+ − × ÷ ( ) が使えます。Enterキーで計算・履歴に保存されます。</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+const exprInput = document.getElementById('expr');
+const resultEl = document.getElementById('result');
+const errorEl = document.getElementById('error');
+const resetBtn = document.getElementById('resetBtn');
+const copyBtn = document.getElementById('copyBtn');
+const toastEl = document.getElementById('toast');
+const historyListEl = document.getElementById('historyList');
+const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+const storageNoteEl = document.getElementById('storageNote');
+
+let lastResult = '';
+let lastExpr = '';
+const STORAGE_KEY = 'calc_history_v1';
+let storageAvailable = true;
+
+// localStorageが使えるか確認（file://での制限やプライベートモードに対応）
+function checkStorageAvailable() {
+  try {
+    const testKey = '__storage_test__';
+    localStorage.setItem(testKey, '1');
+    localStorage.removeItem(testKey);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveHistory(list) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {
+    // 保存できない場合は何もしない
+  }
+}
+
+function addHistory(expr, result) {
+  if (!storageAvailable) return;
+  const list = loadHistory();
+  list.push({ expr, result });
+  if (list.length > 50) list.shift(); // 最大50件（古いものから削除）
+  saveHistory(list);
+  renderHistory();
+  historyListEl.scrollTop = historyListEl.scrollHeight;
+}
+
+function renderHistory() {
+  const list = storageAvailable ? loadHistory() : [];
+  historyListEl.innerHTML = '';
+  if (list.length === 0) {
+    historyListEl.innerHTML = '<div class="history-empty">履歴はまだありません</div>';
+    return;
+  }
+  list.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'history-item';
+    row.innerHTML =
+      '<span class="h-expr"></span><span class="h-result"></span>';
+    row.querySelector('.h-expr').textContent = item.expr;
+    row.querySelector('.h-result').textContent = '= ' + item.result;
+    row.addEventListener('click', () => {
+      exprInput.value = item.expr;
+      calculate();
+      exprInput.focus();
+    });
+    historyListEl.appendChild(row);
+  });
+}
+
+function calculate() {
+  let raw = exprInput.value;
+  errorEl.textContent = '';
+
+  // 空白・改行・タブをすべて除去し、末尾の = を除去
+  raw = raw.replace(/[\s\r\n]+/g, '').replace(/=+$/, '');
+
+  if (!raw) {
+    resultEl.textContent = '';
+    lastResult = '';
+    return;
+  }
+
+  let expr = raw
+    .replace(/[×✕]/g, '*')
+    .replace(/[÷]/g, '/')
+    .replace(/[−ー]/g, '-')
+    .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+    .replace(/[（]/g, '(')
+    .replace(/[）]/g, ')');
+
+  if (!/^[0-9+\-*/().\s]+$/.test(expr)) {
+    errorEl.textContent = '使用できない文字が含まれています';
+    resultEl.textContent = '';
+    lastResult = '';
+    return;
+  }
+
+  try {
+    const value = Function('"use strict"; return (' + expr + ')')();
+    if (typeof value !== 'number' || !isFinite(value)) {
+      throw new Error('計算できません');
+    }
+    const rounded = Math.round(value * 1e10) / 1e10;
+    resultEl.textContent = '= ' + rounded;
+    lastResult = String(rounded);
+    lastExpr = raw;
+  } catch (e) {
+    errorEl.textContent = '式が正しくありません';
+    resultEl.textContent = '';
+    lastResult = '';
+    lastExpr = '';
+  }
+}
+
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  setTimeout(() => toastEl.classList.remove('show'), 1500);
+}
+
+exprInput.addEventListener('input', calculate);
+exprInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    calculate();
+    if (lastResult && lastExpr) {
+      addHistory(lastExpr, lastResult);
+    }
+  }
+});
+
+resetBtn.addEventListener('click', () => {
+  exprInput.value = '';
+  resultEl.textContent = '';
+  errorEl.textContent = '';
+  lastResult = '';
+  lastExpr = '';
+  exprInput.focus();
+});
+
+clearHistoryBtn.addEventListener('click', () => {
+  if (!storageAvailable) return;
+  saveHistory([]);
+  renderHistory();
+  showToast('履歴を削除しました');
+});
+
+// 初期化
+storageAvailable = checkStorageAvailable();
+if (!storageAvailable) {
+  storageNoteEl.style.display = 'block';
+}
+renderHistory();
+historyListEl.scrollTop = historyListEl.scrollHeight;
+
+copyBtn.addEventListener('click', async () => {
+  if (!lastResult) {
+    showToast('コピーする結果がありません');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(lastResult);
+    showToast('コピーしました');
+  } catch (e) {
+    // フォールバック
+    const tmp = document.createElement('textarea');
+    tmp.value = lastResult;
+    document.body.appendChild(tmp);
+    tmp.select();
+    document.execCommand('copy');
+    document.body.removeChild(tmp);
+    showToast('コピーしました');
+  }
+});
+</script>
+</body>
+</html>
