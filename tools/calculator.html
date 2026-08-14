@@ -292,8 +292,8 @@ function calculate() {
   let raw = exprInput.value;
   errorEl.textContent = '';
 
-  // 空白・改行・タブをすべて除去し、末尾の = を除去
-  raw = raw.replace(/[\s\r\n]+/g, '').replace(/=+$/, '');
+  // 空白・改行・タブ・カンマをすべて除去し、末尾の = を除去
+  raw = raw.replace(/[\s\r\n,、]+/g, '').replace(/=+$/, '');
 
   if (!raw) {
     resultEl.textContent = '';
