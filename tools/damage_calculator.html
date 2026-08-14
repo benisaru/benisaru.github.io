@@ -72,6 +72,7 @@
     min-width:0;
   }
   select{width:auto;min-width:64px;}
+  input.input-error{border-color:#ff6b6b;background:#3a1f24;}
   .triple select{width:44px;min-width:0;margin-left:2px;padding:4px 2px;}
   @media (max-width:520px){
     body{padding:10px;}
@@ -201,12 +202,12 @@
     <!-- 攻撃 -->
     <fieldset>
       <legend>攻撃</legend>
-      <div class="row"><label>①攻撃力</label><div class="inputs"><input type="number" id="atk_power" value="0"></div></div>
-      <div class="row"><label>②装備</label><div class="inputs"><input type="number" id="atk_equip" value="0"></div></div>
+      <div class="row"><label>①攻撃力</label><div class="inputs"><input type="text" inputmode="text" id="atk_power" value="0" title="数式可（例: 100+50*1.1）"></div></div>
+      <div class="row"><label>②装備</label><div class="inputs"><input type="text" inputmode="text" id="atk_equip" value="0" title="数式可（例: 100+50*1.1）"></div></div>
       <div class="row"><label>③フォルムチェンジ</label><div class="inputs"><select id="atk_form"></select></div></div>
-      <div class="row"><label>④ボード</label><div class="inputs"><input type="number" id="atk_board" value="0"></div></div>
-      <div class="row"><label>⑤チームパワー</label><div class="inputs"><input type="number" id="atk_team" value="0"></div></div>
-      <div class="row"><label>⑥その他補正</label><div class="inputs"><input type="number" step="0.01" id="atk_correction" value="1"></div></div>
+      <div class="row"><label>④ボード</label><div class="inputs"><input type="text" inputmode="text" id="atk_board" value="0" title="数式可（例: 100+50*1.1）"></div></div>
+      <div class="row"><label>⑤チームパワー</label><div class="inputs"><input type="text" inputmode="text" id="atk_team" value="0" title="数式可（例: 100+50*1.1）"></div></div>
+      <div class="row"><label>⑥その他補正</label><div class="inputs"><input type="text" inputmode="text" id="atk_correction" value="1" title="数式可（例: 100+50*1.1）"></div></div>
       <div class="note">攻撃 = ((①+②)×③+④+⑤)×⑥</div>
     </fieldset>
 
@@ -220,8 +221,8 @@
     <!-- 防御 -->
     <fieldset>
       <legend>防御</legend>
-      <div class="row"><label>①防御力</label><div class="inputs"><input type="number" id="def_power" value="0"></div></div>
-      <div class="row"><label>②その他補正</label><div class="inputs"><input type="number" step="0.01" id="def_correction" value="1"></div></div>
+      <div class="row"><label>①防御力</label><div class="inputs"><input type="text" inputmode="text" id="def_power" value="0" title="数式可（例: 100+50*1.1）"></div></div>
+      <div class="row"><label>②その他補正</label><div class="inputs"><input type="text" inputmode="text" id="def_correction" value="1" title="数式可（例: 100+50*1.1）"></div></div>
       <div class="note">防御 = ①×②</div>
     </fieldset>
 
@@ -236,9 +237,9 @@
     <!-- 技威力 -->
     <fieldset>
       <legend>技威力</legend>
-      <div class="row"><label>①威力</label><div class="inputs"><input type="number" id="move_power" value="0"></div></div>
-      <div class="row"><label>②ボード</label><div class="inputs"><input type="number" id="move_board" value="0"></div></div>
-      <div class="row"><label>③倍率</label><div class="inputs"><input type="number" step="0.01" id="move_multiplier" value="1"></div></div>
+      <div class="row"><label>①威力</label><div class="inputs"><input type="text" inputmode="text" id="move_power" value="0" title="数式可（例: 100+50*1.1）"></div></div>
+      <div class="row"><label>②ボード</label><div class="inputs"><input type="text" inputmode="text" id="move_board" value="0" title="数式可（例: 100+50*1.1）"></div></div>
+      <div class="row"><label>③倍率</label><div class="inputs"><input type="text" inputmode="text" id="move_multiplier" value="1" title="数式可（例: 100+50*1.1）"></div></div>
       <div class="row"><label>④範囲減衰</label><div class="inputs radio-group">
         <label><input type="radio" name="move_falloff" value="1" checked> なし</label>
         <label><input type="radio" name="move_falloff" value="0.5"> あり</label>
@@ -317,7 +318,7 @@
         <label><input type="radio" name="ouen" value="0" checked> なし</label>
         <label><input type="radio" name="ouen" value="0.5"> あり</label>
       </div></div>
-      <div class="row"><label>その他</label><div class="inputs"><input type="number" step="0.01" id="other" value="0"></div></div>
+      <div class="row"><label>その他</label><div class="inputs"><input type="text" inputmode="text" id="other" value="0" title="数式可（例: 100+50*1.1）"></div></div>
       <div class="note">威力補正 = 1 + (各項目の合計) として計算しています</div>
     </fieldset>
 
@@ -389,7 +390,25 @@ function range(a,b){ // inclusive
   return arr;
 }
 function $(id){ return document.getElementById(id); }
-function num(id){ return parseFloat($(id).value) || 0; }
+
+// 数式（例: 100+50*1.1）を評価する。使用可能な文字は数字と + - * / ( ) . 空白のみ。
+function evalExpr(str){
+  if(str===null || str===undefined) return NaN;
+  str = String(str).trim();
+  if(str==='') return 0;
+  if(!/^[0-9+\-*/(). ]+$/.test(str)) return NaN;
+  try{
+    const result = Function('"use strict"; return (' + str + ');')();
+    return (typeof result === 'number' && isFinite(result)) ? result : NaN;
+  }catch(e){
+    return NaN;
+  }
+}
+
+function num(id){
+  const v = evalExpr($(id).value);
+  return isNaN(v) ? 0 : v;
+}
 function sel(id){ return parseFloat($(id).value); }
 function getRadioValue(name){
   const el = document.querySelector(`input[name="${name}"]:checked`);
@@ -532,9 +551,26 @@ function refreshPresetSelect(){
   });
 }
 
+// ---------- 数式入力欄のバリデーション ----------
+const FORMULA_FIELD_IDS = [
+  'atk_power','atk_equip','atk_board','atk_team','atk_correction',
+  'def_power','def_correction',
+  'move_power','move_board','move_multiplier','other'
+];
+function validateFormulaField(el){
+  const v = evalExpr(el.value);
+  if(isNaN(v)){ el.classList.add('input-error'); }
+  else{ el.classList.remove('input-error'); }
+}
+
 // ---------- 計算処理 ----------
 document.addEventListener('DOMContentLoaded', ()=>{
   $('calcBtn').addEventListener('click', calculate);
+
+  FORMULA_FIELD_IDS.forEach(id=>{
+    const el=$(id);
+    if(el) el.addEventListener('input', ()=>validateFormulaField(el));
+  });
 
   refreshPresetSelect();
 
