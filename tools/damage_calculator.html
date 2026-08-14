@@ -193,7 +193,7 @@
 </head>
 <body>
 <div class="container">
-  <h1>ポケモンマスターズEX ダメージ計算機</h1>
+  <h1>ダメージ計算機EX</h1>
   <div class="subtitle">ローカル動作 / 数値を入力して「計算する」を押してください</div>
 
   <div class="grid">
@@ -206,7 +206,7 @@
       <div class="row"><label>③フォルムチェンジ</label><div class="inputs"><select id="atk_form"></select></div></div>
       <div class="row"><label>④ボード</label><div class="inputs"><input type="number" id="atk_board" value="0"></div></div>
       <div class="row"><label>⑤チームパワー</label><div class="inputs"><input type="number" id="atk_team" value="0"></div></div>
-      <div class="row"><label>⑥攻撃力補正</label><div class="inputs"><input type="number" step="0.01" id="atk_correction" value="1"></div></div>
+      <div class="row"><label>⑥その他補正</label><div class="inputs"><input type="number" step="0.01" id="atk_correction" value="1"></div></div>
       <div class="note">攻撃 = ((①+②)×③+④+⑤)×⑥</div>
     </fieldset>
 
@@ -221,7 +221,7 @@
     <fieldset>
       <legend>防御</legend>
       <div class="row"><label>①防御力</label><div class="inputs"><input type="number" id="def_power" value="0"></div></div>
-      <div class="row"><label>②防御力補正</label><div class="inputs"><input type="number" step="0.01" id="def_correction" value="1"></div></div>
+      <div class="row"><label>②その他補正</label><div class="inputs"><input type="number" step="0.01" id="def_correction" value="1"></div></div>
       <div class="note">防御 = ①×②</div>
     </fieldset>
 
@@ -270,22 +270,22 @@
         <label><input type="radio" name="breakcorr" value="1.5"> 有効</label>
       </div></div>
       <div class="row"><label>⑧スキル装備</label><div class="inputs"><select id="skill_equip"></select></div></div>
-      <div class="row"><label>⑨軽減</label><div class="inputs"><select id="reduction"></select></div></div>
+      <div class="row"><label>⑨ボルテージ</label><div class="inputs"><select id="voltage"></select></div></div>
+      <div class="row"><label>⑩軽減</label><div class="inputs"><select id="reduction"></select></div></div>
       <div class="row"><label>&nbsp;&nbsp;軽減の場</label><div class="inputs radio-group">
         <label><input type="radio" name="reduction_field" value="1" checked> なし</label>
         <label><input type="radio" name="reduction_field" value="0.6667"> あり</label>
       </div></div>
-      <div class="row"><label>⑩ボルテージ</label><div class="inputs"><select id="voltage"></select></div></div>
-      <div class="note">急所有効時は「軽減の場」を無視します<br>ボルテージ補正 = 1+数値×0.5</div>
+      <div class="note">急所有効時は「軽減の場」を無視します</div>
     </fieldset>
 
     <!-- サークル補正 -->
     <fieldset>
       <legend>サークル補正</legend>
-      <div class="row"><label>①攻撃サークル(×3)</label><div class="inputs triple">
+      <div class="row"><label>①攻撃サークル</label><div class="inputs triple">
         <select id="circle_atk1"></select><select id="circle_atk2"></select><select id="circle_atk3"></select>
       </div></div>
-      <div class="row"><label>②防御サークル(×3)</label><div class="inputs triple">
+      <div class="row"><label>②防御サークル</label><div class="inputs triple">
         <select id="circle_def1"></select><select id="circle_def2"></select><select id="circle_def3"></select>
       </div></div>
       <div class="note">サークル補正 = ①×①×①×②×②×②</div>
@@ -295,18 +295,18 @@
     <fieldset style="grid-column: span 2;">
       <legend>①威力補正（内訳）</legend>
       <div class="row"><label>ポテンシャル</label><div class="inputs"><select id="potential"></select></div></div>
-      <div class="row"><label>先導マスパ(×3)</label><div class="inputs triple">
+      <div class="row"><label>先導マスパ</label><div class="inputs triple">
         <select id="lead1"></select><select id="lead2"></select><select id="lead3"></select>
       </div></div>
-      <div class="row"><label>闘志マスパ(×3)</label><div class="inputs triple">
+      <div class="row"><label>闘志マスパ</label><div class="inputs triple">
         <select id="toukon1"></select><select id="toukon2"></select><select id="toukon3"></select>
       </div></div>
-      <div class="row"><label>EXマスパ(×3)</label><div class="inputs triple">
+      <div class="row"><label>EXマスパ</label><div class="inputs triple">
         <select id="ex1"></select><select id="ex2"></select><select id="ex3"></select>
       </div></div>
       <div class="row"><label>ブースト</label><div class="inputs"><select id="boost"></select></div></div>
       <div class="row"><label>Bブースト</label><div class="inputs"><select id="bboost"></select></div></div>
-      <div class="row"><label>スキル(×3)</label><div class="inputs triple">
+      <div class="row"><label>その他スキル</label><div class="inputs triple">
         <select id="skill1"></select><select id="skill2"></select><select id="skill3"></select>
       </div></div>
       <div class="row"><label>応援</label><div class="inputs radio-group">
@@ -324,7 +324,7 @@
     <div class="row">
       <label>保存名</label>
       <div class="inputs" style="flex:1 1 auto;">
-        <input type="text" id="preset_name" placeholder="例：ピカチュウ_通常技" style="width:100%;">
+        <input type="text" id="preset_name" placeholder="例：96レッド_栄光の雷" style="width:100%;">
       </div>
     </div>
     <div class="row">
