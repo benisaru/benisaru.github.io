@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ポケモンマスターズEX ダメージ計算機</title>
+<title>ダメージ計算機EX</title>
 <style>
   :root{
     --bg:#12161f;
@@ -61,7 +61,7 @@
   }
   .row label{flex:1 1 auto;color:var(--sub);min-width:0;}
   .row .inputs{display:flex;gap:4px;flex:0 1 auto;min-width:0;}
-  input[type=number], select{
+  input[type=number], input[type=text], select{
     background:var(--panel2);
     border:1px solid var(--border);
     color:var(--text);
@@ -81,9 +81,23 @@
     .row{flex-direction:column;align-items:flex-start;gap:4px;}
     .row .inputs{width:100%;}
     .row .inputs:not(.triple) input[type=number],
+    .row .inputs:not(.triple) input[type=text],
     .row .inputs:not(.triple) select{width:100%;}
     .triple{width:100%;justify-content:space-between;}
     .triple select{flex:1 1 0;width:auto;}
+    /* 1行1入力の項目はスクロールを短縮するため2列表示にする */
+    .grid fieldset{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:2px 10px;
+      align-items:start;
+    }
+    .grid fieldset > legend{grid-column:1 / -1;}
+    .grid fieldset > .note{grid-column:1 / -1;}
+    .grid fieldset .row{margin:4px 0;}
+    .grid fieldset .row.row-full{grid-column:1 / -1;}
+    .row.mult-tera-grid{grid-template-columns:1fr 1fr 1fr;column-gap:6px;}
+    .row.mult-tera-grid .mtg-label{font-size:11px;}
     table{font-size:10.5px;}
     th,td{padding:3px 3px;}
     .summary{gap:6px;}
@@ -125,25 +139,37 @@
     cursor:pointer;
   }
   fieldset button:hover{border-color:var(--accent);color:var(--accent);}
-  .radio-group{
+  .checkbox-group{
     display:flex;
     gap:10px;
     flex-wrap:wrap;
     font-size:12px;
   }
-  .radio-group label{
+  .checkbox-group label{
     display:flex;
     align-items:center;
-    gap:3px;
+    gap:5px;
     color:var(--text);
     cursor:pointer;
     white-space:nowrap;
   }
-  .radio-group input[type=radio]{
+  .checkbox-group input[type=checkbox]{
     accent-color:var(--accent);
+    width:16px;
+    height:16px;
     margin:0;
     cursor:pointer;
   }
+  .row.mult-tera-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    column-gap:10px;
+    row-gap:6px;
+    align-items:center;
+  }
+  .row.mult-tera-grid > *{min-width:0;}
+  .mtg-label{color:var(--sub);font-size:12px;}
+  .row.mult-tera-grid .checkbox-group{margin:0;}
   #result{
     background:var(--panel);
     border:1px solid var(--border);
@@ -239,15 +265,14 @@
       <legend>技威力</legend>
       <div class="row"><label>①威力</label><div class="inputs"><input type="text" inputmode="text" id="move_power" value="0" title="数式可（例: 100+50*1.1）"></div></div>
       <div class="row"><label>②ボード</label><div class="inputs"><input type="text" inputmode="text" id="move_board" value="0" title="数式可（例: 100+50*1.1）"></div></div>
-      <div class="row"><label>③倍率</label><div class="inputs"><input type="text" inputmode="text" id="move_multiplier" value="1" title="数式可（例: 100+50*1.1）"></div></div>
-      <div class="row"><label>④範囲減衰</label><div class="inputs radio-group">
-        <label><input type="radio" name="move_falloff" value="1" checked> なし</label>
-        <label><input type="radio" name="move_falloff" value="0.5"> あり</label>
-      </div></div>
-      <div class="row"><label>⑤テラスタル</label><div class="inputs radio-group">
-        <label><input type="radio" name="terastal" value="1" checked> なし</label>
-        <label><input type="radio" name="terastal" value="1.5"> あり</label>
-      </div></div>
+      <div class="row row-full mult-tera-grid">
+        <div class="mtg-label">③倍率</div>
+        <div class="mtg-label">④範囲減衰</div>
+        <div class="mtg-label">⑤テラスタル</div>
+        <div class="inputs"><input type="text" inputmode="text" id="move_multiplier" value="1" title="数式可（例: 100+50*1.1）"></div>
+        <div class="inputs checkbox-group"><label><input type="checkbox" id="move_falloff"> あり</label></div>
+        <div class="inputs checkbox-group"><label><input type="checkbox" id="terastal"> あり</label></div>
+      </div>
       <div class="note">技威力 = (①+②)×③×④×⑤</div>
     </fieldset>
 
@@ -258,28 +283,23 @@
         <option value="1">無し</option><option value="1.5">通常</option><option value="3">EX</option>
       </select></div></div>
       <div class="row"><label>③タイプ抵抗</label><div class="inputs"><select id="resist"></select></div></div>
-      <div class="row"><label>④抜群</label><div class="inputs radio-group">
-        <label><input type="radio" name="effective" value="1" checked> 等倍</label>
-        <label><input type="radio" name="effective" value="2"> 抜群</label>
+      <div class="row"><label>④抜群</label><div class="inputs checkbox-group">
+        <label><input type="checkbox" id="effective"> 抜群</label>
       </div></div>
-      <div class="row"><label>&nbsp;&nbsp;抜群アップ</label><div class="inputs radio-group">
-        <label><input type="radio" name="effective_up" value="1" checked> なし</label>
-        <label><input type="radio" name="effective_up" value="1.5"> あり</label>
+      <div class="row"><label>&nbsp;&nbsp;抜群アップ</label><div class="inputs checkbox-group">
+        <label><input type="checkbox" id="effective_up"> あり</label>
       </div></div>
-      <div class="row"><label>⑤急所</label><div class="inputs radio-group">
-        <label><input type="radio" name="critical" value="0" checked> 無効</label>
-        <label><input type="radio" name="critical" value="1"> 有効</label>
+      <div class="row"><label>⑤急所</label><div class="inputs checkbox-group">
+        <label><input type="checkbox" id="critical"> 有効</label>
       </div></div>
-      <div class="row"><label>⑥ブレイク</label><div class="inputs radio-group">
-        <label><input type="radio" name="breakcorr" value="1" checked> 無効</label>
-        <label><input type="radio" name="breakcorr" value="1.5"> 有効</label>
+      <div class="row"><label>⑥ブレイク</label><div class="inputs checkbox-group">
+        <label><input type="checkbox" id="breakcorr"> 有効</label>
       </div></div>
       <div class="row"><label>⑧スキル装備</label><div class="inputs"><select id="skill_equip"></select></div></div>
       <div class="row"><label>⑨ボルテージ</label><div class="inputs"><input type="text" inputmode="text" id="voltage" value="0" title="数式可（例: 100+50*1.1）"></div></div>
       <div class="row"><label>⑩軽減</label><div class="inputs"><select id="reduction"></select></div></div>
-      <div class="row"><label>&nbsp;&nbsp;軽減の場</label><div class="inputs radio-group">
-        <label><input type="radio" name="reduction_field" value="1" checked> なし</label>
-        <label><input type="radio" name="reduction_field" value="0.6667"> あり</label>
+      <div class="row"><label>&nbsp;&nbsp;軽減の場</label><div class="inputs checkbox-group">
+        <label><input type="checkbox" id="reduction_field"> あり</label>
       </div></div>
       <div class="note">急所有効時は「軽減の場」を無視します</div>
     </fieldset>
@@ -287,10 +307,10 @@
     <!-- サークル補正 -->
     <fieldset>
       <legend>サークル補正</legend>
-      <div class="row"><label>①攻撃サークル</label><div class="inputs triple">
+      <div class="row row-full"><label>①攻撃サークル</label><div class="inputs triple">
         <select id="circle_atk1"></select><select id="circle_atk2"></select><select id="circle_atk3"></select>
       </div></div>
-      <div class="row"><label>②防御サークル</label><div class="inputs triple">
+      <div class="row row-full"><label>②防御サークル</label><div class="inputs triple">
         <select id="circle_def1"></select><select id="circle_def2"></select><select id="circle_def3"></select>
       </div></div>
       <div class="note">サークル補正 = ①×①×①×②×②×②</div>
@@ -300,26 +320,25 @@
     <fieldset style="grid-column: span 2;">
       <legend>①威力補正（内訳）</legend>
       <div class="row"><label>ポテンシャル</label><div class="inputs"><select id="potential"></select></div></div>
-      <div class="row"><label>カリスママスパ</label><div class="inputs triple">
+      <div class="row row-full"><label>カリスママスパ</label><div class="inputs triple">
         <select id="charisma1"></select><select id="charisma2"></select><select id="charisma3"></select>
       </div></div>
-      <div class="row"><label>先導マスパ</label><div class="inputs triple">
+      <div class="row row-full"><label>先導マスパ</label><div class="inputs triple">
         <select id="lead1"></select><select id="lead2"></select><select id="lead3"></select>
       </div></div>
-      <div class="row"><label>闘志マスパ</label><div class="inputs triple">
+      <div class="row row-full"><label>闘志マスパ</label><div class="inputs triple">
         <select id="toukon1"></select><select id="toukon2"></select><select id="toukon3"></select>
       </div></div>
-      <div class="row"><label>EXマスパ</label><div class="inputs triple">
+      <div class="row row-full"><label>EXマスパ</label><div class="inputs triple">
         <select id="ex1"></select><select id="ex2"></select><select id="ex3"></select>
       </div></div>
       <div class="row"><label>ブースト</label><div class="inputs"><select id="boost"></select></div></div>
       <div class="row"><label>Bブースト</label><div class="inputs"><select id="bboost"></select></div></div>
-      <div class="row"><label>その他スキル</label><div class="inputs triple">
+      <div class="row row-full"><label>各スキル</label><div class="inputs triple">
         <select id="skill1"></select><select id="skill2"></select><select id="skill3"></select>
       </div></div>
-      <div class="row"><label>応援</label><div class="inputs radio-group">
-        <label><input type="radio" name="ouen" value="0" checked> なし</label>
-        <label><input type="radio" name="ouen" value="0.5"> あり</label>
+      <div class="row"><label>応援</label><div class="inputs checkbox-group">
+        <label><input type="checkbox" id="ouen"> あり</label>
       </div></div>
       <div class="row"><label>その他</label><div class="inputs"><input type="text" inputmode="text" id="other" value="0" title="数式可（例: 100+50*1.1）"></div></div>
       <div class="note">威力補正 = 1 + (各項目の合計) として計算しています</div>
@@ -413,9 +432,9 @@ function num(id){
   return isNaN(v) ? 0 : v;
 }
 function sel(id){ return parseFloat($(id).value); }
-function getRadioValue(name){
-  const el = document.querySelector(`input[name="${name}"]:checked`);
-  return el ? parseFloat(el.value) : 0;
+function isChecked(id){
+  const el = $(id);
+  return !!(el && el.checked);
 }
 
 // ---------- ランク補正テーブル ----------
@@ -490,7 +509,7 @@ const ALL_FIELD_IDS = [
   'circle_atk1','circle_atk2','circle_atk3','circle_def1','circle_def2','circle_def3',
   'potential','charisma1','charisma2','charisma3','lead1','lead2','lead3','toukon1','toukon2','toukon3','ex1','ex2','ex3','boost','bboost','skill1','skill2','skill3','other'
 ];
-const RADIO_GROUPS = ['move_falloff','terastal','effective','effective_up','critical','breakcorr','reduction_field','ouen'];
+const CHECKBOX_IDS = ['move_falloff','terastal','effective','effective_up','critical','breakcorr','reduction_field','ouen'];
 const PRESET_KEY = 'pokemasDamageCalcPresets';
 
 function loadPresets(){
@@ -500,23 +519,15 @@ function loadPresets(){
 function savePresetsObj(obj){
   localStorage.setItem(PRESET_KEY, JSON.stringify(obj));
 }
-function getRadioValueStr(name){
-  const el = document.querySelector(`input[name="${name}"]:checked`);
-  return el ? el.value : null;
-}
-function setRadioValue(name, value){
-  document.querySelectorAll(`input[name="${name}"]`).forEach(r=>{
-    r.checked = (r.value === value);
-  });
-}
 function getAllValues(){
   const data={};
   ALL_FIELD_IDS.forEach(id=>{
     const el=$(id);
     if(el) data[id]=el.value;
   });
-  RADIO_GROUPS.forEach(name=>{
-    data[name]=getRadioValueStr(name);
+  CHECKBOX_IDS.forEach(id=>{
+    const el=$(id);
+    if(el) data[id]=el.checked;
   });
   return data;
 }
@@ -525,10 +536,9 @@ function setAllValues(data){
     const el=$(id);
     if(el && Object.prototype.hasOwnProperty.call(data,id)) el.value=data[id];
   });
-  RADIO_GROUPS.forEach(name=>{
-    if(Object.prototype.hasOwnProperty.call(data,name) && data[name]!==null){
-      setRadioValue(name, data[name]);
-    }
+  CHECKBOX_IDS.forEach(id=>{
+    const el=$(id);
+    if(el && Object.prototype.hasOwnProperty.call(data,id)) el.checked=!!data[id];
   });
 }
 function refreshPresetSelect(){
@@ -610,7 +620,7 @@ function calculate(){
   const atk = ((num('atk_power')+num('atk_equip'))*parseFloat($('atk_form').value) + num('atk_board') + num('atk_team')) * num('atk_correction');
 
   // 急所判定
-  const isCritical = getRadioValue('critical')===1;
+  const isCritical = isChecked('critical');
 
   // 攻撃ランク補正（急所時は-1以下を0扱い）
   let atkRankValue = parseInt($('atk_rank').value,10);
@@ -627,7 +637,7 @@ function calculate(){
   const defRankCorr = defRankCorrectionWithTolerance(defRankValue, defTolerance);
 
   // 技威力
-  const movePower = (num('move_power')+num('move_board')) * num('move_multiplier') * getRadioValue('move_falloff') * getRadioValue('terastal');
+  const movePower = (num('move_power')+num('move_board')) * num('move_multiplier') * (isChecked('move_falloff')?0.5:1) * (isChecked('terastal')?1.5:1);
 
   // ---- 威力補正 ----
   const potential = parseInt($('potential').value,10)*0.1;
@@ -641,7 +651,7 @@ function calculate(){
   const boostVal = parseInt($('boost').value,10)*0.4;
   const bBoostVal = parseInt($('bboost').value,10)*0.1;
   const skillSum = ['skill1','skill2','skill3'].reduce((s,id)=> s + parseInt($(id).value,10)*0.1, 0);
-  const ouenVal = getRadioValue('ouen');
+  const ouenVal = isChecked('ouen') ? 0.5 : 0;
   const otherVal = num('other');
   const powerUpTotal = potential + charismaSum + leadSum + toukonSum + exSum + boostVal + bBoostVal + skillSum + ouenVal + otherVal;
   const powerUpCorr = 1 + powerUpTotal;
@@ -649,11 +659,11 @@ function calculate(){
   // ---- WTZ / タイプ抵抗 / 抜群 / 急所 / ブレイク ----
   const wtzCorr = parseFloat($('wtz').value);
   const resistCorr = resistTable[parseInt($('resist').value,10)];
-  const effectiveBase = getRadioValue('effective');
-  const effectiveUp = getRadioValue('effective_up');
+  const effectiveBase = isChecked('effective') ? 2 : 1;
+  const effectiveUp = isChecked('effective_up') ? 1.5 : 1;
   const effectiveCorr = effectiveBase===1 ? 1 : effectiveBase*effectiveUp;
   const criticalCorr = isCritical ? 1.5 : 1;
-  const breakCorr = getRadioValue('breakcorr');
+  const breakCorr = isChecked('breakcorr') ? 1.5 : 1;
 
   // ---- サークル補正 ----
   function circleAtkFn(v){ return v===0 ? 1 : 1.1 + v*0.1; }
@@ -671,7 +681,7 @@ function calculate(){
 
   // ---- 軽減補正（急所時は軽減の場を無視） ----
   const reductionCorr = 1 - parseInt($('reduction').value,10)*0.1;
-  const reductionFieldCorr = isCritical ? 1 : getRadioValue('reduction_field');
+  const reductionFieldCorr = isCritical ? 1 : (isChecked('reduction_field') ? 0.6667 : 1);
   const totalReductionCorr = reductionCorr * reductionFieldCorr;
 
   // ---- ボルテージ補正 ----
