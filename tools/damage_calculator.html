@@ -149,10 +149,9 @@
     border-radius:10px;
     padding:14px 12px;
     display:none;
-    overflow-x:auto;
   }
   #result.show{display:block;}
-  #result table{min-width:560px;}
+  #result table{width:100%;}
   .summary{
     display:flex;
     gap:10px;
@@ -310,6 +309,10 @@
       <div class="row"><label>スキル(×3)</label><div class="inputs triple">
         <select id="skill1"></select><select id="skill2"></select><select id="skill3"></select>
       </div></div>
+      <div class="row"><label>応援</label><div class="inputs radio-group">
+        <label><input type="radio" name="ouen" value="0" checked> なし</label>
+        <label><input type="radio" name="ouen" value="0.5"> あり</label>
+      </div></div>
       <div class="row"><label>その他</label><div class="inputs"><input type="number" step="0.01" id="other" value="0"></div></div>
       <div class="note">威力補正 = 1 + (各項目の合計) として計算しています</div>
     </fieldset>
@@ -355,8 +358,8 @@
       <div class="card"><div class="label">平均ダメージ</div><div class="value" id="res_avg">-</div></div>
     </div>
     <table id="res_table">
-      <thead><tr id="res_table_head"></tr></thead>
-      <tbody><tr id="res_table_body"></tr></tbody>
+      <thead><tr><th>倍率</th><th>ダメージ</th></tr></thead>
+      <tbody id="res_table_body"></tbody>
     </table>
     <div class="breakdown">
       <table id="breakdown_table"></table>
@@ -464,7 +467,7 @@ const ALL_FIELD_IDS = [
   'circle_atk1','circle_atk2','circle_atk3','circle_def1','circle_def2','circle_def3',
   'potential','lead1','lead2','lead3','toukon1','toukon2','toukon3','ex1','ex2','ex3','boost','bboost','skill1','skill2','skill3','other'
 ];
-const RADIO_GROUPS = ['move_falloff','effective','effective_up','critical','breakcorr','reduction_field'];
+const RADIO_GROUPS = ['move_falloff','effective','effective_up','critical','breakcorr','reduction_field','ouen'];
 const PRESET_KEY = 'pokemasDamageCalcPresets';
 
 function loadPresets(){
@@ -596,8 +599,9 @@ function calculate(){
   const boostVal = parseInt($('boost').value,10)*0.4;
   const bBoostVal = parseInt($('bboost').value,10)*0.1;
   const skillSum = ['skill1','skill2','skill3'].reduce((s,id)=> s + parseInt($(id).value,10)*0.1, 0);
+  const ouenVal = getRadioValue('ouen');
   const otherVal = num('other');
-  const powerUpTotal = potential + leadSum + toukonSum + exSum + boostVal + bBoostVal + skillSum + otherVal;
+  const powerUpTotal = potential + leadSum + toukonSum + exSum + boostVal + bBoostVal + skillSum + ouenVal + otherVal;
   const powerUpCorr = 1 + powerUpTotal;
 
   // ---- WTZ / タイプ抵抗 / 抜群 / 急所 / ブレイク ----
@@ -658,19 +662,18 @@ function calculate(){
 
   const head = $('res_table_head');
   const body = $('res_table_body');
-  head.innerHTML='';
   body.innerHTML='';
-  randoms.forEach(r=>{
-    const th=document.createElement('th');
-    th.textContent = r.toFixed(2)+'倍';
-    head.appendChild(th);
-  });
   damages.forEach((d,i)=>{
-    const td=document.createElement('td');
-    td.textContent=d.toLocaleString();
-    if(i===0) td.classList.add('hl-min');
-    if(i===damages.length-1) td.classList.add('hl-max');
-    body.appendChild(td);
+    const tr=document.createElement('tr');
+    const tdR=document.createElement('td');
+    tdR.textContent = randoms[i].toFixed(2)+'倍';
+    const tdD=document.createElement('td');
+    tdD.textContent = d.toLocaleString();
+    if(i===0){ tdR.classList.add('hl-min'); tdD.classList.add('hl-min'); }
+    if(i===damages.length-1){ tdR.classList.add('hl-max'); tdD.classList.add('hl-max'); }
+    tr.appendChild(tdR);
+    tr.appendChild(tdD);
+    body.appendChild(tr);
   });
 
   // ---- 内訳表示 ----
