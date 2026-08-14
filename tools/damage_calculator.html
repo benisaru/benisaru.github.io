@@ -275,7 +275,7 @@
         <label><input type="radio" name="breakcorr" value="1.5"> 有効</label>
       </div></div>
       <div class="row"><label>⑧スキル装備</label><div class="inputs"><select id="skill_equip"></select></div></div>
-      <div class="row"><label>⑨ボルテージ</label><div class="inputs"><select id="voltage"></select></div></div>
+      <div class="row"><label>⑨ボルテージ</label><div class="inputs"><input type="text" inputmode="text" id="voltage" value="0" title="数式可（例: 100+50*1.1）"></div></div>
       <div class="row"><label>⑩軽減</label><div class="inputs"><select id="reduction"></select></div></div>
       <div class="row"><label>&nbsp;&nbsp;軽減の場</label><div class="inputs radio-group">
         <label><input type="radio" name="reduction_field" value="1" checked> なし</label>
@@ -462,9 +462,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
   // 軽減 0〜9
   addOptions($('reduction'), range(0,9), {selectedValue:0});
 
-  // ボルテージ 0〜20
-  addOptions($('voltage'), range(0,20), {selectedValue:0});
-
   // サークル 0〜3 ×6
   ['circle_atk1','circle_atk2','circle_atk3','circle_def1','circle_def2','circle_def3'].forEach(id=>{
     addOptions($(id), range(0,3), {selectedValue:0});
@@ -558,7 +555,7 @@ function refreshPresetSelect(){
 const FORMULA_FIELD_IDS = [
   'atk_power','atk_equip','atk_board','atk_team','atk_correction',
   'def_power','def_correction',
-  'move_power','move_board','move_multiplier','other'
+  'move_power','move_board','move_multiplier','other','voltage'
 ];
 function validateFormulaField(el){
   const v = evalExpr(el.value);
@@ -678,7 +675,7 @@ function calculate(){
   const totalReductionCorr = reductionCorr * reductionFieldCorr;
 
   // ---- ボルテージ補正 ----
-  const voltageCorr = 1 + parseInt($('voltage').value,10)*0.5;
+  const voltageCorr = 1 + num('voltage')*0.5;
 
   // ---- 各種補正 合算 ----
   const variousCorr = powerUpCorr * wtzCorr * resistCorr * effectiveCorr * criticalCorr * breakCorr * circleCorr * skillEquipCorr * totalReductionCorr * voltageCorr;
