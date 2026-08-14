@@ -300,6 +300,9 @@
     <fieldset style="grid-column: span 2;">
       <legend>①威力補正（内訳）</legend>
       <div class="row"><label>ポテンシャル</label><div class="inputs"><select id="potential"></select></div></div>
+      <div class="row"><label>カリスママスパ</label><div class="inputs triple">
+        <select id="charisma1"></select><select id="charisma2"></select><select id="charisma3"></select>
+      </div></div>
       <div class="row"><label>先導マスパ</label><div class="inputs triple">
         <select id="lead1"></select><select id="lead2"></select><select id="lead3"></select>
       </div></div>
@@ -469,7 +472,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   // 威力補正内訳
   addOptions($('potential'), range(0,9), {selectedValue:0});
-  ['lead1','lead2','lead3','toukon1','toukon2','toukon3','ex1','ex2','ex3'].forEach(id=>{
+  ['charisma1','charisma2','charisma3','lead1','lead2','lead3','toukon1','toukon2','toukon3','ex1','ex2','ex3'].forEach(id=>{
     addOptions($(id), range(0,3), {selectedValue:0});
   });
   addOptions($('boost'), range(0,10), {selectedValue:0});
@@ -488,7 +491,7 @@ const ALL_FIELD_IDS = [
   'move_power','move_board','move_multiplier',
   'wtz','resist','skill_equip','reduction','voltage',
   'circle_atk1','circle_atk2','circle_atk3','circle_def1','circle_def2','circle_def3',
-  'potential','lead1','lead2','lead3','toukon1','toukon2','toukon3','ex1','ex2','ex3','boost','bboost','skill1','skill2','skill3','other'
+  'potential','charisma1','charisma2','charisma3','lead1','lead2','lead3','toukon1','toukon2','toukon3','ex1','ex2','ex3','boost','bboost','skill1','skill2','skill3','other'
 ];
 const RADIO_GROUPS = ['move_falloff','terastal','effective','effective_up','critical','breakcorr','reduction_field','ouen'];
 const PRESET_KEY = 'pokemasDamageCalcPresets';
@@ -631,6 +634,8 @@ function calculate(){
 
   // ---- 威力補正 ----
   const potential = parseInt($('potential').value,10)*0.1;
+  const charismaFn = v => v===0 ? 0 : 0.05 + v*0.05;
+  const charismaSum = ['charisma1','charisma2','charisma3'].reduce((s,id)=> s + charismaFn(parseInt($(id).value,10)), 0);
   const leadSum = ['lead1','lead2','lead3'].reduce((s,id)=> s + parseInt($(id).value,10)*0.1, 0);
   const toukonFn = v => v===0 ? 0 : 0.05 + v*0.15;
   const toukonSum = ['toukon1','toukon2','toukon3'].reduce((s,id)=> s + toukonFn(parseInt($(id).value,10)), 0);
@@ -641,7 +646,7 @@ function calculate(){
   const skillSum = ['skill1','skill2','skill3'].reduce((s,id)=> s + parseInt($(id).value,10)*0.1, 0);
   const ouenVal = getRadioValue('ouen');
   const otherVal = num('other');
-  const powerUpTotal = potential + leadSum + toukonSum + exSum + boostVal + bBoostVal + skillSum + ouenVal + otherVal;
+  const powerUpTotal = potential + charismaSum + leadSum + toukonSum + exSum + boostVal + bBoostVal + skillSum + ouenVal + otherVal;
   const powerUpCorr = 1 + powerUpTotal;
 
   // ---- WTZ / タイプ抵抗 / 抜群 / 急所 / ブレイク ----
