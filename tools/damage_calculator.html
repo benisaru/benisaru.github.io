@@ -243,7 +243,11 @@
         <label><input type="radio" name="move_falloff" value="1" checked> なし</label>
         <label><input type="radio" name="move_falloff" value="0.5"> あり</label>
       </div></div>
-      <div class="note">技威力 = (①+②)×③×④</div>
+      <div class="row"><label>⑤テラスタル</label><div class="inputs radio-group">
+        <label><input type="radio" name="terastal" value="1" checked> なし</label>
+        <label><input type="radio" name="terastal" value="1.5"> あり</label>
+      </div></div>
+      <div class="note">技威力 = (①+②)×③×④×⑤</div>
     </fieldset>
 
     <!-- 各種補正（単体項目） -->
@@ -467,7 +471,7 @@ const ALL_FIELD_IDS = [
   'circle_atk1','circle_atk2','circle_atk3','circle_def1','circle_def2','circle_def3',
   'potential','lead1','lead2','lead3','toukon1','toukon2','toukon3','ex1','ex2','ex3','boost','bboost','skill1','skill2','skill3','other'
 ];
-const RADIO_GROUPS = ['move_falloff','effective','effective_up','critical','breakcorr','reduction_field','ouen'];
+const RADIO_GROUPS = ['move_falloff','terastal','effective','effective_up','critical','breakcorr','reduction_field','ouen'];
 const PRESET_KEY = 'pokemasDamageCalcPresets';
 
 function loadPresets(){
@@ -587,7 +591,7 @@ function calculate(){
   const defRankCorr = defRankCorrectionWithTolerance(defRankValue, defTolerance);
 
   // 技威力
-  const movePower = (num('move_power')+num('move_board')) * num('move_multiplier') * getRadioValue('move_falloff');
+  const movePower = (num('move_power')+num('move_board')) * num('move_multiplier') * getRadioValue('move_falloff') * getRadioValue('terastal');
 
   // ---- 威力補正 ----
   const potential = parseInt($('potential').value,10)*0.1;
