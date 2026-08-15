@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>画像トリミングツール</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/upng-js/2.1.0/UPNG.js"></script>
 <style>
   :root{
     --accent:#2fb6a3;
@@ -210,6 +211,11 @@
     height:10px;
     margin-top:6px;
     accent-color:var(--accent);
+  }
+  #progressPanel.error{
+    background:#fdecea;
+    border-color:#c0392b;
+    color:#c0392b;
   }
   .badge{
     display:inline-block;
@@ -602,10 +608,18 @@
   });
 
   function showProgress(text, value, max){
+    progressPanel.classList.remove('error');
     progressPanel.style.display = 'block';
     progressText.textContent = text;
+    progressBar.style.display = '';
     progressBar.value = value;
     progressBar.max = max;
+  }
+  function showError(text){
+    progressPanel.classList.add('error');
+    progressPanel.style.display = 'block';
+    progressText.textContent = text;
+    progressBar.style.display = 'none';
   }
   function hideProgress(){
     progressPanel.style.display = 'none';
@@ -616,6 +630,9 @@
 
   // ---------- Export ----------
   function cropToBlob(item, rel){
+    if(typeof UPNG === 'undefined' || typeof pako === 'undefined'){
+      throw new Error('PNG8変換ライブラリの読み込みに失敗しました。ネットワーク接続を確認してページを再読み込みしてください。');
+    }
     const nw = item.img.naturalWidth, nh = item.img.naturalHeight;
     const sx = Math.round(rel.x * nw);
     const sy = Math.round(rel.y * nh);
@@ -658,10 +675,13 @@
     try{
       await exportCrop(images[activeIndex], cropRel);
       showProgress('完了しました', 1, 1);
+      setTimeout(hideProgress, 800);
+    } catch(err){
+      console.error(err);
+      showError('エラーが発生しました: ' + err.message);
     } finally {
       saveOneBtn.disabled = false;
       saveAllBtn.disabled = false;
-      setTimeout(hideProgress, 800);
     }
   });
 
@@ -702,10 +722,13 @@
         downloadBlob(zipBlob, 'trimmed_images.zip');
         showProgress('完了しました', 1, 1);
       }
+      setTimeout(hideProgress, 1000);
+    } catch(err){
+      console.error(err);
+      showError('エラーが発生しました: ' + err.message);
     } finally {
       saveOneBtn.disabled = false;
       saveAllBtn.disabled = false;
-      setTimeout(hideProgress, 1000);
     }
   });
 
