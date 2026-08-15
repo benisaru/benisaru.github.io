@@ -152,13 +152,15 @@
     border:1px solid var(--border);
     color:var(--text);
     border-radius:16px;
-    padding:6px 22px 6px 14px;
+    padding:6px 26px 6px 14px;
     font-size:12px;
     cursor:pointer;
-    max-width:150px;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
+    max-width:220px;
+    overflow-wrap:break-word;
+    word-break:break-word;
+    white-space:normal;
+    text-align:left;
+    line-height:1.4;
   }
   .chip-label:hover{border-color:var(--accent);color:var(--accent);}
   .chip-remove{
@@ -434,7 +436,7 @@
     <div class="row" style="margin-top:10px;">
       <label>チャート保存名</label>
       <div class="inputs" style="flex:1 1 auto;">
-        <input type="text" id="chart_preset_name" placeholder="例：ジムバトル1+1" style="width:100%;">
+        <input type="text" id="chart_preset_name" placeholder="例：ジムバトル等倍1+1" style="width:100%;">
       </div>
     </div>
     <div class="row">
