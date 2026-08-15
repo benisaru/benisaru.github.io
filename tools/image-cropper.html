@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>画像トリミングツール</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.js"></script>
 <style>
   :root{
     --accent:#2fb6a3;
@@ -195,6 +196,21 @@
     margin-top:8px;
     line-height:1.5;
   }
+  #progressPanel{
+    margin-top:12px;
+    padding:10px 12px;
+    background:#eefaf8;
+    border:1px solid var(--accent);
+    border-radius:8px;
+    font-size:0.82rem;
+    color:var(--accent-dark);
+  }
+  #progressPanel progress{
+    width:100%;
+    height:10px;
+    margin-top:6px;
+    accent-color:var(--accent);
+  }
   .badge{
     display:inline-block;
     background:#eefaf8;
@@ -253,6 +269,12 @@
       <button class="secondary" id="saveAllBtn">同じ位置(比率)で全画像をZIP保存</button>
     </div>
 
+    <div id="progressPanel" style="display:none;">
+      <div id="progressText">処理中...</div>
+      <progress id="progressBar" value="0" max="1"></progress>
+    </div>
+
+
     <div class="hint">
       使い方：画像上をドラッグして切り取り範囲を指定できます（角や辺をドラッグすると範囲の調整、内側をドラッグすると移動）。
       複数の画像を読み込んだ場合、「同じ位置(比率)で全画像をZIP保存」を押すと、現在の切り取り範囲を画像の縦横比に対する割合として全ての画像に適用し、まとめてZIPファイルとしてダウンロードします（同じ構図のスクリーンショットのトリミングに便利です）。画像が1枚だけの場合はPNGとして直接保存されます。
@@ -279,6 +301,9 @@
   const resetBtn = document.getElementById('resetBtn');
   const saveOneBtn = document.getElementById('saveOneBtn');
   const saveAllBtn = document.getElementById('saveAllBtn');
+  const progressPanel = document.getElementById('progressPanel');
+  const progressText = document.getElementById('progressText');
+  const progressBar = document.getElementById('progressBar');
 
   let images = []; // {id,name,img,url}
   let activeIndex = -1;
@@ -576,25 +601,39 @@
     updateInputsFromRel();
   });
 
+  function showProgress(text, value, max){
+    progressPanel.style.display = 'block';
+    progressText.textContent = text;
+    progressBar.value = value;
+    progressBar.max = max;
+  }
+  function hideProgress(){
+    progressPanel.style.display = 'none';
+  }
+  function yieldToUI(){
+    return new Promise(resolve => setTimeout(resolve, 0));
+  }
+
   // ---------- Export ----------
   function cropToBlob(item, rel){
-    return new Promise(resolve => {
-      const nw = item.img.naturalWidth, nh = item.img.naturalHeight;
-      const sx = Math.round(rel.x * nw);
-      const sy = Math.round(rel.y * nh);
-      const sw = Math.max(1, Math.round(rel.w * nw));
-      const sh = Math.max(1, Math.round(rel.h * nh));
-      const off = document.createElement('canvas');
-      off.width = sw;
-      off.height = sh;
-      const octx = off.getContext('2d');
-      octx.drawImage(item.img, sx, sy, sw, sh, 0, 0, sw, sh);
-      off.toBlob(blob => resolve(blob), 'image/png');
-    });
+    const nw = item.img.naturalWidth, nh = item.img.naturalHeight;
+    const sx = Math.round(rel.x * nw);
+    const sy = Math.round(rel.y * nh);
+    const sw = Math.max(1, Math.round(rel.w * nw));
+    const sh = Math.max(1, Math.round(rel.h * nh));
+    const off = document.createElement('canvas');
+    off.width = sw;
+    off.height = sh;
+    const octx = off.getContext('2d');
+    octx.drawImage(item.img, sx, sy, sw, sh, 0, 0, sw, sh);
+    const imageData = octx.getImageData(0, 0, sw, sh);
+    // PNG8(256色パレット)に量子化してファイルサイズを削減
+    const png8Buffer = UPNG.encode([imageData.data.buffer], sw, sh, 256);
+    return new Blob([png8Buffer], { type: 'image/png' });
   }
 
   async function exportCrop(item, rel){
-    const blob = await cropToBlob(item, rel);
+    const blob = cropToBlob(item, rel);
     const baseName = item.name.replace(/\.[^.]+$/, '');
     downloadBlob(blob, `${baseName}_crop.png`);
   }
@@ -610,25 +649,41 @@
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 
-  saveOneBtn.addEventListener('click', () => {
+  saveOneBtn.addEventListener('click', async () => {
     if(activeIndex === -1) return;
-    exportCrop(images[activeIndex], cropRel);
+    saveOneBtn.disabled = true;
+    saveAllBtn.disabled = true;
+    showProgress('PNG8に変換中...', 0, 1);
+    await yieldToUI();
+    try{
+      await exportCrop(images[activeIndex], cropRel);
+      showProgress('完了しました', 1, 1);
+    } finally {
+      saveOneBtn.disabled = false;
+      saveAllBtn.disabled = false;
+      setTimeout(hideProgress, 800);
+    }
   });
 
   saveAllBtn.addEventListener('click', async () => {
     if(images.length === 0) return;
+    saveOneBtn.disabled = true;
     saveAllBtn.disabled = true;
-    const origLabel = saveAllBtn.textContent;
     try{
       if(images.length === 1){
+        showProgress('PNG8に変換中...', 0, 1);
+        await yieldToUI();
         await exportCrop(images[0], cropRel);
+        showProgress('完了しました', 1, 1);
       } else {
-        saveAllBtn.textContent = 'ZIP作成中...';
         const zip = new JSZip();
         const usedNames = new Set();
-        for(let i = 0; i < images.length; i++){
+        const total = images.length;
+        for(let i = 0; i < total; i++){
+          showProgress(`PNG8に変換中... (${i + 1}/${total})`, i, total);
+          await yieldToUI();
           const item = images[i];
-          const blob = await cropToBlob(item, cropRel);
+          const blob = cropToBlob(item, cropRel);
           let baseName = item.name.replace(/\.[^.]+$/, '');
           let fileName = `${baseName}_crop.png`;
           let n = 2;
@@ -639,12 +694,18 @@
           usedNames.add(fileName);
           zip.file(fileName, blob);
         }
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        showProgress('ZIPファイルを作成中...', total, total);
+        await yieldToUI();
+        const zipBlob = await zip.generateAsync({ type: 'blob' }, (meta) => {
+          showProgress(`ZIPファイルを作成中... ${Math.round(meta.percent)}%`, meta.percent, 100);
+        });
         downloadBlob(zipBlob, 'trimmed_images.zip');
+        showProgress('完了しました', 1, 1);
       }
     } finally {
+      saveOneBtn.disabled = false;
       saveAllBtn.disabled = false;
-      saveAllBtn.textContent = origLabel;
+      setTimeout(hideProgress, 1000);
     }
   });
 
