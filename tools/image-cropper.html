@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>画像トリミングツール</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root{
     --accent:#2fb6a3;
@@ -249,12 +250,12 @@
 
     <div class="actions" id="actionsPanel" style="display:none;">
       <button class="primary" id="saveOneBtn">この画像だけPNG保存</button>
-      <button class="secondary" id="saveAllBtn">同じ位置(比率)で全画像をPNG保存</button>
+      <button class="secondary" id="saveAllBtn">同じ位置(比率)で全画像をZIP保存</button>
     </div>
 
     <div class="hint">
       使い方：画像上をドラッグして切り取り範囲を指定できます（角や辺をドラッグすると範囲の調整、内側をドラッグすると移動）。
-      複数の画像を読み込んだ場合、「同じ位置(比率)で全画像をPNG保存」を押すと、現在の切り取り範囲を画像の縦横比に対する割合として全ての画像に適用し、まとめてPNGとしてダウンロードします（同じ構図のスクリーンショットのトリミングに便利です）。
+      複数の画像を読み込んだ場合、「同じ位置(比率)で全画像をZIP保存」を押すと、現在の切り取り範囲を画像の縦横比に対する割合として全ての画像に適用し、まとめてZIPファイルとしてダウンロードします（同じ構図のスクリーンショットのトリミングに便利です）。画像が1枚だけの場合はPNGとして直接保存されます。
     </div>
   </div>
 
@@ -576,7 +577,7 @@
   });
 
   // ---------- Export ----------
-  function exportCrop(item, rel){
+  function cropToBlob(item, rel){
     return new Promise(resolve => {
       const nw = item.img.naturalWidth, nh = item.img.naturalHeight;
       const sx = Math.round(rel.x * nw);
@@ -588,12 +589,14 @@
       off.height = sh;
       const octx = off.getContext('2d');
       octx.drawImage(item.img, sx, sy, sw, sh, 0, 0, sw, sh);
-      off.toBlob(blob => {
-        const baseName = item.name.replace(/\.[^.]+$/, '');
-        downloadBlob(blob, `${baseName}_crop.png`);
-        resolve();
-      }, 'image/png');
+      off.toBlob(blob => resolve(blob), 'image/png');
     });
+  }
+
+  async function exportCrop(item, rel){
+    const blob = await cropToBlob(item, rel);
+    const baseName = item.name.replace(/\.[^.]+$/, '');
+    downloadBlob(blob, `${baseName}_crop.png`);
   }
 
   function downloadBlob(blob, filename){
@@ -615,11 +618,34 @@
   saveAllBtn.addEventListener('click', async () => {
     if(images.length === 0) return;
     saveAllBtn.disabled = true;
-    for(let i = 0; i < images.length; i++){
-      await exportCrop(images[i], cropRel);
-      await new Promise(r => setTimeout(r, 250)); // avoid browser blocking multi-downloads
+    const origLabel = saveAllBtn.textContent;
+    try{
+      if(images.length === 1){
+        await exportCrop(images[0], cropRel);
+      } else {
+        saveAllBtn.textContent = 'ZIP作成中...';
+        const zip = new JSZip();
+        const usedNames = new Set();
+        for(let i = 0; i < images.length; i++){
+          const item = images[i];
+          const blob = await cropToBlob(item, cropRel);
+          let baseName = item.name.replace(/\.[^.]+$/, '');
+          let fileName = `${baseName}_crop.png`;
+          let n = 2;
+          while(usedNames.has(fileName)){
+            fileName = `${baseName}_crop_${n}.png`;
+            n++;
+          }
+          usedNames.add(fileName);
+          zip.file(fileName, blob);
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        downloadBlob(zipBlob, 'trimmed_images.zip');
+      }
+    } finally {
+      saveAllBtn.disabled = false;
+      saveAllBtn.textContent = origLabel;
     }
-    saveAllBtn.disabled = false;
   });
 
 })();
