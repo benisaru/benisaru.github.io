@@ -139,6 +139,48 @@
     cursor:pointer;
   }
   fieldset button:hover{border-color:var(--accent);color:var(--accent);}
+  .chart-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px 10px;
+    width:100%;
+  }
+  .chart-empty-note{color:var(--sub);font-size:12px;}
+  .chart-chip{position:relative;display:inline-flex;}
+  .chip-label{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:16px;
+    padding:6px 22px 6px 14px;
+    font-size:12px;
+    cursor:pointer;
+    max-width:150px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .chip-label:hover{border-color:var(--accent);color:var(--accent);}
+  .chip-remove{
+    position:absolute;
+    top:-6px;
+    right:-6px;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:#ff6b6b;
+    color:#12161f;
+    border:none;
+    font-size:11px;
+    line-height:1;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+    font-weight:bold;
+  }
+  .chip-remove:hover{filter:brightness(1.15);}
   .checkbox-group{
     display:flex;
     gap:10px;
@@ -374,6 +416,47 @@
     <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。</div>
   </fieldset>
 
+  <fieldset style="margin-top:14px;">
+    <legend>チャート</legend>
+    <div class="row">
+      <div class="inputs" style="flex:1 1 auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <button id="chartAddBtn" type="button">追加</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);cursor:pointer;">
+          <input type="checkbox" id="chartSumEnabled" style="accent-color:var(--accent);width:16px;height:16px;margin:0;cursor:pointer;"> 合算
+        </label>
+      </div>
+    </div>
+    <div class="row">
+      <div id="chartList" class="chart-list"></div>
+    </div>
+    <div class="note">「追加」で現在の保存名（未入力の場合は最低ダメージ）をチャートに追加します。チップをタップすると入力データを読み込み、×で削除します。「合算」を有効にして計算すると、チャート内の各項目の結果を合計します。</div>
+
+    <div class="row" style="margin-top:10px;">
+      <label>チャート保存名</label>
+      <div class="inputs" style="flex:1 1 auto;">
+        <input type="text" id="chart_preset_name" placeholder="例：ジムバトル1+1" style="width:100%;">
+      </div>
+    </div>
+    <div class="row">
+      <div class="inputs" style="flex:1 1 auto;">
+        <button id="chartSaveBtn" type="button" style="flex:1;">チャートを保存する</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>保存済みチャート</label>
+      <div class="inputs" style="flex:1 1 auto;">
+        <select id="chart_preset_select" style="width:100%;"></select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="inputs" style="flex:1 1 auto;gap:8px;">
+        <button id="chartLoadBtn" type="button" style="flex:1;">読み込む</button>
+        <button id="chartDeleteBtn" type="button" style="flex:1;">削除する</button>
+      </div>
+    </div>
+    <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。</div>
+  </fieldset>
+
   <div class="actions">
     <button id="calcBtn">計算する</button>
   </div>
@@ -427,12 +510,21 @@ function evalExpr(str){
   }
 }
 
-function num(id){
-  const v = evalExpr($(id).value);
+function num(id, ctx){
+  const raw = (ctx && Object.prototype.hasOwnProperty.call(ctx, id)) ? ctx[id] : ($(id) ? $(id).value : undefined);
+  const v = evalExpr(raw);
   return isNaN(v) ? 0 : v;
 }
-function sel(id){ return parseFloat($(id).value); }
-function isChecked(id){
+function sel(id, ctx){
+  const raw = (ctx && Object.prototype.hasOwnProperty.call(ctx, id)) ? ctx[id] : ($(id) ? $(id).value : undefined);
+  return parseFloat(raw);
+}
+function intC(id, ctx){
+  const raw = (ctx && Object.prototype.hasOwnProperty.call(ctx, id)) ? ctx[id] : ($(id) ? $(id).value : undefined);
+  return parseInt(raw, 10);
+}
+function isChecked(id, ctx){
+  if(ctx && Object.prototype.hasOwnProperty.call(ctx, id)) return !!ctx[id];
   const el = $(id);
   return !!(el && el.checked);
 }
@@ -561,6 +653,93 @@ function refreshPresetSelect(){
   });
 }
 
+// ---------- チャート ----------
+let chartEntries = []; // {id, label, data}
+const CHART_KEY = 'pokemasDamageCalcCharts';
+
+function loadCharts(){
+  try{ return JSON.parse(localStorage.getItem(CHART_KEY) || '{}'); }
+  catch(e){ return {}; }
+}
+function saveChartsObj(obj){
+  localStorage.setItem(CHART_KEY, JSON.stringify(obj));
+}
+function makeEntryId(){
+  return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+function renderChartList(){
+  const list = $('chartList');
+  list.innerHTML='';
+  if(chartEntries.length===0){
+    const empty=document.createElement('div');
+    empty.className='chart-empty-note';
+    empty.textContent='まだ追加された項目はありません';
+    list.appendChild(empty);
+    return;
+  }
+  chartEntries.forEach(entry=>{
+    const chip=document.createElement('span');
+    chip.className='chart-chip';
+
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='chip-label';
+    btn.textContent=entry.label;
+    btn.title=entry.label;
+    btn.addEventListener('click', ()=>{
+      setAllValues(entry.data);
+      $('preset_name').value = entry.label;
+    });
+
+    const removeBtn=document.createElement('button');
+    removeBtn.type='button';
+    removeBtn.className='chip-remove';
+    removeBtn.textContent='×';
+    removeBtn.setAttribute('aria-label','チャートから削除');
+    removeBtn.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      chartEntries = chartEntries.filter(e=>e.id!==entry.id);
+      renderChartList();
+    });
+
+    chip.appendChild(btn);
+    chip.appendChild(removeBtn);
+    list.appendChild(chip);
+  });
+}
+function addChartEntry(){
+  const name = $('preset_name').value.trim();
+  const dataSnapshot = getAllValues();
+  let label;
+  if(name){
+    label = name;
+  }else{
+    const r = computeAll(null);
+    label = r.minDmg.toLocaleString();
+  }
+  chartEntries.push({ id: makeEntryId(), label, data: dataSnapshot });
+  renderChartList();
+}
+function refreshChartPresetSelect(){
+  const charts=loadCharts();
+  const sel=$('chart_preset_select');
+  const names=Object.keys(charts);
+  sel.innerHTML='';
+  if(names.length===0){
+    const opt=document.createElement('option');
+    opt.value='';
+    opt.textContent='（保存済みチャートなし）';
+    sel.appendChild(opt);
+    return;
+  }
+  names.forEach(name=>{
+    const opt=document.createElement('option');
+    opt.value=name;
+    opt.textContent=name;
+    sel.appendChild(opt);
+  });
+}
+
 // ---------- 数式入力欄のバリデーション ----------
 const FORMULA_FIELD_IDS = [
   'atk_power','atk_equip','atk_board','atk_team','atk_correction',
@@ -613,79 +792,118 @@ document.addEventListener('DOMContentLoaded', ()=>{
     savePresetsObj(presets);
     refreshPresetSelect();
   });
+
+  // ---- チャート ----
+  renderChartList();
+  refreshChartPresetSelect();
+
+  $('chartAddBtn').addEventListener('click', addChartEntry);
+
+  $('chartSaveBtn').addEventListener('click', ()=>{
+    const name = $('chart_preset_name').value.trim();
+    if(!name){ alert('チャート保存名を入力してください'); return; }
+    const charts = loadCharts();
+    charts[name] = chartEntries.map(e=>({ label: e.label, data: e.data }));
+    saveChartsObj(charts);
+    refreshChartPresetSelect();
+    $('chart_preset_select').value = name;
+    alert(`チャート「${name}」を保存しました`);
+  });
+
+  $('chartLoadBtn').addEventListener('click', ()=>{
+    const name = $('chart_preset_select').value;
+    const charts = loadCharts();
+    if(!name || !charts[name]){ alert('読み込むチャートがありません'); return; }
+    chartEntries = charts[name].map(e=>({ id: makeEntryId(), label: e.label, data: e.data }));
+    renderChartList();
+    $('chart_preset_name').value = name;
+  });
+
+  $('chartDeleteBtn').addEventListener('click', ()=>{
+    const name = $('chart_preset_select').value;
+    if(!name){ return; }
+    const charts = loadCharts();
+    if(!charts[name]) return;
+    if(!confirm(`チャート「${name}」を削除しますか？`)) return;
+    delete charts[name];
+    saveChartsObj(charts);
+    refreshChartPresetSelect();
+  });
 });
 
-function calculate(){
+function computeAll(ctx){
+  ctx = ctx || null;
+
   // 攻撃
-  const atk = ((num('atk_power')+num('atk_equip'))*parseFloat($('atk_form').value) + num('atk_board') + num('atk_team')) * num('atk_correction');
+  const atk = ((num('atk_power',ctx)+num('atk_equip',ctx))*sel('atk_form',ctx) + num('atk_board',ctx) + num('atk_team',ctx)) * num('atk_correction',ctx);
 
   // 急所判定
-  const isCritical = isChecked('critical');
+  const isCritical = isChecked('critical', ctx);
 
   // 攻撃ランク補正（急所時は-1以下を0扱い）
-  let atkRankValue = parseInt($('atk_rank').value,10);
+  let atkRankValue = intC('atk_rank', ctx);
   if(isCritical && atkRankValue<=-1) atkRankValue=0;
   const atkRankCorr = rankCorrection(atkRankValue);
 
   // 防御
-  const def = num('def_power') * num('def_correction');
+  const def = num('def_power',ctx) * num('def_correction',ctx);
 
   // 防御ランク補正（急所時は+1以上を0扱い）
-  let defRankValue = parseInt($('def_rank').value,10);
+  let defRankValue = intC('def_rank', ctx);
   if(isCritical && defRankValue>=1) defRankValue=0;
-  const defTolerance = parseInt($('def_tolerance').value,10);
+  const defTolerance = intC('def_tolerance', ctx);
   const defRankCorr = defRankCorrectionWithTolerance(defRankValue, defTolerance);
 
   // 技威力
-  const movePower = (num('move_power')+num('move_board')) * num('move_multiplier') * (isChecked('move_falloff')?0.5:1) * (isChecked('terastal')?1.5:1);
+  const movePower = (num('move_power',ctx)+num('move_board',ctx)) * num('move_multiplier',ctx) * (isChecked('move_falloff',ctx)?0.5:1) * (isChecked('terastal',ctx)?1.5:1);
 
   // ---- 威力補正 ----
-  const potential = parseInt($('potential').value,10)*0.1;
+  const potential = intC('potential',ctx)*0.1;
   const charismaFn = v => v===0 ? 0 : 0.05 + v*0.05;
-  const charismaSum = ['charisma1','charisma2','charisma3'].reduce((s,id)=> s + charismaFn(parseInt($(id).value,10)), 0);
-  const leadSum = ['lead1','lead2','lead3'].reduce((s,id)=> s + parseInt($(id).value,10)*0.1, 0);
+  const charismaSum = ['charisma1','charisma2','charisma3'].reduce((s,id)=> s + charismaFn(intC(id,ctx)), 0);
+  const leadSum = ['lead1','lead2','lead3'].reduce((s,id)=> s + intC(id,ctx)*0.1, 0);
   const toukonFn = v => v===0 ? 0 : 0.05 + v*0.15;
-  const toukonSum = ['toukon1','toukon2','toukon3'].reduce((s,id)=> s + toukonFn(parseInt($(id).value,10)), 0);
+  const toukonSum = ['toukon1','toukon2','toukon3'].reduce((s,id)=> s + toukonFn(intC(id,ctx)), 0);
   const exFn = v => v===0 ? 0 : 0.05 + v*0.15;
-  const exSum = ['ex1','ex2','ex3'].reduce((s,id)=> s + exFn(parseInt($(id).value,10)), 0);
-  const boostVal = parseInt($('boost').value,10)*0.4;
-  const bBoostVal = parseInt($('bboost').value,10)*0.1;
-  const skillSum = ['skill1','skill2','skill3'].reduce((s,id)=> s + parseInt($(id).value,10)*0.1, 0);
-  const ouenVal = isChecked('ouen') ? 0.5 : 0;
-  const otherVal = num('other');
+  const exSum = ['ex1','ex2','ex3'].reduce((s,id)=> s + exFn(intC(id,ctx)), 0);
+  const boostVal = intC('boost',ctx)*0.4;
+  const bBoostVal = intC('bboost',ctx)*0.1;
+  const skillSum = ['skill1','skill2','skill3'].reduce((s,id)=> s + intC(id,ctx)*0.1, 0);
+  const ouenVal = isChecked('ouen',ctx) ? 0.5 : 0;
+  const otherVal = num('other',ctx);
   const powerUpTotal = potential + charismaSum + leadSum + toukonSum + exSum + boostVal + bBoostVal + skillSum + ouenVal + otherVal;
   const powerUpCorr = 1 + powerUpTotal;
 
   // ---- WTZ / タイプ抵抗 / 抜群 / 急所 / ブレイク ----
-  const wtzCorr = parseFloat($('wtz').value);
-  const resistCorr = resistTable[parseInt($('resist').value,10)];
-  const effectiveBase = isChecked('effective') ? 2 : 1;
-  const effectiveUp = isChecked('effective_up') ? 1.5 : 1;
+  const wtzCorr = sel('wtz',ctx);
+  const resistCorr = resistTable[intC('resist',ctx)];
+  const effectiveBase = isChecked('effective',ctx) ? 2 : 1;
+  const effectiveUp = isChecked('effective_up',ctx) ? 1.5 : 1;
   const effectiveCorr = effectiveBase===1 ? 1 : effectiveBase*effectiveUp;
   const criticalCorr = isCritical ? 1.5 : 1;
-  const breakCorr = isChecked('breakcorr') ? 1.5 : 1;
+  const breakCorr = isChecked('breakcorr',ctx) ? 1.5 : 1;
 
   // ---- サークル補正 ----
   function circleAtkFn(v){ return v===0 ? 1 : 1.1 + v*0.1; }
   function circleDefFn(v){ return v===0 ? 1 : 1.05 + v*0.05; }
   const circleCorr =
-    circleAtkFn(parseInt($('circle_atk1').value,10)) *
-    circleAtkFn(parseInt($('circle_atk2').value,10)) *
-    circleAtkFn(parseInt($('circle_atk3').value,10)) *
-    circleDefFn(parseInt($('circle_def1').value,10)) *
-    circleDefFn(parseInt($('circle_def2').value,10)) *
-    circleDefFn(parseInt($('circle_def3').value,10));
+    circleAtkFn(intC('circle_atk1',ctx)) *
+    circleAtkFn(intC('circle_atk2',ctx)) *
+    circleAtkFn(intC('circle_atk3',ctx)) *
+    circleDefFn(intC('circle_def1',ctx)) *
+    circleDefFn(intC('circle_def2',ctx)) *
+    circleDefFn(intC('circle_def3',ctx));
 
   // ---- スキル装備補正 ----
-  const skillEquipCorr = 1 + parseInt($('skill_equip').value,10)*0.01;
+  const skillEquipCorr = 1 + intC('skill_equip',ctx)*0.01;
 
   // ---- 軽減補正（急所時は軽減の場を無視） ----
-  const reductionCorr = 1 - parseInt($('reduction').value,10)*0.1;
-  const reductionFieldCorr = isCritical ? 1 : (isChecked('reduction_field') ? 0.6667 : 1);
+  const reductionCorr = 1 - intC('reduction',ctx)*0.1;
+  const reductionFieldCorr = isCritical ? 1 : (isChecked('reduction_field',ctx) ? 0.6667 : 1);
   const totalReductionCorr = reductionCorr * reductionFieldCorr;
 
   // ---- ボルテージ補正 ----
-  const voltageCorr = 1 + num('voltage')*0.5;
+  const voltageCorr = 1 + num('voltage',ctx)*0.5;
 
   // ---- 各種補正 合算 ----
   const variousCorr = powerUpCorr * wtzCorr * resistCorr * effectiveCorr * criticalCorr * breakCorr * circleCorr * skillEquipCorr * totalReductionCorr * voltageCorr;
@@ -707,35 +925,12 @@ function calculate(){
   const maxDmg = damages[damages.length-1];
   const avgDmg = Math.round(damages.reduce((a,b)=>a+b,0)/damages.length);
 
-  // ---- 結果表示 ----
-  $('res_min').textContent = minDmg.toLocaleString();
-  $('res_max').textContent = maxDmg.toLocaleString();
-  $('res_avg').textContent = avgDmg.toLocaleString();
-
-  const head = $('res_table_head');
-  const body = $('res_table_body');
-  body.innerHTML='';
-  damages.forEach((d,i)=>{
-    const tr=document.createElement('tr');
-    const tdR=document.createElement('td');
-    tdR.textContent = randoms[i].toFixed(2)+'倍';
-    const tdD=document.createElement('td');
-    tdD.textContent = d.toLocaleString();
-    if(i===0){ tdR.classList.add('hl-min'); tdD.classList.add('hl-min'); }
-    if(i===damages.length-1){ tdR.classList.add('hl-max'); tdD.classList.add('hl-max'); }
-    tr.appendChild(tdR);
-    tr.appendChild(tdD);
-    body.appendChild(tr);
-  });
-
-  // ---- 内訳表示 ----
-  const bd = $('breakdown_table');
-  const rows = [
+  const breakdownRows = [
     ['攻撃', atk.toFixed(3)],
-    ['攻撃ランク補正', atkRankCorr.toFixed(4) + (isCritical && parseInt($('atk_rank').value,10)<=-1 ? '（急所により0扱い）':'')],
+    ['攻撃ランク補正', atkRankCorr.toFixed(4) + (isCritical && intC('atk_rank',ctx)<=-1 ? '（急所により0扱い）':'')],
     ['floor(攻撃×攻撃ランク補正)', atkAfterRank],
     ['防御', def.toFixed(3)],
-    ['防御ランク補正', defRankCorr.toFixed(4) + (isCritical && parseInt($('def_rank').value,10)>=1 ? '（急所により0扱い）':'')],
+    ['防御ランク補正', defRankCorr.toFixed(4) + (isCritical && intC('def_rank',ctx)>=1 ? '（急所により0扱い）':'')],
     ['floor(防御×防御ランク補正)', defAfterRank],
     ['技威力', movePower.toFixed(3)],
     ['威力補正', powerUpCorr.toFixed(4)],
@@ -750,9 +945,74 @@ function calculate(){
     ['ボルテージ補正', voltageCorr.toFixed(4)],
     ['各種補正 合計', variousCorr.toFixed(4)],
   ];
+
+  return {randoms, damages, minDmg, maxDmg, avgDmg, breakdownRows};
+}
+
+function renderDamageTable(randoms, damages){
+  const body = $('res_table_body');
+  body.innerHTML='';
+  damages.forEach((d,i)=>{
+    const tr=document.createElement('tr');
+    const tdR=document.createElement('td');
+    tdR.textContent = (randoms[i]!==undefined ? randoms[i].toFixed(2) : '-') + '倍';
+    const tdD=document.createElement('td');
+    tdD.textContent = d.toLocaleString();
+    if(i===0){ tdR.classList.add('hl-min'); tdD.classList.add('hl-min'); }
+    if(i===damages.length-1){ tdR.classList.add('hl-max'); tdD.classList.add('hl-max'); }
+    tr.appendChild(tdR);
+    tr.appendChild(tdD);
+    body.appendChild(tr);
+  });
+}
+
+function renderSingleResult(result){
+  $('res_min').textContent = result.minDmg.toLocaleString();
+  $('res_max').textContent = result.maxDmg.toLocaleString();
+  $('res_avg').textContent = result.avgDmg.toLocaleString();
+
+  renderDamageTable(result.randoms, result.damages);
+
+  const bd = $('breakdown_table');
+  bd.innerHTML = result.breakdownRows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+
+  $('result').classList.add('show');
+}
+
+function renderSumResult(entryResults){
+  const randoms = entryResults.length ? entryResults[0].result.randoms : [];
+  const totalDamages = randoms.map((_,i)=> entryResults.reduce((s,e)=> s + e.result.damages[i], 0));
+
+  const minDmg = totalDamages.length ? totalDamages[0] : 0;
+  const maxDmg = totalDamages.length ? totalDamages[totalDamages.length-1] : 0;
+  const avgDmg = totalDamages.length ? Math.round(totalDamages.reduce((a,b)=>a+b,0)/totalDamages.length) : 0;
+
+  $('res_min').textContent = minDmg.toLocaleString();
+  $('res_max').textContent = maxDmg.toLocaleString();
+  $('res_avg').textContent = avgDmg.toLocaleString();
+
+  renderDamageTable(randoms, totalDamages);
+
+  const bd = $('breakdown_table');
+  const rows = entryResults.map(e=>[
+    e.label,
+    `${e.result.minDmg.toLocaleString()} 〜 ${e.result.maxDmg.toLocaleString()}（平均 ${e.result.avgDmg.toLocaleString()}）`
+  ]);
+  rows.push(['合算項目数', entryResults.length + '件']);
   bd.innerHTML = rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
 
   $('result').classList.add('show');
+}
+
+function calculate(){
+  const sumEnabled = $('chartSumEnabled') && $('chartSumEnabled').checked;
+  if(sumEnabled && chartEntries.length>0){
+    const entryResults = chartEntries.map(e=> ({label:e.label, result: computeAll(e.data)}));
+    renderSumResult(entryResults);
+  }else{
+    const result = computeAll(null);
+    renderSingleResult(result);
+  }
 }
 </script>
 </body>
