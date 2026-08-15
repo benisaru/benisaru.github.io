@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>画像トリミングツール</title>
+<style>
+  :root{
+    --accent:#2fb6a3;
+    --accent-dark:#1f8f80;
+    --bg:#f4f7f7;
+    --panel:#ffffff;
+    --border:#dde3e3;
+    --text:#26312f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+  }
+  header{
+    background:var(--accent);
+    color:#fff;
+    padding:14px 20px;
+    font-size:1.2rem;
+    font-weight:bold;
+  }
+  .layout{
+    display:flex;
+    gap:16px;
+    padding:16px;
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+  .sidebar{
+    width:220px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px;
+    flex-shrink:0;
+  }
+  .sidebar h2{
+    font-size:0.95rem;
+    margin:0 0 8px;
+  }
+  #dropZone{
+    border:2px dashed var(--accent);
+    border-radius:8px;
+    padding:14px 8px;
+    text-align:center;
+    font-size:0.85rem;
+    color:var(--accent-dark);
+    cursor:pointer;
+    margin-bottom:10px;
+    background:#eefaf8;
+  }
+  #dropZone.dragover{
+    background:#d9f3ee;
+  }
+  #fileInput{display:none;}
+  #thumbList{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    max-height:60vh;
+    overflow-y:auto;
+  }
+  .thumbItem{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px;
+    border-radius:6px;
+    border:1px solid var(--border);
+    cursor:pointer;
+    background:#fafcfc;
+    font-size:0.78rem;
+  }
+  .thumbItem.active{
+    border-color:var(--accent);
+    background:#e4f7f4;
+  }
+  .thumbItem img{
+    width:40px;
+    height:40px;
+    object-fit:cover;
+    border-radius:4px;
+    background:#eee;
+  }
+  .thumbItem span{
+    flex:1;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .thumbItem button{
+    border:none;
+    background:none;
+    color:#c0392b;
+    cursor:pointer;
+    font-size:0.9rem;
+  }
+  .main{
+    flex:1;
+    min-width:320px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px;
+  }
+  #canvasWrapper{
+    display:flex;
+    justify-content:center;
+    background:
+      linear-gradient(45deg,#eee 25%,transparent 25%),
+      linear-gradient(-45deg,#eee 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#eee 75%),
+      linear-gradient(-45deg,transparent 75%,#eee 75%);
+    background-size:16px 16px;
+    background-position:0 0,0 8px,8px -8px,-8px 0px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    overflow:auto;
+    padding:8px;
+  }
+  #mainCanvas{
+    cursor:crosshair;
+    max-width:100%;
+    touch-action:none;
+  }
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:14px;
+    align-items:flex-end;
+  }
+  .field{
+    display:flex;
+    flex-direction:column;
+    font-size:0.78rem;
+    gap:3px;
+  }
+  .field input{
+    width:90px;
+    padding:5px 6px;
+    border:1px solid var(--border);
+    border-radius:5px;
+    font-size:0.85rem;
+  }
+  .actions{
+    margin-top:16px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  button.primary,button.secondary,button.ghost{
+    border:none;
+    border-radius:7px;
+    padding:9px 16px;
+    font-size:0.85rem;
+    cursor:pointer;
+  }
+  button.primary{
+    background:var(--accent);
+    color:#fff;
+  }
+  button.primary:hover{background:var(--accent-dark);}
+  button.secondary{
+    background:#3f5f9e;
+    color:#fff;
+  }
+  button.secondary:hover{background:#334d80;}
+  button.ghost{
+    background:#eee;
+    color:#444;
+  }
+  button:disabled{
+    opacity:0.45;
+    cursor:not-allowed;
+  }
+  .empty{
+    color:#888;
+    text-align:center;
+    padding:60px 10px;
+    font-size:0.9rem;
+  }
+  .hint{
+    font-size:0.75rem;
+    color:#777;
+    margin-top:8px;
+    line-height:1.5;
+  }
+  .badge{
+    display:inline-block;
+    background:#eefaf8;
+    color:var(--accent-dark);
+    border-radius:5px;
+    padding:1px 6px;
+    font-size:0.7rem;
+    margin-left:6px;
+  }
+</style>
+</head>
+<body>
+
+<header>🖼️ 画像トリミングツール（PNG書き出し・複数ファイル対応）</header>
+
+<div class="layout">
+
+  <div class="sidebar">
+    <h2>画像を追加</h2>
+    <div id="dropZone">
+      ここにドラッグ&ドロップ<br>またはクリックして選択
+    </div>
+    <input type="file" id="fileInput" accept="image/*" multiple>
+    <h2 style="margin-top:14px;">読み込んだ画像 <span id="countBadge" class="badge">0</span></h2>
+    <div id="thumbList"></div>
+  </div>
+
+  <div class="main">
+    <div id="canvasWrapper">
+      <div class="empty" id="emptyMsg">左のパネルから画像を追加してください</div>
+      <canvas id="mainCanvas" style="display:none;"></canvas>
+    </div>
+
+    <div class="controls" id="controlsPanel" style="display:none;">
+      <div class="field">
+        <label>X (px)</label>
+        <input type="number" id="inX" min="0">
+      </div>
+      <div class="field">
+        <label>Y (px)</label>
+        <input type="number" id="inY" min="0">
+      </div>
+      <div class="field">
+        <label>幅 (px)</label>
+        <input type="number" id="inW" min="1">
+      </div>
+      <div class="field">
+        <label>高さ (px)</label>
+        <input type="number" id="inH" min="1">
+      </div>
+      <button class="ghost" id="resetBtn">範囲をリセット</button>
+    </div>
+
+    <div class="actions" id="actionsPanel" style="display:none;">
+      <button class="primary" id="saveOneBtn">この画像だけPNG保存</button>
+      <button class="secondary" id="saveAllBtn">同じ位置(比率)で全画像をPNG保存</button>
+    </div>
+
+    <div class="hint">
+      使い方：画像上をドラッグして切り取り範囲を指定できます（角や辺をドラッグすると範囲の調整、内側をドラッグすると移動）。
+      複数の画像を読み込んだ場合、「同じ位置(比率)で全画像をPNG保存」を押すと、現在の切り取り範囲を画像の縦横比に対する割合として全ての画像に適用し、まとめてPNGとしてダウンロードします（同じ構図のスクリーンショットのトリミングに便利です）。
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const fileInput = document.getElementById('fileInput');
+  const dropZone = document.getElementById('dropZone');
+  const thumbList = document.getElementById('thumbList');
+  const countBadge = document.getElementById('countBadge');
+  const canvas = document.getElementById('mainCanvas');
+  const ctx = canvas.getContext('2d');
+  const emptyMsg = document.getElementById('emptyMsg');
+  const controlsPanel = document.getElementById('controlsPanel');
+  const actionsPanel = document.getElementById('actionsPanel');
+  const inX = document.getElementById('inX');
+  const inY = document.getElementById('inY');
+  const inW = document.getElementById('inW');
+  const inH = document.getElementById('inH');
+  const resetBtn = document.getElementById('resetBtn');
+  const saveOneBtn = document.getElementById('saveOneBtn');
+  const saveAllBtn = document.getElementById('saveAllBtn');
+
+  let images = []; // {id,name,img,url}
+  let activeIndex = -1;
+
+  // crop rect stored as RELATIVE fraction of the image (0..1), so it can be
+  // reused across images of the same aspect ratio.
+  let cropRel = null; // {x,y,w,h} in 0..1
+
+  const MAX_DISPLAY_W = 860;
+  const MAX_DISPLAY_H = 620;
+  const HANDLE_SIZE = 10;
+
+  let displayScale = 1; // canvas px per natural px
+
+  // ---------- File loading ----------
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', e => {
+    handleFiles(e.target.files);
+    fileInput.value = '';
+  });
+
+  function handleFiles(fileList){
+    const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+    if(files.length === 0) return;
+    files.forEach(file => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        images.push({ id: Date.now()+Math.random(), name: file.name, img, url });
+        renderThumbs();
+        if(activeIndex === -1){
+          setActive(images.length - 1);
+        }
+      };
+      img.src = url;
+    });
+  }
+
+  function renderThumbs(){
+    thumbList.innerHTML = '';
+    countBadge.textContent = images.length;
+    images.forEach((item, idx) => {
+      const el = document.createElement('div');
+      el.className = 'thumbItem' + (idx === activeIndex ? ' active' : '');
+      el.innerHTML = `<img src="${item.url}"><span>${escapeHtml(item.name)}</span><button title="削除">✕</button>`;
+      el.addEventListener('click', (e) => {
+        if(e.target.tagName === 'BUTTON'){
+          removeImage(idx);
+        } else {
+          setActive(idx);
+        }
+      });
+      thumbList.appendChild(el);
+    });
+  }
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function removeImage(idx){
+    images.splice(idx, 1);
+    if(images.length === 0){
+      activeIndex = -1;
+      canvas.style.display = 'none';
+      emptyMsg.style.display = 'block';
+      controlsPanel.style.display = 'none';
+      actionsPanel.style.display = 'none';
+    } else if(activeIndex >= images.length){
+      setActive(images.length - 1);
+    } else if(idx === activeIndex){
+      setActive(activeIndex);
+    }
+    renderThumbs();
+  }
+
+  function setActive(idx){
+    activeIndex = idx;
+    renderThumbs();
+    emptyMsg.style.display = 'none';
+    canvas.style.display = 'block';
+    controlsPanel.style.display = 'flex';
+    actionsPanel.style.display = 'flex';
+    setupCanvasForActive();
+  }
+
+  // ---------- Canvas setup ----------
+  function setupCanvasForActive(){
+    const item = images[activeIndex];
+    const nw = item.img.naturalWidth;
+    const nh = item.img.naturalHeight;
+    let scale = Math.min(MAX_DISPLAY_W / nw, MAX_DISPLAY_H / nh, 1);
+    displayScale = scale;
+    canvas.width = Math.round(nw * scale);
+    canvas.height = Math.round(nh * scale);
+
+    if(!cropRel){
+      // default: center 50% box
+      cropRel = { x: 0.25, y: 0.25, w: 0.5, h: 0.5 };
+    }
+    draw();
+    updateInputsFromRel();
+  }
+
+  function draw(){
+    const item = images[activeIndex];
+    if(!item) return;
+    ctx.clearRect(0,0,canvas.width, canvas.height);
+    ctx.drawImage(item.img, 0, 0, canvas.width, canvas.height);
+
+    const r = relToCanvasRect(cropRel);
+
+    // dim outside area
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0,0,canvas.width, r.y); // top
+    ctx.fillRect(0, r.y+r.h, canvas.width, canvas.height - (r.y+r.h)); // bottom
+    ctx.fillRect(0, r.y, r.x, r.h); // left
+    ctx.fillRect(r.x+r.w, r.y, canvas.width - (r.x+r.w), r.h); // right
+
+    // rect border
+    ctx.strokeStyle = '#2fb6a3';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(r.x, r.y, r.w, r.h);
+
+    // handles
+    ctx.fillStyle = '#2fb6a3';
+    getHandlePositions(r).forEach(h => {
+      ctx.fillRect(h.cx - HANDLE_SIZE/2, h.cy - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE);
+    });
+  }
+
+  function relToCanvasRect(rel){
+    return {
+      x: rel.x * canvas.width,
+      y: rel.y * canvas.height,
+      w: rel.w * canvas.width,
+      h: rel.h * canvas.height
+    };
+  }
+
+  function canvasRectToRel(r){
+    return {
+      x: r.x / canvas.width,
+      y: r.y / canvas.height,
+      w: r.w / canvas.width,
+      h: r.h / canvas.height
+    };
+  }
+
+  function getHandlePositions(r){
+    return [
+      {name:'nw', cx:r.x,       cy:r.y},
+      {name:'n',  cx:r.x+r.w/2, cy:r.y},
+      {name:'ne', cx:r.x+r.w,   cy:r.y},
+      {name:'e',  cx:r.x+r.w,   cy:r.y+r.h/2},
+      {name:'se', cx:r.x+r.w,   cy:r.y+r.h},
+      {name:'s',  cx:r.x+r.w/2, cy:r.y+r.h},
+      {name:'sw', cx:r.x,       cy:r.y+r.h},
+      {name:'w',  cx:r.x,       cy:r.y+r.h/2},
+    ];
+  }
+
+  // ---------- Mouse interaction ----------
+  let dragMode = null; // 'new' | 'move' | handle name
+  let dragStart = null; // {x,y} canvas coords at mousedown
+  let rectAtStart = null; // canvas rect at mousedown
+
+  function getPos(e){
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  }
+
+  function hitTest(pos){
+    const r = relToCanvasRect(cropRel);
+    const handles = getHandlePositions(r);
+    for(const h of handles){
+      if(Math.abs(pos.x - h.cx) <= HANDLE_SIZE && Math.abs(pos.y - h.cy) <= HANDLE_SIZE){
+        return h.name;
+      }
+    }
+    if(pos.x >= r.x && pos.x <= r.x+r.w && pos.y >= r.y && pos.y <= r.y+r.h){
+      return 'move';
+    }
+    return 'new';
+  }
+
+  function onDown(e){
+    if(activeIndex === -1) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    dragMode = hitTest(pos);
+    dragStart = pos;
+    rectAtStart = relToCanvasRect(cropRel);
+    if(dragMode === 'new'){
+      rectAtStart = {x:pos.x, y:pos.y, w:0, h:0};
+      dragMode = 'se'; // draw growing from corner
+      cropRel = canvasRectToRel(rectAtStart);
+    }
+  }
+
+  function onMove(e){
+    if(!dragMode || activeIndex === -1) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    let r = {...rectAtStart};
+    const dx = pos.x - dragStart.x;
+    const dy = pos.y - dragStart.y;
+
+    if(dragMode === 'move'){
+      r.x = clamp(rectAtStart.x + dx, 0, canvas.width - rectAtStart.w);
+      r.y = clamp(rectAtStart.y + dy, 0, canvas.height - rectAtStart.h);
+    } else {
+      let x1 = rectAtStart.x, y1 = rectAtStart.y;
+      let x2 = rectAtStart.x + rectAtStart.w, y2 = rectAtStart.y + rectAtStart.h;
+      if(dragMode.includes('n')) y1 = clamp(rectAtStart.y + dy, 0, y2 - 5);
+      if(dragMode.includes('s')) y2 = clamp(rectAtStart.y + rectAtStart.h + dy, y1 + 5, canvas.height);
+      if(dragMode.includes('w')) x1 = clamp(rectAtStart.x + dx, 0, x2 - 5);
+      if(dragMode.includes('e')) x2 = clamp(rectAtStart.x + rectAtStart.w + dx, x1 + 5, canvas.width);
+      r = {x:x1, y:y1, w:x2-x1, h:y2-y1};
+    }
+    cropRel = canvasRectToRel(r);
+    draw();
+    updateInputsFromRel();
+  }
+
+  function onUp(){
+    dragMode = null;
+  }
+
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+  canvas.addEventListener('mousedown', onDown);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  canvas.addEventListener('touchstart', onDown, {passive:false});
+  window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('touchend', onUp);
+
+  // ---------- Numeric inputs ----------
+  function updateInputsFromRel(){
+    const item = images[activeIndex];
+    if(!item) return;
+    const nw = item.img.naturalWidth, nh = item.img.naturalHeight;
+    inX.value = Math.round(cropRel.x * nw);
+    inY.value = Math.round(cropRel.y * nh);
+    inW.value = Math.round(cropRel.w * nw);
+    inH.value = Math.round(cropRel.h * nh);
+  }
+
+  function updateRelFromInputs(){
+    const item = images[activeIndex];
+    if(!item) return;
+    const nw = item.img.naturalWidth, nh = item.img.naturalHeight;
+    let x = clamp(parseInt(inX.value)||0, 0, nw-1);
+    let y = clamp(parseInt(inY.value)||0, 0, nh-1);
+    let w = clamp(parseInt(inW.value)||1, 1, nw-x);
+    let h = clamp(parseInt(inH.value)||1, 1, nh-y);
+    cropRel = { x: x/nw, y: y/nh, w: w/nw, h: h/nh };
+    draw();
+  }
+
+  [inX,inY,inW,inH].forEach(inp => inp.addEventListener('change', updateRelFromInputs));
+
+  resetBtn.addEventListener('click', () => {
+    cropRel = { x:0.25, y:0.25, w:0.5, h:0.5 };
+    draw();
+    updateInputsFromRel();
+  });
+
+  // ---------- Export ----------
+  function exportCrop(item, rel){
+    return new Promise(resolve => {
+      const nw = item.img.naturalWidth, nh = item.img.naturalHeight;
+      const sx = Math.round(rel.x * nw);
+      const sy = Math.round(rel.y * nh);
+      const sw = Math.max(1, Math.round(rel.w * nw));
+      const sh = Math.max(1, Math.round(rel.h * nh));
+      const off = document.createElement('canvas');
+      off.width = sw;
+      off.height = sh;
+      const octx = off.getContext('2d');
+      octx.drawImage(item.img, sx, sy, sw, sh, 0, 0, sw, sh);
+      off.toBlob(blob => {
+        const baseName = item.name.replace(/\.[^.]+$/, '');
+        downloadBlob(blob, `${baseName}_crop.png`);
+        resolve();
+      }, 'image/png');
+    });
+  }
+
+  function downloadBlob(blob, filename){
+    const a = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  saveOneBtn.addEventListener('click', () => {
+    if(activeIndex === -1) return;
+    exportCrop(images[activeIndex], cropRel);
+  });
+
+  saveAllBtn.addEventListener('click', async () => {
+    if(images.length === 0) return;
+    saveAllBtn.disabled = true;
+    for(let i = 0; i < images.length; i++){
+      await exportCrop(images[i], cropRel);
+      await new Promise(r => setTimeout(r, 250)); // avoid browser blocking multi-downloads
+    }
+    saveAllBtn.disabled = false;
+  });
+
+})();
+</script>
+
+</body>
+</html>
