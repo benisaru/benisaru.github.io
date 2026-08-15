@@ -267,7 +267,7 @@
         <label>高さ (px)</label>
         <input type="number" id="inH" min="1">
       </div>
-      <button class="ghost" id="resetBtn">範囲をリセット</button>
+      <button class="ghost" id="resetBtn">初期比率に戻す</button>
     </div>
 
     <div class="actions" id="actionsPanel" style="display:none;">
@@ -283,7 +283,8 @@
 
     <div class="hint">
       使い方：画像上をドラッグして切り取り範囲を指定できます（角や辺をドラッグすると範囲の調整、内側をドラッグすると移動）。
-      複数の画像を読み込んだ場合、「同じ位置(比率)で全画像をZIP保存」を押すと、現在の切り取り範囲を画像の縦横比に対する割合として全ての画像に適用し、まとめてZIPファイルとしてダウンロードします（同じ構図のスクリーンショットのトリミングに便利です）。画像が1枚だけの場合はPNGとして直接保存されます。
+      一度調整した切り取り範囲の比率はこのブラウザ内(localStorage)に自動保存され、次回images読み込み時や次回アクセス時にも復元されます。
+      複数の画像を読み込んだ場合、「同じ位置(比率)で全画像をZIP保存」を押すと、現在の切り取り範囲を画像の縦横比に対する割合として全ての画像に適用し、まとめてZIPファイルとしてダウンロードします。画像が1枚だけの場合はPNGとして直接保存されます。
     </div>
   </div>
 
@@ -403,17 +404,40 @@
     setupCanvasForActive();
   }
 
-  // 初期トリミング範囲(px指定)。同じ画像を繰り返し読み込む前提のデフォルト値。
-  const DEFAULT_CROP_PX = { x: 50, y: 470, w: 980, h: 280 };
+  // 初期トリミング範囲は「基準スクリーンショット(1080×2400)における実測px」を
+  // 比率に変換して保持する。画像の解像度が違っても同じ見た目の位置になる。
+  const REFERENCE_SIZE = { width: 1080, height: 2400 };
+  const REFERENCE_CROP_PX = { x: 50, y: 470, w: 980, h: 280 };
+  const DEFAULT_CROP_REL = {
+    x: REFERENCE_CROP_PX.x / REFERENCE_SIZE.width,
+    y: REFERENCE_CROP_PX.y / REFERENCE_SIZE.height,
+    w: REFERENCE_CROP_PX.w / REFERENCE_SIZE.width,
+    h: REFERENCE_CROP_PX.h / REFERENCE_SIZE.height
+  };
 
-  function defaultRelForImage(img){
-    const nw = img.naturalWidth, nh = img.naturalHeight;
-    return {
-      x: clamp(DEFAULT_CROP_PX.x / nw, 0, 1),
-      y: clamp(DEFAULT_CROP_PX.y / nh, 0, 1),
-      w: clamp(DEFAULT_CROP_PX.w / nw, 0, 1 - DEFAULT_CROP_PX.x / nw),
-      h: clamp(DEFAULT_CROP_PX.h / nh, 0, 1 - DEFAULT_CROP_PX.y / nh)
-    };
+  const STORAGE_KEY = 'imageCropperCropRel_v1';
+
+  function loadSavedRel(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return null;
+      const obj = JSON.parse(raw);
+      if(['x','y','w','h'].every(k => typeof obj[k] === 'number' && isFinite(obj[k]))){
+        return obj;
+      }
+    } catch(e){ /* ignore */ }
+    return null;
+  }
+
+  function saveRelToStorage(rel){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(rel));
+    } catch(e){ /* localStorageが使えない環境では無視 */ }
+  }
+
+  function defaultRelForImage(){
+    // 縦横比が違う画像でも、まずは基準画像と同じ「比率」を初期値として使う。
+    return { ...DEFAULT_CROP_REL };
   }
 
   // ---------- Canvas setup ----------
@@ -427,7 +451,7 @@
     canvas.height = Math.round(nh * scale);
 
     if(!cropRel){
-      cropRel = defaultRelForImage(item.img);
+      cropRel = loadSavedRel() || defaultRelForImage();
     }
     draw();
     updateInputsFromRel();
@@ -562,6 +586,9 @@
   }
 
   function onUp(){
+    if(dragMode){
+      saveRelToStorage(cropRel);
+    }
     dragMode = null;
   }
 
@@ -595,6 +622,7 @@
     let h = clamp(parseInt(inH.value)||1, 1, nh-y);
     cropRel = { x: x/nw, y: y/nh, w: w/nw, h: h/nh };
     draw();
+    saveRelToStorage(cropRel);
   }
 
   [inX,inY,inW,inH].forEach(inp => inp.addEventListener('change', updateRelFromInputs));
@@ -602,9 +630,10 @@
   resetBtn.addEventListener('click', () => {
     const item = images[activeIndex];
     if(!item) return;
-    cropRel = defaultRelForImage(item.img);
+    cropRel = defaultRelForImage();
     draw();
     updateInputsFromRel();
+    saveRelToStorage(cropRel);
   });
 
   function showProgress(text, value, max){
