@@ -238,7 +238,7 @@
     text-align:center;
   }
   .summary .card .label{font-size:11px;color:var(--sub);}
-  .summary .card .value{font-size:20px;font-weight:bold;color:var(--good);margin-top:2px;}
+  .summary .card .value{font-size:20px;font-weight:bold;color:var(--good);margin-top:2px;word-break:break-word;}
   table{
     width:100%;
     border-collapse:collapse;
@@ -302,6 +302,13 @@
       <div class="row"><label>①防御ランク</label><div class="inputs"><select id="def_rank"></select></div></div>
       <div class="row"><label>②防御ダウン耐性</label><div class="inputs"><select id="def_tolerance"></select></div></div>
       <div class="note">急所有効時は +1以上 のランクを 0 として扱います</div>
+    </fieldset>
+
+    <!-- 敵HP -->
+    <fieldset>
+      <legend>敵HP</legend>
+      <div class="row"><label>敵HP</label><div class="inputs"><input type="text" inputmode="text" id="enemy_hp" value="0" title="数式可（例: 100+50*1.1）"></div></div>
+      <div class="note">1以上を入力すると、計算結果に敵HPに対する割合(%)を追記します</div>
     </fieldset>
 
     <!-- 技威力 -->
@@ -372,9 +379,6 @@
       </div></div>
       <div class="row row-full"><label>闘志・EXマスパ</label><div class="inputs triple">
         <select id="toukon1"></select><select id="toukon2"></select><select id="toukon3"></select>
-      </div></div>
-      <div class="row row-full"><label>EXマスパ</label><div class="inputs triple">
-        <select id="ex1"></select><select id="ex2"></select><select id="ex3"></select>
       </div></div>
       <div class="row"><label>ブースト</label><div class="inputs"><select id="boost"></select></div></div>
       <div class="row"><label>Bブースト</label><div class="inputs"><select id="bboost"></select></div></div>
@@ -582,7 +586,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   // 威力補正内訳
   addOptions($('potential'), range(0,9), {selectedValue:0});
-  ['charisma1','charisma2','charisma3','lead1','lead2','lead3','toukon1','toukon2','toukon3','ex1','ex2','ex3'].forEach(id=>{
+  ['charisma1','charisma2','charisma3','lead1','lead2','lead3','toukon1','toukon2','toukon3'].forEach(id=>{
     addOptions($(id), range(0,3), {selectedValue:0});
   });
   addOptions($('boost'), range(0,10), {selectedValue:0});
@@ -598,10 +602,11 @@ const ALL_FIELD_IDS = [
   'atk_rank',
   'def_power','def_correction',
   'def_rank','def_tolerance',
+  'enemy_hp',
   'move_power','move_board','move_multiplier',
   'wtz','resist','skill_equip','reduction','voltage',
   'circle_atk1','circle_atk2','circle_atk3','circle_def1','circle_def2','circle_def3',
-  'potential','charisma1','charisma2','charisma3','lead1','lead2','lead3','toukon1','toukon2','toukon3','ex1','ex2','ex3','boost','bboost','skill1','skill2','skill3','other'
+  'potential','charisma1','charisma2','charisma3','lead1','lead2','lead3','toukon1','toukon2','toukon3','boost','bboost','skill1','skill2','skill3','other'
 ];
 const CHECKBOX_IDS = ['move_falloff','terastal','effective','effective_up','critical','breakcorr','reduction_field','ouen'];
 const PRESET_KEY = 'pokemasDamageCalcPresets';
@@ -745,7 +750,7 @@ function refreshChartPresetSelect(){
 // ---------- 数式入力欄のバリデーション ----------
 const FORMULA_FIELD_IDS = [
   'atk_power','atk_equip','atk_board','atk_team','atk_correction',
-  'def_power','def_correction',
+  'def_power','def_correction','enemy_hp',
   'move_power','move_board','move_multiplier','other','voltage'
 ];
 function validateFormulaField(el){
@@ -866,14 +871,12 @@ function computeAll(ctx){
   const leadSum = ['lead1','lead2','lead3'].reduce((s,id)=> s + intC(id,ctx)*0.1, 0);
   const toukonFn = v => v===0 ? 0 : 0.05 + v*0.15;
   const toukonSum = ['toukon1','toukon2','toukon3'].reduce((s,id)=> s + toukonFn(intC(id,ctx)), 0);
-  const exFn = v => v===0 ? 0 : 0.05 + v*0.15;
-  const exSum = ['ex1','ex2','ex3'].reduce((s,id)=> s + exFn(intC(id,ctx)), 0);
   const boostVal = intC('boost',ctx)*0.4;
   const bBoostVal = intC('bboost',ctx)*0.1;
   const skillSum = ['skill1','skill2','skill3'].reduce((s,id)=> s + intC(id,ctx)*0.1, 0);
   const ouenVal = isChecked('ouen',ctx) ? 0.5 : 0;
   const otherVal = num('other',ctx);
-  const powerUpTotal = potential + charismaSum + leadSum + toukonSum + exSum + boostVal + bBoostVal + skillSum + ouenVal + otherVal;
+  const powerUpTotal = potential + charismaSum + leadSum + toukonSum + boostVal + bBoostVal + skillSum + ouenVal + otherVal;
   const powerUpCorr = 1 + powerUpTotal;
 
   // ---- WTZ / タイプ抵抗 / 抜群 / 急所 / ブレイク ----
@@ -951,7 +954,19 @@ function computeAll(ctx){
   return {randoms, damages, minDmg, maxDmg, avgDmg, breakdownRows};
 }
 
-function renderDamageTable(randoms, damages){
+function getEnemyHp(){
+  const v = num('enemy_hp');
+  return v;
+}
+function formatDamage(d, hp){
+  if(hp >= 1){
+    const pct = (d / hp * 100).toFixed(1);
+    return `${d.toLocaleString()}（${pct}%）`;
+  }
+  return d.toLocaleString();
+}
+
+function renderDamageTable(randoms, damages, hp){
   const body = $('res_table_body');
   body.innerHTML='';
   damages.forEach((d,i)=>{
@@ -959,7 +974,7 @@ function renderDamageTable(randoms, damages){
     const tdR=document.createElement('td');
     tdR.textContent = (randoms[i]!==undefined ? randoms[i].toFixed(2) : '-') + '倍';
     const tdD=document.createElement('td');
-    tdD.textContent = d.toLocaleString();
+    tdD.textContent = formatDamage(d, hp);
     if(i===0){ tdR.classList.add('hl-min'); tdD.classList.add('hl-min'); }
     if(i===damages.length-1){ tdR.classList.add('hl-max'); tdD.classList.add('hl-max'); }
     tr.appendChild(tdR);
@@ -969,11 +984,12 @@ function renderDamageTable(randoms, damages){
 }
 
 function renderSingleResult(result){
-  $('res_min').textContent = result.minDmg.toLocaleString();
-  $('res_max').textContent = result.maxDmg.toLocaleString();
-  $('res_avg').textContent = result.avgDmg.toLocaleString();
+  const hp = getEnemyHp();
+  $('res_min').textContent = formatDamage(result.minDmg, hp);
+  $('res_max').textContent = formatDamage(result.maxDmg, hp);
+  $('res_avg').textContent = formatDamage(result.avgDmg, hp);
 
-  renderDamageTable(result.randoms, result.damages);
+  renderDamageTable(result.randoms, result.damages, hp);
 
   const bd = $('breakdown_table');
   bd.innerHTML = result.breakdownRows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
@@ -982,6 +998,7 @@ function renderSingleResult(result){
 }
 
 function renderSumResult(entryResults){
+  const hp = getEnemyHp();
   const randoms = entryResults.length ? entryResults[0].result.randoms : [];
   const totalDamages = randoms.map((_,i)=> entryResults.reduce((s,e)=> s + e.result.damages[i], 0));
 
@@ -989,11 +1006,11 @@ function renderSumResult(entryResults){
   const maxDmg = totalDamages.length ? totalDamages[totalDamages.length-1] : 0;
   const avgDmg = totalDamages.length ? Math.round(totalDamages.reduce((a,b)=>a+b,0)/totalDamages.length) : 0;
 
-  $('res_min').textContent = minDmg.toLocaleString();
-  $('res_max').textContent = maxDmg.toLocaleString();
-  $('res_avg').textContent = avgDmg.toLocaleString();
+  $('res_min').textContent = formatDamage(minDmg, hp);
+  $('res_max').textContent = formatDamage(maxDmg, hp);
+  $('res_avg').textContent = formatDamage(avgDmg, hp);
 
-  renderDamageTable(randoms, totalDamages);
+  renderDamageTable(randoms, totalDamages, hp);
 
   const bd = $('breakdown_table');
   const rows = entryResults.map(e=>[
