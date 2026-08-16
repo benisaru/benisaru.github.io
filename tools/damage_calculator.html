@@ -239,6 +239,40 @@
   }
   .summary .card .label{font-size:11px;color:var(--sub);}
   .summary .card .value{font-size:20px;font-weight:bold;color:var(--good);margin-top:2px;word-break:break-word;}
+  .copy-btn{
+    display:block;
+    margin:8px auto 0;
+    background:var(--panel);
+    color:var(--sub);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:4px 10px;
+    font-size:11px;
+    cursor:pointer;
+  }
+  .copy-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .copy-btn:disabled{color:var(--good);border-color:var(--good);cursor:default;}
+  .slider-panel{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+    margin-bottom:14px;
+  }
+  .slider-row{margin:8px 0;}
+  .slider-label{
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+    color:var(--sub);
+    margin-bottom:4px;
+  }
+  .slider-label .slider-value{color:var(--accent2);font-weight:bold;}
+  input[type=range]{
+    width:100%;
+    accent-color:var(--accent);
+    cursor:pointer;
+  }
   table{
     width:100%;
     border-collapse:collapse;
@@ -469,10 +503,31 @@
 
   <div id="result">
     <div class="summary">
-      <div class="card"><div class="label">最小ダメージ (0.90倍)</div><div class="value" id="res_min">-</div></div>
-      <div class="card"><div class="label">最大ダメージ (1.00倍)</div><div class="value" id="res_max">-</div></div>
+      <div class="card">
+        <div class="label">最小ダメージ (0.90倍)</div>
+        <div class="value" id="res_min">-</div>
+        <button type="button" id="copyMinBtn" class="copy-btn">計算式コピー</button>
+      </div>
+      <div class="card">
+        <div class="label">最大ダメージ (1.00倍)</div>
+        <div class="value" id="res_max">-</div>
+        <button type="button" id="copyMaxBtn" class="copy-btn">計算式コピー</button>
+      </div>
       <div class="card"><div class="label">平均ダメージ</div><div class="value" id="res_avg">-</div></div>
     </div>
+
+    <div class="slider-panel">
+      <div class="slider-row">
+        <div class="slider-label"><span>攻撃－②装備</span><span class="slider-value" id="slider_equip_value">0</span></div>
+        <input type="range" id="slider_equip" min="0" max="100" step="1" value="0">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label"><span>各種補正－⑧スキル装備</span><span class="slider-value" id="slider_skill_equip_value">0</span></div>
+        <input type="range" id="slider_skill_equip" min="0" max="45" step="1" value="0">
+      </div>
+      <div class="note">スライダーを動かすと「攻撃－②装備」「各種補正－⑧スキル装備」の値を一時的に置き換えて、計算結果に即反映します（入力欄自体は変更されません）。</div>
+    </div>
+
     <table id="res_table">
       <thead><tr><th>倍率</th><th>ダメージ</th></tr></thead>
       <tbody id="res_table_body"></tbody>
@@ -841,7 +896,24 @@ document.addEventListener('DOMContentLoaded', ()=>{
     saveChartsObj(charts);
     refreshChartPresetSelect();
   });
+
+  // ---- 計算式コピー ----
+  $('copyMinBtn').addEventListener('click', ()=>{
+    if(!lastMinFormula) return;
+    copyToClipboard(lastMinFormula);
+    flashCopyButton($('copyMinBtn'));
+  });
+  $('copyMaxBtn').addEventListener('click', ()=>{
+    if(!lastMaxFormula) return;
+    copyToClipboard(lastMaxFormula);
+    flashCopyButton($('copyMaxBtn'));
+  });
+
+  // ---- スキル装備調整スライダー ----
+  $('slider_equip').addEventListener('input', onSliderChange);
+  $('slider_skill_equip').addEventListener('input', onSliderChange);
 });
+
 
 function computeAll(ctx){
   ctx = ctx || null;
@@ -956,7 +1028,9 @@ function computeAll(ctx){
     ['各種補正 合計', variousCorr.toFixed(4)],
   ];
 
-  return {randoms, damages, minDmg, maxDmg, avgDmg, breakdownRows};
+  return {randoms, damages, minDmg, maxDmg, avgDmg, breakdownRows,
+    raw: {atk, atkRankCorr, def, defRankCorr, movePower, variousCorr}
+  };
 }
 
 function getEnemyHp(){
@@ -969,6 +1043,44 @@ function formatDamage(d, hp){
     return `${d.toLocaleString()}（${pct}%）`;
   }
   return d.toLocaleString();
+}
+
+function formatNum(n, digits){
+  if(typeof n !== 'number' || !isFinite(n)) return String(n);
+  const rounded = parseFloat(n.toFixed(digits===undefined?4:digits));
+  return rounded.toString();
+}
+function buildFormulaPart(raw, r){
+  return `floor(floor(${formatNum(raw.atk,3)}×${formatNum(raw.atkRankCorr,4)})×${formatNum(raw.movePower,3)}×${formatNum(raw.variousCorr,4)}÷floor(${formatNum(raw.def,3)}×${formatNum(raw.defRankCorr,4)})×${r.toFixed(2)})`;
+}
+
+let lastMinFormula = '';
+let lastMaxFormula = '';
+
+function copyToClipboard(text){
+  function fallbackCopy(){
+    const ta=document.createElement('textarea');
+    ta.value=text;
+    ta.style.position='fixed';
+    ta.style.left='-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    document.body.removeChild(ta);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).catch(()=>{ fallbackCopy(); });
+  }else{
+    fallbackCopy();
+  }
+}
+function flashCopyButton(btn){
+  if(!btn) return;
+  const original = btn.textContent;
+  btn.textContent = 'コピーしました';
+  btn.disabled = true;
+  setTimeout(()=>{ btn.textContent = original; btn.disabled = false; }, 1500);
 }
 
 function renderDamageTable(randoms, damages, hp){
@@ -999,6 +1111,11 @@ function renderSingleResult(result){
   const bd = $('breakdown_table');
   bd.innerHTML = result.breakdownRows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
 
+  const rMin = result.randoms[0];
+  const rMax = result.randoms[result.randoms.length-1];
+  lastMinFormula = `${buildFormulaPart(result.raw, rMin)} = ${result.minDmg.toLocaleString()}`;
+  lastMaxFormula = `${buildFormulaPart(result.raw, rMax)} = ${result.maxDmg.toLocaleString()}`;
+
   $('result').classList.add('show');
 }
 
@@ -1025,16 +1142,67 @@ function renderSumResult(entryResults){
   rows.push(['合算項目数', entryResults.length + '件']);
   bd.innerHTML = rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
 
+  if(entryResults.length){
+    const rMin = entryResults[0].result.randoms[0];
+    const rMax = entryResults[0].result.randoms[entryResults[0].result.randoms.length-1];
+    const minParts = entryResults.map(e=> buildFormulaPart(e.result.raw, rMin));
+    const maxParts = entryResults.map(e=> buildFormulaPart(e.result.raw, rMax));
+    lastMinFormula = `${minParts.join(' + ')} = ${minDmg.toLocaleString()}`;
+    lastMaxFormula = `${maxParts.join(' + ')} = ${maxDmg.toLocaleString()}`;
+  }else{
+    lastMinFormula = '';
+    lastMaxFormula = '';
+  }
+
   $('result').classList.add('show');
+}
+
+// ---------- スキル装備調整スライダー ----------
+let lastCalcMode = null; // 'single' | 'sum'
+let lastSingleSnapshot = null;
+let lastEntriesSnapshot = null;
+
+function syncSlidersToCurrentForm(){
+  const equip = Math.min(100, Math.max(0, Math.round(num('atk_equip'))));
+  const skillEq = Math.min(45, Math.max(0, Math.round(intC('skill_equip'))));
+  $('slider_equip').value = equip;
+  $('slider_equip_value').textContent = equip;
+  $('slider_skill_equip').value = skillEq;
+  $('slider_skill_equip_value').textContent = skillEq;
+}
+
+function onSliderChange(){
+  const equipVal = $('slider_equip').value;
+  const skillVal = $('slider_skill_equip').value;
+  $('slider_equip_value').textContent = equipVal;
+  $('slider_skill_equip_value').textContent = skillVal;
+
+  const overrides = { atk_equip: equipVal, skill_equip: skillVal };
+
+  if(lastCalcMode==='sum' && lastEntriesSnapshot){
+    const entryResults = lastEntriesSnapshot.map(e=> ({
+      label: e.label,
+      result: computeAll(Object.assign({}, e.data, overrides))
+    }));
+    renderSumResult(entryResults);
+  }else if(lastCalcMode==='single' && lastSingleSnapshot){
+    const result = computeAll(Object.assign({}, lastSingleSnapshot, overrides));
+    renderSingleResult(result);
+  }
 }
 
 function calculate(){
   const sumEnabled = $('chartSumEnabled') && $('chartSumEnabled').checked;
+  syncSlidersToCurrentForm();
   if(sumEnabled && chartEntries.length>0){
-    const entryResults = chartEntries.map(e=> ({label:e.label, result: computeAll(e.data)}));
+    lastCalcMode = 'sum';
+    lastEntriesSnapshot = chartEntries.map(e=> ({ label: e.label, data: Object.assign({}, e.data) }));
+    const entryResults = lastEntriesSnapshot.map(e=> ({label:e.label, result: computeAll(e.data)}));
     renderSumResult(entryResults);
   }else{
-    const result = computeAll(null);
+    lastCalcMode = 'single';
+    lastSingleSnapshot = getAllValues();
+    const result = computeAll(lastSingleSnapshot);
     renderSingleResult(result);
   }
 }
