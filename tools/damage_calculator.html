@@ -37,19 +37,37 @@
     grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
     gap:10px;
   }
-  fieldset{
+  .panel{
     border:1px solid var(--border);
     background:var(--panel);
     border-radius:10px;
-    padding:10px 10px 12px;
+    padding:0;
     min-width:0;
   }
-  legend{
-    padding:0 8px;
+  .panel > summary{
+    padding:10px 14px;
     font-size:13px;
     font-weight:bold;
     color:var(--accent);
+    cursor:pointer;
+    list-style:none;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    user-select:none;
   }
+  .panel > summary::-webkit-details-marker{display:none;}
+  .panel > summary::after{
+    content:'▾';
+    font-size:11px;
+    color:var(--sub);
+    transition:transform .15s ease;
+    flex:0 0 auto;
+  }
+  .panel[open] > summary::after{transform:rotate(180deg);}
+  .panel > summary:hover{color:var(--accent2);}
+  .panel-body{padding:0 12px 12px;}
   .row{
     display:flex;
     align-items:center;
@@ -77,7 +95,7 @@
   @media (max-width:520px){
     body{padding:10px;}
     .grid{grid-template-columns:1fr;gap:8px;}
-    fieldset[style]{grid-column:auto !important;}
+    .panel[style]{grid-column:auto !important;}
     .row{flex-direction:column;align-items:flex-start;gap:4px;}
     .row .inputs{width:100%;}
     .row .inputs:not(.triple) input[type=number],
@@ -86,16 +104,15 @@
     .triple{width:100%;justify-content:space-between;}
     .triple select{flex:1 1 0;width:auto;}
     /* 1行1入力の項目はスクロールを短縮するため2列表示にする */
-    .grid fieldset{
+    .grid .panel-body{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:2px 10px;
       align-items:start;
     }
-    .grid fieldset > legend{grid-column:1 / -1;}
-    .grid fieldset > .note{grid-column:1 / -1;}
-    .grid fieldset .row{margin:4px 0;}
-    .grid fieldset .row.row-full{grid-column:1 / -1;}
+    .grid .panel-body > .note{grid-column:1 / -1;}
+    .grid .panel-body .row{margin:4px 0;}
+    .grid .panel-body .row.row-full{grid-column:1 / -1;}
     .row.mult-tera-grid{grid-template-columns:1fr 1fr 1fr;column-gap:6px;}
     .row.mult-tera-grid .mtg-label{font-size:11px;}
     table{font-size:10.5px;}
@@ -129,7 +146,7 @@
     box-shadow:0 4px 14px rgba(91,157,255,.35);
   }
   button#calcBtn:hover{filter:brightness(1.08);}
-  fieldset button{
+  .panel button{
     background:var(--panel2);
     color:var(--text);
     border:1px solid var(--border);
@@ -138,7 +155,7 @@
     font-size:12.5px;
     cursor:pointer;
   }
-  fieldset button:hover{border-color:var(--accent);color:var(--accent);}
+  .panel button:hover{border-color:var(--accent);color:var(--accent);}
   .chart-list{
     display:flex;
     flex-wrap:wrap;
@@ -148,7 +165,7 @@
   .chart-empty-note{color:var(--sub);font-size:12px;}
   .chart-chip{position:relative;display:inline-flex;}
   .chart-chip.chip-missing .chip-label{border-color:#ff6b6b;color:#ff9b9b;}
-  .chip-label{
+  .chart-chip .chip-label{
     background:var(--panel2);
     border:1px solid var(--border);
     color:var(--text);
@@ -163,8 +180,8 @@
     text-align:left;
     line-height:1.4;
   }
-  .chip-label:hover{border-color:var(--accent);color:var(--accent);}
-  .chip-remove{
+  .chart-chip .chip-label:hover{border-color:var(--accent);color:var(--accent);}
+  .chart-chip .chip-remove{
     position:absolute;
     top:-6px;
     right:-6px;
@@ -183,7 +200,7 @@
     padding:0;
     font-weight:bold;
   }
-  .chip-remove:hover{filter:brightness(1.15);}
+  .chart-chip .chip-remove:hover{filter:brightness(1.15);}
   .checkbox-group{
     display:flex;
     gap:10px;
@@ -305,199 +322,188 @@
   <div class="grid">
 
     <!-- 攻撃 -->
-    <fieldset>
-      <legend>攻撃</legend>
-      <div class="row"><label>①攻撃力</label><div class="inputs"><input type="text" inputmode="text" id="atk_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-      <div class="row"><label>②装備</label><div class="inputs"><input type="text" inputmode="text" id="atk_equip" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-      <div class="row"><label>③フォルムチェンジ</label><div class="inputs"><select id="atk_form"></select></div></div>
-      <div class="row"><label>④ボード</label><div class="inputs"><input type="text" inputmode="text" id="atk_board" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-      <div class="row"><label>⑤チームパワー</label><div class="inputs"><input type="text" inputmode="text" id="atk_team" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-      <div class="row"><label>⑥その他補正</label><div class="inputs"><input type="text" inputmode="text" id="atk_correction" value="1" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-      <div class="note">攻撃 = ((①+②)×③+④+⑤)×⑥</div>
-    </fieldset>
-
-    <!-- 攻撃ランク補正 -->
-    <fieldset>
-      <legend>攻撃ランク補正</legend>
-      <div class="row"><label>①攻撃ランク</label><div class="inputs"><select id="atk_rank"></select></div></div>
-      <div class="note">急所有効時は -1以下 のランクを 0 として扱います</div>
-    </fieldset>
+    <details class="panel" open>
+      <summary>攻撃</summary>
+      <div class="panel-body">
+        <div class="row"><label>攻撃力</label><div class="inputs"><input type="text" inputmode="text" id="atk_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>装備</label><div class="inputs"><input type="text" inputmode="text" id="atk_equip" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>フォルムチェンジ倍率</label><div class="inputs"><select id="atk_form"></select></div></div>
+        <div class="row"><label>ボード</label><div class="inputs"><input type="text" inputmode="text" id="atk_board" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>チームパワー</label><div class="inputs"><input type="text" inputmode="text" id="atk_team" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>その他補正</label><div class="inputs"><input type="text" inputmode="text" id="atk_correction" value="1" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>攻撃ランク</label><div class="inputs"><select id="atk_rank"></select></div></div>
+        <div class="note">攻撃 = ((攻撃力+装備)×フォルムチェンジ倍率+ボード+チームパワー)×その他補正　</div>
+      </div>
+    </details>
 
     <!-- 防御 -->
-    <fieldset>
-      <legend>防御</legend>
-      <div class="row"><label>①防御力</label><div class="inputs"><input type="text" inputmode="text" id="def_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-      <div class="row"><label>②その他補正</label><div class="inputs"><input type="text" inputmode="text" id="def_correction" value="1" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-      <div class="note">防御 = ①×②</div>
-    </fieldset>
-
-    <!-- 防御ランク補正 -->
-    <fieldset>
-      <legend>防御ランク補正</legend>
-      <div class="row"><label>①防御ランク</label><div class="inputs"><select id="def_rank"></select></div></div>
-      <div class="row"><label>②防御ダウン耐性</label><div class="inputs"><select id="def_tolerance"></select></div></div>
-      <div class="note">急所有効時は +1以上 のランクを 0 として扱います</div>
-    </fieldset>
-
-    <!-- 敵HP -->
-    <fieldset>
-      <legend>敵HP</legend>
-      <div class="row"><label>敵HP</label><div class="inputs"><input type="text" inputmode="text" id="enemy_hp" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-      <div class="note">1以上を入力すると、計算結果に敵HPに対する割合(%)を追記します</div>
-    </fieldset>
+    <details class="panel" open>
+      <summary>防御</summary>
+      <div class="panel-body">
+        <div class="row"><label>防御力</label><div class="inputs"><input type="text" inputmode="text" id="def_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>その他補正</label><div class="inputs"><input type="text" inputmode="text" id="def_correction" value="1" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>防御ランク</label><div class="inputs"><select id="def_rank"></select></div></div>
+        <div class="row"><label>防御ダウン耐性</label><div class="inputs"><select id="def_tolerance"></select></div></div>
+        <div class="row"><label>敵HP</label><div class="inputs"><input type="text" inputmode="text" id="enemy_hp" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="note">防御 = 防御力×その他補正</div>
+      </div>
+    </details>
 
     <!-- 技威力 -->
-    <fieldset>
-      <legend>技威力</legend>
-      <div class="row"><label>①威力</label><div class="inputs"><input type="text" inputmode="text" id="move_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-      <div class="row"><label>②ボード</label><div class="inputs"><input type="text" inputmode="text" id="move_board" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-      <div class="row row-full mult-tera-grid">
-        <div class="mtg-label">③倍率</div>
-        <div class="mtg-label">④範囲減衰</div>
-        <div class="mtg-label">⑤テラスタル</div>
-        <div class="inputs"><input type="text" inputmode="text" id="move_multiplier" value="1" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div>
-        <div class="inputs checkbox-group"><label><input type="checkbox" id="move_falloff"> あり</label></div>
-        <div class="inputs checkbox-group"><label><input type="checkbox" id="terastal"> あり</label></div>
+    <details class="panel" open>
+      <summary>技威力</summary>
+      <div class="panel-body">
+        <div class="row"><label>威力</label><div class="inputs"><input type="text" inputmode="text" id="move_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>ボード</label><div class="inputs"><input type="text" inputmode="text" id="move_board" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row row-full mult-tera-grid">
+          <div class="mtg-label">効果倍率</div>
+          <div class="mtg-label">範囲減衰</div>
+          <div class="mtg-label">テラスタル</div>
+          <div class="inputs"><input type="text" inputmode="text" id="move_multiplier" value="1" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div>
+          <div class="inputs checkbox-group"><label><input type="checkbox" id="move_falloff"> あり</label></div>
+          <div class="inputs checkbox-group"><label><input type="checkbox" id="terastal"> あり</label></div>
+        </div>
+        <div class="note">技威力 = (威力+ボード)×効果倍率×範囲減衰×テラスタル</div>
       </div>
-      <div class="note">技威力 = (①+②)×③×④×⑤</div>
-    </fieldset>
+    </details>
 
-    <!-- 各種補正（単体項目） -->
-    <fieldset>
-      <legend>各種補正</legend>
-      <div class="row"><label>②WTZ補正</label><div class="inputs"><select id="wtz">
-        <option value="1">無し</option><option value="1.5">通常</option><option value="3">EX</option>
-      </select></div></div>
-      <div class="row"><label>③タイプ抵抗</label><div class="inputs"><select id="resist"></select></div></div>
-      <div class="row"><label>④抜群</label><div class="inputs checkbox-group">
-        <label><input type="checkbox" id="effective"> 抜群</label>
-      </div></div>
-      <div class="row"><label>&nbsp;&nbsp;抜群アップ</label><div class="inputs checkbox-group">
-        <label><input type="checkbox" id="effective_up"> あり</label>
-      </div></div>
-      <div class="row"><label>⑤急所</label><div class="inputs checkbox-group">
-        <label><input type="checkbox" id="critical"> 有効</label>
-      </div></div>
-      <div class="row"><label>⑥ブレイク</label><div class="inputs checkbox-group">
-        <label><input type="checkbox" id="breakcorr"> 有効</label>
-      </div></div>
-      <div class="row"><label>⑧スキル装備</label><div class="inputs"><select id="skill_equip"></select></div></div>
-      <div class="row"><label>⑨ボルテージ</label><div class="inputs"><input type="text" inputmode="text" id="voltage" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-      <div class="row"><label>⑩軽減</label><div class="inputs"><select id="reduction"></select></div></div>
-      <div class="row"><label>&nbsp;&nbsp;軽減の場</label><div class="inputs checkbox-group">
-        <label><input type="checkbox" id="reduction_field"> あり</label>
-      </div></div>
-      <div class="note">急所有効時は「軽減の場」を無視します</div>
-    </fieldset>
-
-    <!-- サークル補正 -->
-    <fieldset>
-      <legend>サークル補正</legend>
-      <div class="row row-full"><label>①攻撃サークル</label><div class="inputs triple">
-        <select id="circle_atk1"></select><select id="circle_atk2"></select><select id="circle_atk3"></select>
-      </div></div>
-      <div class="row row-full"><label>②防御サークル</label><div class="inputs triple">
-        <select id="circle_def1"></select><select id="circle_def2"></select><select id="circle_def3"></select>
-      </div></div>
-      <div class="note">サークル補正 = ①×①×①×②×②×②</div>
-    </fieldset>
+    <!-- 各種補正 -->
+    <details class="panel" open>
+      <summary>各種補正</summary>
+      <div class="panel-body">
+        <div class="row"><label>WTZ</label><div class="inputs"><select id="wtz">
+          <option value="1">無し</option><option value="1.5">通常</option><option value="3">EX</option>
+        </select></div></div>
+        <div class="row"><label>タイプ抵抗</label><div class="inputs"><select id="resist"></select></div></div>
+        <div class="row"><label>抜群</label><div class="inputs checkbox-group">
+          <label><input type="checkbox" id="effective"> 抜群</label>
+        </div></div>
+        <div class="row"><label>&nbsp;&nbsp;抜群アップ</label><div class="inputs checkbox-group">
+          <label><input type="checkbox" id="effective_up"> あり</label>
+        </div></div>
+        <div class="row"><label>急所</label><div class="inputs checkbox-group">
+          <label><input type="checkbox" id="critical"> 有効</label>
+        </div></div>
+        <div class="row"><label>ブレイク</label><div class="inputs checkbox-group">
+          <label><input type="checkbox" id="breakcorr"> 有効</label>
+        </div></div>
+        <div class="row row-full"><label>物理サークル</label><div class="inputs triple">
+          <select id="circle_atk1"></select><select id="circle_atk2"></select><select id="circle_atk3"></select>
+        </div></div>
+        <div class="row row-full"><label>防御サークル</label><div class="inputs triple">
+          <select id="circle_def1"></select><select id="circle_def2"></select><select id="circle_def3"></select>
+        </div></div>
+        <div class="row"><label>スキル装備</label><div class="inputs"><select id="skill_equip"></select></div></div>
+        <div class="row"><label>ボルテージ</label><div class="inputs"><input type="text" inputmode="text" id="voltage" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>軽減</label><div class="inputs"><select id="reduction"></select></div></div>
+        <div class="row"><label>&nbsp;&nbsp;軽減の場</label><div class="inputs checkbox-group">
+          <label><input type="checkbox" id="reduction_field"> あり</label>
+        </div></div>
+      </div>
+    </details>
 
     <!-- 威力補正 -->
-    <fieldset style="grid-column: span 2;">
-      <legend>①威力補正（内訳）</legend>
-      <div class="row"><label>ポテンシャル</label><div class="inputs"><select id="potential"></select></div></div>
-      <div class="row row-full"><label>カリスママスパ</label><div class="inputs triple">
-        <select id="charisma1"></select><select id="charisma2"></select><select id="charisma3"></select>
-      </div></div>
-      <div class="row row-full"><label>先導・神話マスパ</label><div class="inputs triple">
-        <select id="lead1"></select><select id="lead2"></select><select id="lead3"></select>
-      </div></div>
-      <div class="row row-full"><label>闘志・EXマスパ</label><div class="inputs triple">
-        <select id="toukon1"></select><select id="toukon2"></select><select id="toukon3"></select>
-      </div></div>
-      <div class="row"><label>ブースト</label><div class="inputs"><select id="boost"></select></div></div>
-      <div class="row"><label>Bブースト</label><div class="inputs"><select id="bboost"></select></div></div>
-      <div class="row row-full"><label>各スキル</label><div class="inputs triple">
-        <select id="skill1"></select><select id="skill2"></select><select id="skill3"></select>
-      </div></div>
-      <div class="row"><label>応援</label><div class="inputs checkbox-group">
-        <label><input type="checkbox" id="ouen"> あり</label>
-      </div></div>
-      <div class="row"><label>その他</label><div class="inputs"><input type="text" inputmode="text" id="other" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-      <div class="note">威力補正 = 1 + (各項目の合計) として計算しています</div>
-    </fieldset>
+    <details class="panel" style="grid-column: span 2;" open>
+      <summary>威力補正</summary>
+      <div class="panel-body">
+        <div class="row"><label>ポテンシャル</label><div class="inputs"><select id="potential"></select></div></div>
+        <div class="row row-full"><label>カリスママスパ</label><div class="inputs triple">
+          <select id="charisma1"></select><select id="charisma2"></select><select id="charisma3"></select>
+        </div></div>
+        <div class="row row-full"><label>先導・神話マスパ</label><div class="inputs triple">
+          <select id="lead1"></select><select id="lead2"></select><select id="lead3"></select>
+        </div></div>
+        <div class="row row-full"><label>闘志・EXマスパ</label><div class="inputs triple">
+          <select id="toukon1"></select><select id="toukon2"></select><select id="toukon3"></select>
+        </div></div>
+        <div class="row"><label>ブースト</label><div class="inputs"><select id="boost"></select></div></div>
+        <div class="row"><label>Bブースト</label><div class="inputs"><select id="bboost"></select></div></div>
+        <div class="row row-full"><label>各スキル</label><div class="inputs triple">
+          <select id="skill1"></select><select id="skill2"></select><select id="skill3"></select>
+        </div></div>
+        <div class="row"><label>応援</label><div class="inputs checkbox-group">
+          <label><input type="checkbox" id="ouen"> あり</label>
+        </div></div>
+        <div class="row"><label>その他</label><div class="inputs"><input type="text" inputmode="text" id="other" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="note">威力補正 = 1 + (各項目の合計) として計算しています</div>
+      </div>
+    </details>
 
   </div>
 
-  <fieldset style="margin-top:14px;">
-    <legend>保存・読み込み</legend>
-    <div class="row">
-      <label>保存名</label>
-      <div class="inputs" style="flex:1 1 auto;">
-        <input type="text" id="preset_name" placeholder="例：96レッド_栄光の雷" style="width:100%;">
+  <details class="panel" style="margin-top:14px;" open>
+    <summary>保存・読み込み</summary>
+    <div class="panel-body">
+      <div class="row">
+        <label>保存名</label>
+        <div class="inputs" style="flex:1 1 auto;">
+          <input type="text" id="preset_name" placeholder="例：96レッド_栄光の雷" style="width:100%;">
+        </div>
       </div>
-    </div>
-    <div class="row">
-      <div class="inputs" style="flex:1 1 auto;">
-        <button id="saveBtn" type="button" style="flex:1;">保存する</button>
+      <div class="row">
+        <div class="inputs" style="flex:1 1 auto;">
+          <button id="saveBtn" type="button" style="flex:1;">保存する</button>
+        </div>
       </div>
-    </div>
-    <div class="row">
-      <label>保存済みデータ</label>
-      <div class="inputs" style="flex:1 1 auto;">
-        <select id="preset_select" style="width:100%;"></select>
+      <div class="row">
+        <label>保存済みデータ</label>
+        <div class="inputs" style="flex:1 1 auto;">
+          <select id="preset_select" style="width:100%;"></select>
+        </div>
       </div>
-    </div>
-    <div class="row">
-      <div class="inputs" style="flex:1 1 auto;gap:8px;">
-        <button id="loadBtn" type="button" style="flex:1;">読み込む</button>
-        <button id="deleteBtn" type="button" style="flex:1;">削除する</button>
+      <div class="row">
+        <div class="inputs" style="flex:1 1 auto;gap:8px;">
+          <button id="loadBtn" type="button" style="flex:1;">読み込む</button>
+          <button id="deleteBtn" type="button" style="flex:1;">削除する</button>
+        </div>
       </div>
+      <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。</div>
     </div>
-    <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。</div>
-  </fieldset>
+  </details>
 
-  <fieldset style="margin-top:14px;">
-    <legend>チャート</legend>
-    <div class="row">
-      <div class="inputs" style="flex:1 1 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <select id="chart_source_select" style="min-width:140px;flex:1 1 auto;max-width:220px;"></select>
-        <button id="chartAddBtn" type="button">追加</button>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);cursor:pointer;">
-          <input type="checkbox" id="chartSumEnabled" style="accent-color:var(--accent);width:16px;height:16px;margin:0;cursor:pointer;"> 合算
-        </label>
+  <details class="panel" style="margin-top:14px;" open>
+    <summary>チャート</summary>
+    <div class="panel-body">
+      <div class="row">
+        <div class="inputs" style="flex:1 1 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <select id="chart_source_select" style="min-width:140px;flex:1 1 auto;max-width:220px;"></select>
+          <button id="chartAddBtn" type="button">追加</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);cursor:pointer;">
+            <input type="checkbox" id="chartSumEnabled" style="accent-color:var(--accent);width:16px;height:16px;margin:0;cursor:pointer;"> 合算
+          </label>
+        </div>
       </div>
-    </div>
-    <div class="row">
-      <div id="chartList" class="chart-list"></div>
-    </div>
-    <div class="note">左のセレクトボックスで「保存・読み込み」に保存済みのデータを選び、「追加」でチャートに参照として追加します（データそのものはコピーされないため、保存データを上書き保存すればチャート側にも自動で反映されます）。チップをタップすると最新の保存データを読み込み、×で削除します。「合算」を有効にして計算すると、チャート内の各項目の結果を合計します。</div>
+      <div class="row">
+        <div id="chartList" class="chart-list"></div>
+      </div>
+      <div class="note">左のセレクトボックスで「保存・読み込み」に保存済みのデータを選び、「追加」でチャートに追加します。チップをタップすると最新の保存データを読み込み、×で削除します。「合算」を有効にして計算すると、チャート内の各項目の結果を合計します。</div>
 
-    <div class="row" style="margin-top:10px;">
-      <label>チャート保存名</label>
-      <div class="inputs" style="flex:1 1 auto;">
-        <input type="text" id="chart_preset_name" placeholder="例：ジム等倍1+1" style="width:100%;">
+      <div class="row" style="margin-top:10px;">
+        <label>チャート保存名</label>
+        <div class="inputs" style="flex:1 1 auto;">
+          <input type="text" id="chart_preset_name" placeholder="例：ジム等倍1+1" style="width:100%;">
+        </div>
       </div>
-    </div>
-    <div class="row">
-      <div class="inputs" style="flex:1 1 auto;">
-        <button id="chartSaveBtn" type="button" style="flex:1;">チャートを保存する</button>
+      <div class="row">
+        <div class="inputs" style="flex:1 1 auto;">
+          <button id="chartSaveBtn" type="button" style="flex:1;">チャートを保存する</button>
+        </div>
       </div>
-    </div>
-    <div class="row">
-      <label>保存済みチャート</label>
-      <div class="inputs" style="flex:1 1 auto;">
-        <select id="chart_preset_select" style="width:100%;"></select>
+      <div class="row">
+        <label>保存済みチャート</label>
+        <div class="inputs" style="flex:1 1 auto;">
+          <select id="chart_preset_select" style="width:100%;"></select>
+        </div>
       </div>
-    </div>
-    <div class="row">
-      <div class="inputs" style="flex:1 1 auto;gap:8px;">
-        <button id="chartLoadBtn" type="button" style="flex:1;">読み込む</button>
-        <button id="chartDeleteBtn" type="button" style="flex:1;">削除する</button>
+      <div class="row">
+        <div class="inputs" style="flex:1 1 auto;gap:8px;">
+          <button id="chartLoadBtn" type="button" style="flex:1;">読み込む</button>
+          <button id="chartDeleteBtn" type="button" style="flex:1;">削除する</button>
+        </div>
       </div>
+      <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。</div>
     </div>
-    <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。</div>
-  </fieldset>
+  </details>
 
   <div class="actions">
     <button id="calcBtn">計算する</button>
@@ -520,14 +526,14 @@
 
     <div class="slider-panel">
       <div class="slider-row">
-        <div class="slider-label"><span>攻撃－②装備</span><span class="slider-value" id="slider_equip_value">0</span></div>
+        <div class="slider-label"><span>装備攻撃力</span><span class="slider-value" id="slider_equip_value">0</span></div>
         <input type="range" id="slider_equip" min="0" max="100" step="1" value="0">
       </div>
       <div class="slider-row">
-        <div class="slider-label"><span>各種補正－⑧スキル装備</span><span class="slider-value" id="slider_skill_equip_value">0</span></div>
+        <div class="slider-label"><span>装備倍率</span><span class="slider-value" id="slider_skill_equip_value">0</span></div>
         <input type="range" id="slider_skill_equip" min="0" max="45" step="1" value="0">
       </div>
-      <div class="note">スライダーを動かすと「攻撃－②装備」「各種補正－⑧スキル装備」の値を一時的に置き換えて、計算結果に即反映します（入力欄自体は変更されません）。</div>
+      <div class="note">スライダーを動かすと、その値を一時的に置き換えて計算結果に即反映します（入力欄自体は変更されません）。</div>
     </div>
 
     <table id="res_table">
@@ -1218,9 +1224,9 @@ let lastCalcMode = null; // 'single' | 'sum'
 let lastSingleSnapshot = null;
 let lastEntriesSnapshot = null;
 
-function syncSlidersToCurrentForm(){
-  const equip = Math.min(100, Math.max(0, Math.round(num('atk_equip'))));
-  const skillEq = Math.min(45, Math.max(0, Math.round(intC('skill_equip'))));
+function syncSliders(ctx){
+  const equip = Math.min(100, Math.max(0, Math.round(num('atk_equip', ctx))));
+  const skillEq = Math.min(45, Math.max(0, Math.round(intC('skill_equip', ctx))));
   $('slider_equip').value = equip;
   $('slider_equip_value').textContent = equip;
   $('slider_skill_equip').value = skillEq;
@@ -1249,7 +1255,6 @@ function onSliderChange(){
 
 function calculate(){
   const sumEnabled = $('chartSumEnabled') && $('chartSumEnabled').checked;
-  syncSlidersToCurrentForm();
   if(sumEnabled && chartEntries.length>0){
     lastCalcMode = 'sum';
     const presets = loadPresets();
@@ -1260,11 +1265,13 @@ function calculate(){
       alert('チャート内の一部の保存データが見つからないため、除外して計算しました。「保存・読み込み」を確認してください');
     }
     lastEntriesSnapshot = resolved.map(e=> ({ label: e.label, data: Object.assign({}, e.data) }));
+    syncSliders(lastEntriesSnapshot.length ? lastEntriesSnapshot[0].data : null);
     const entryResults = lastEntriesSnapshot.map(e=> ({label:e.label, result: computeAll(e.data)}));
     renderSumResult(entryResults);
   }else{
     lastCalcMode = 'single';
     lastSingleSnapshot = getAllValues();
+    syncSliders(lastSingleSnapshot);
     const result = computeAll(lastSingleSnapshot);
     renderSingleResult(result);
   }
