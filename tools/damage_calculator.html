@@ -317,7 +317,7 @@
 <body>
 <div class="container">
   <h1>ダメージ計算機EX</h1>
-  <div class="subtitle">ローカル動作 / 数値を入力して「計算する」を押してください</div>
+  <div class="subtitle">数値を入力して「計算する」を押してください</div>
 
   <div class="grid">
 
@@ -344,7 +344,7 @@
         <div class="row"><label>その他補正</label><div class="inputs"><input type="text" inputmode="text" id="def_correction" value="1" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
         <div class="row"><label>防御ランク</label><div class="inputs"><select id="def_rank"></select></div></div>
         <div class="row"><label>防御ダウン耐性</label><div class="inputs"><select id="def_tolerance"></select></div></div>
-        <div class="row"><label>敵HP</label><div class="inputs"><input type="text" inputmode="text" id="enemy_hp" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>HP</label><div class="inputs"><input type="text" inputmode="text" id="enemy_hp" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
         <div class="note">防御 = 防御力×その他補正</div>
       </div>
     </details>
@@ -476,7 +476,7 @@
       <div class="row">
         <div id="chartList" class="chart-list"></div>
       </div>
-      <div class="note">左のセレクトボックスで「保存・読み込み」に保存済みのデータを選び、「追加」でチャートに追加します。チップをタップすると最新の保存データを読み込み、×で削除します。「合算」を有効にして計算すると、チャート内の各項目の結果を合計します。</div>
+      <div class="note">保存済みのデータを選び、「追加」でチャートに追加します。チップをタップすると保存データを読み込み、×で削除します。「合算」を有効にして計算すると、チャート内の各項目の結果を合計します。ダメージ%表示に使うHPは、チャート先頭のチップに保存されているHPの値を参照します。</div>
 
       <div class="row" style="margin-top:10px;">
         <label>チャート保存名</label>
@@ -533,7 +533,7 @@
         <div class="slider-label"><span>装備倍率</span><span class="slider-value" id="slider_skill_equip_value">0</span></div>
         <input type="range" id="slider_skill_equip" min="0" max="45" step="1" value="0">
       </div>
-      <div class="note">スライダーを動かすと、その値を一時的に置き換えて計算結果に即反映します（入力欄自体は変更されません）。</div>
+      <div class="note">スライダーを動かすと、その値を一時的に置き換えて計算結果に即反映します。</div>
     </div>
 
     <table id="res_table">
@@ -1109,14 +1109,11 @@ function computeAll(ctx){
       movePowerVal, moveBoardVal, moveMultiplierVal, falloffMult, terastalMult,
       powerUpCorr, wtzCorr, resistCorr, effectiveCorr, criticalCorr, breakCorr,
       circleCorr, skillEquipCorr, totalReductionCorr, voltageCorr
-    }
+    },
+    enemyHp: num('enemy_hp', ctx)
   };
 }
 
-function getEnemyHp(){
-  const v = num('enemy_hp');
-  return v;
-}
 function formatDamage(d, hp){
   if(hp >= 1){
     const pct = (d / hp * 100).toFixed(1);
@@ -1191,7 +1188,7 @@ function renderDamageTable(randoms, damages, hp){
 }
 
 function renderSingleResult(result){
-  const hp = getEnemyHp();
+  const hp = result.enemyHp;
   $('res_min').textContent = formatDamage(result.minDmg, hp);
   $('res_max').textContent = formatDamage(result.maxDmg, hp);
   $('res_avg').textContent = formatDamage(result.avgDmg, hp);
@@ -1210,7 +1207,7 @@ function renderSingleResult(result){
 }
 
 function renderSumResult(entryResults){
-  const hp = getEnemyHp();
+  const hp = entryResults.length ? entryResults[0].result.enemyHp : 0;
   const randoms = entryResults.length ? entryResults[0].result.randoms : [];
   const totalDamages = randoms.map((_,i)=> entryResults.reduce((s,e)=> s + e.result.damages[i], 0));
 
