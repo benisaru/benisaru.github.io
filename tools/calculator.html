@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>四則演算電卓</title>
+<title>テキスト電卓</title>
 <style>
   * { box-sizing: border-box; }
   html, body {
@@ -205,7 +205,7 @@
       <button id="resetBtn">リセット</button>
       <button id="copyBtn">結果をコピー</button>
     </div>
-    <div class="hint">+ − × ÷ ( ) が使えます。Enterキーで計算・履歴に保存されます。</div>
+    <div class="hint">+ − × ÷ ( ) ^（累乗） floor() が使えます。Enterキーで計算・履歴に保存されます。</div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -307,14 +307,21 @@ function calculate() {
     .replace(/[−ー]/g, '-')
     .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
     .replace(/[（]/g, '(')
-    .replace(/[）]/g, ')');
+    .replace(/[）]/g, ')')
+    .replace(/\^/g, '**'); // 累乗
 
-  if (!/^[0-9+\-*/().\s]+$/.test(expr)) {
+  // バリデーション（floorという単語だけ許可し、それ以外の文字をチェック）
+  const checkStr = expr.replace(/floor/gi, '');
+  if (!/^[0-9+\-*/().\s]+$/.test(checkStr)) {
     errorEl.textContent = '使用できない文字が含まれています';
     resultEl.textContent = '';
     lastResult = '';
+    lastExpr = '';
     return;
   }
+
+  // floor( を Math.floor( に変換
+  expr = expr.replace(/floor/gi, 'Math.floor');
 
   try {
     const value = Function('"use strict"; return (' + expr + ')')();
