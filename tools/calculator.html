@@ -57,13 +57,19 @@
     border-top: 1px solid #e0e0e0;
     box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
   }
-  input#expr {
+  #expr {
     width: 100%;
     padding: 16px;
     font-size: 20px;
+    font-family: inherit;
     border: 1px solid #ccc;
     border-radius: 12px;
     margin-bottom: 12px;
+    height: 110px;
+    resize: none;
+    overflow-y: auto;
+    line-height: 1.5;
+    -webkit-overflow-scrolling: touch;
   }
   .btn-row {
     display: flex;
@@ -200,7 +206,7 @@
   </div>
 
   <div class="control-area">
-    <input type="text" id="expr" placeholder="例: 3 + 4 * (2 - 1)" autofocus>
+    <textarea id="expr" placeholder="例: 3 + 4 * (2 - 1)" rows="3" autofocus></textarea>
     <div class="btn-row">
       <button id="resetBtn">リセット</button>
       <button id="copyBtn">結果をコピー</button>
@@ -349,6 +355,7 @@ function showToast(msg) {
 exprInput.addEventListener('input', calculate);
 exprInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
+    e.preventDefault(); // 改行の挿入を防止
     calculate();
     if (lastResult && lastExpr) {
       addHistory(lastExpr, lastResult);
