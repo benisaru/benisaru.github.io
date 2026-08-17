@@ -322,7 +322,7 @@
   <div class="grid">
 
     <!-- 攻撃 -->
-    <details class="panel" open>
+    <details class="panel" data-panel-id="atk" open>
       <summary>攻撃</summary>
       <div class="panel-body">
         <div class="row"><label>攻撃力</label><div class="inputs"><input type="text" inputmode="text" id="atk_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
@@ -337,7 +337,7 @@
     </details>
 
     <!-- 防御 -->
-    <details class="panel" open>
+    <details class="panel" data-panel-id="def" open>
       <summary>防御</summary>
       <div class="panel-body">
         <div class="row"><label>防御力</label><div class="inputs"><input type="text" inputmode="text" id="def_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
@@ -350,7 +350,7 @@
     </details>
 
     <!-- 技威力 -->
-    <details class="panel" open>
+    <details class="panel" data-panel-id="move" open>
       <summary>技威力</summary>
       <div class="panel-body">
         <div class="row"><label>威力</label><div class="inputs"><input type="text" inputmode="text" id="move_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
@@ -368,7 +368,7 @@
     </details>
 
     <!-- 各種補正 -->
-    <details class="panel" open>
+    <details class="panel" data-panel-id="misc" open>
       <summary>各種補正</summary>
       <div class="panel-body">
         <div class="row"><label>WTZ</label><div class="inputs"><select id="wtz">
@@ -403,7 +403,7 @@
     </details>
 
     <!-- 威力補正 -->
-    <details class="panel" style="grid-column: span 2;" open>
+    <details class="panel" style="grid-column: span 2;" data-panel-id="powerup" open>
       <summary>威力補正</summary>
       <div class="panel-body">
         <div class="row"><label>ポテンシャル</label><div class="inputs"><select id="potential"></select></div></div>
@@ -431,7 +431,7 @@
 
   </div>
 
-  <details class="panel" style="margin-top:14px;" open>
+  <details class="panel" style="margin-top:14px;" data-panel-id="save" open>
     <summary>保存・読み込み</summary>
     <div class="panel-body">
       <div class="row">
@@ -461,7 +461,7 @@
     </div>
   </details>
 
-  <details class="panel" style="margin-top:14px;" open>
+  <details class="panel" style="margin-top:14px;" data-panel-id="chart" open>
     <summary>チャート</summary>
     <div class="panel-body">
       <div class="row">
@@ -848,8 +848,36 @@ function validateFormulaField(el){
   else{ el.classList.remove('input-error'); }
 }
 
+// ---------- パネル開閉状態の記憶 ----------
+const PANEL_STATE_KEY = 'dmgcalc_panel_state';
+function loadPanelState(){
+  try{
+    const raw = localStorage.getItem(PANEL_STATE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+function savePanelState(state){
+  try{ localStorage.setItem(PANEL_STATE_KEY, JSON.stringify(state)); }catch(e){}
+}
+function initPanelPersistence(){
+  const panels = document.querySelectorAll('details.panel[data-panel-id]');
+  const state = loadPanelState();
+  panels.forEach(p=>{
+    const id = p.dataset.panelId;
+    if(Object.prototype.hasOwnProperty.call(state, id)){
+      p.open = !!state[id];
+    }
+    p.addEventListener('toggle', ()=>{
+      const s = loadPanelState();
+      s[id] = p.open;
+      savePanelState(s);
+    });
+  });
+}
+
 // ---------- 計算処理 ----------
 document.addEventListener('DOMContentLoaded', ()=>{
+  initPanelPersistence();
   $('calcBtn').addEventListener('click', calculate);
 
   FORMULA_FIELD_IDS.forEach(id=>{
