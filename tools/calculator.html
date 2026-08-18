@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>テキスト電卓</title>
+<title>四則演算電卓</title>
 <style>
   * { box-sizing: border-box; }
   html, body {
@@ -194,7 +194,7 @@
 <body>
 
   <div class="display-area">
-    <h1>テキスト電卓</h1>
+    <h1>四則演算電卓</h1>
     <div class="history-header">
       <span>計算履歴</span>
       <button id="clearHistoryBtn">全削除</button>
@@ -211,7 +211,7 @@
       <button id="resetBtn">リセット</button>
       <button id="copyBtn">結果をコピー</button>
     </div>
-    <div class="hint">+ − × ÷ ( ) ^（累乗） floor() が使えます。Enterキーで計算・履歴に保存されます。</div>
+    <div class="hint">+ − × ÷ ( ) ^（累乗） floor() ceil() round() が使えます。Enterキーで計算・履歴に保存されます。</div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -316,8 +316,8 @@ function calculate() {
     .replace(/[）]/g, ')')
     .replace(/\^/g, '**'); // 累乗
 
-  // バリデーション（floorという単語だけ許可し、それ以外の文字をチェック）
-  const checkStr = expr.replace(/floor/gi, '');
+  // バリデーション（floor/ceil/roundという単語だけ許可し、それ以外の文字をチェック）
+  const checkStr = expr.replace(/floor|ceil|round/gi, '');
   if (!/^[0-9+\-*/().\s]+$/.test(checkStr)) {
     errorEl.textContent = '使用できない文字が含まれています';
     resultEl.textContent = '';
@@ -326,8 +326,11 @@ function calculate() {
     return;
   }
 
-  // floor( を Math.floor( に変換
-  expr = expr.replace(/floor/gi, 'Math.floor');
+  // floor( / ceil( / round( を Math.floor( / Math.ceil( / Math.round( に変換
+  expr = expr
+    .replace(/floor/gi, 'Math.floor')
+    .replace(/ceil/gi, 'Math.ceil')
+    .replace(/round/gi, 'Math.round');
 
   try {
     const value = Function('"use strict"; return (' + expr + ')')();
