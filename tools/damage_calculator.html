@@ -363,7 +363,7 @@
           <div class="inputs checkbox-group"><label><input type="checkbox" id="move_falloff"> あり</label></div>
           <div class="inputs checkbox-group"><label><input type="checkbox" id="terastal"> あり</label></div>
         </div>
-        <div class="note">技威力 = (威力+ボード)×効果倍率×範囲減衰×テラスタル</div>
+        <div class="note">技威力 = (威力+ボード)×効果倍率×テラスタル</div>
       </div>
     </details>
 
@@ -1027,7 +1027,7 @@ function computeAll(ctx){
   const moveMultiplierVal = num('move_multiplier',ctx);
   const falloffMult = isChecked('move_falloff',ctx) ? 0.5 : 1;
   const terastalMult = isChecked('terastal',ctx) ? 1.5 : 1;
-  const movePower = (movePowerVal+moveBoardVal) * moveMultiplierVal * falloffMult * terastalMult;
+  const movePower = (movePowerVal+moveBoardVal) * moveMultiplierVal * terastalMult;
 
   // ---- 威力補正 ----
   const potential = intC('potential',ctx)*0.1;
@@ -1078,8 +1078,8 @@ function computeAll(ctx){
   // ---- 隠し半減補正（常時有効。乱数をかける直前の内部補正として×0.5） ----
   const hiddenHalfCorr = 0.5;
 
-  // ---- 各種補正 合算（D側：急所補正×WTZ補正×タイプ抵抗補正×サークル補正×ブレイク補正×ボルテージ補正×スキル装備補正×軽減補正） ----
-  const variousCorr = criticalCorr * wtzCorr * resistCorr * circleCorr * breakCorr * voltageCorr * skillEquipCorr * totalReductionCorr;
+  // ---- 各種補正 合算（D側：急所補正×WTZ補正×タイプ抵抗補正×サークル補正×ブレイク補正×ボルテージ補正×スキル装備補正×軽減補正×範囲減衰） ----
+  const variousCorr = criticalCorr * wtzCorr * resistCorr * circleCorr * breakCorr * voltageCorr * skillEquipCorr * totalReductionCorr * falloffMult;
 
   // ---- ランク補正乗算時は切り捨て（攻撃・防御ともにfloor） ----
   const atkAfterRank = Math.floor(atk * atkRankCorr); // A
@@ -1123,6 +1123,7 @@ function computeAll(ctx){
     ['スキル装備補正', skillEquipCorr.toFixed(4)],
     ['軽減補正', totalReductionCorr.toFixed(4) + (isCritical ? '（急所により軽減の場を無視）':'')],
     ['ボルテージ補正', voltageCorr.toFixed(4)],
+    ['範囲減衰', falloffMult.toFixed(4)],
     ['各種補正 合計（D側）', variousCorr.toFixed(4)],
   ];
 
@@ -1210,7 +1211,6 @@ function buildFormulaPart(raw, r){
   // ---- 技威力 ----
   let move = chainAdd([[raw.movePowerVal,3],[raw.moveBoardVal,3]]);
   move = applyMul(move, raw.moveMultiplierVal, 3);
-  move = applyMul(move, raw.falloffMult, 2);
   move = applyMul(move, raw.terastalMult, 2);
 
   // ---- C = floor(技威力×威力補正×抜群補正×隠し補正) ----
@@ -1219,10 +1219,11 @@ function buildFormulaPart(raw, r){
   cChain = applyMul(cChain, raw.hiddenHalfCorr, 4);
   const C = `floor(${cChain.str})`;
 
-  // ---- 各種補正（D側・純積：急所×WTZ×タイプ抵抗×サークル×ブレイク×ボルテージ×スキル装備×軽減） ----
+  // ---- 各種補正（D側・純積：急所×WTZ×タイプ抵抗×サークル×ブレイク×ボルテージ×スキル装備×軽減×範囲減衰） ----
   const various = chainMul([
     [raw.criticalCorr,4],[raw.wtzCorr,4],[raw.resistCorr,4],[raw.circleCorr,4],
-    [raw.breakCorr,4],[raw.voltageCorr,4],[raw.skillEquipCorr,4],[raw.totalReductionCorr,4]
+    [raw.breakCorr,4],[raw.voltageCorr,4],[raw.skillEquipCorr,4],[raw.totalReductionCorr,4],
+    [raw.falloffMult,2]
   ]);
 
   // ---- D = C×A÷B×各種補正 ／ damage = floor(D×乱数) ----
