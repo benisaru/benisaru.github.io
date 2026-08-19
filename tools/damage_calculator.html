@@ -1078,19 +1078,24 @@ function computeAll(ctx){
   // ---- 隠し半減補正（常時有効。乱数をかける直前の内部補正として×0.5） ----
   const hiddenHalfCorr = 0.5;
 
-  // ---- 各種補正 合算 ----
-  const variousCorr = powerUpCorr * wtzCorr * resistCorr * effectiveCorr * criticalCorr * breakCorr * circleCorr * skillEquipCorr * totalReductionCorr * voltageCorr * hiddenHalfCorr;
+  // ---- 各種補正 合算（D側：急所補正×WTZ補正×タイプ抵抗補正×サークル補正×ブレイク補正×ボルテージ補正×スキル装備補正×軽減補正） ----
+  const variousCorr = criticalCorr * wtzCorr * resistCorr * circleCorr * breakCorr * voltageCorr * skillEquipCorr * totalReductionCorr;
 
   // ---- ランク補正乗算時は切り捨て（攻撃・防御ともにfloor） ----
-  const atkAfterRank = Math.floor(atk * atkRankCorr);
-  const defAfterRank = Math.floor(def * defRankCorr);
+  const atkAfterRank = Math.floor(atk * atkRankCorr); // A
+  const defAfterRank = Math.floor(def * defRankCorr); // B
+
+  // ---- C = floor(技威力×威力補正×抜群補正×隠し補正) ----
+  const moveCorrValue = Math.floor(movePower * powerUpCorr * effectiveCorr * hiddenHalfCorr); // C
 
   // ---- 乱数 0.90〜1.00 (0.01刻み) ----
   const randoms=[];
   for(let i=90;i<=100;i++) randoms.push(i/100);
 
   const damages = randoms.map(r=>{
-    const raw = (atkAfterRank * movePower * variousCorr / defAfterRank) * r;
+    // D = C×A÷B×各種補正 ／ damage = floor(D×乱数)
+    const D = moveCorrValue * atkAfterRank / defAfterRank * variousCorr;
+    const raw = D * r;
     return Math.floor(raw);
   });
 
@@ -1101,28 +1106,29 @@ function computeAll(ctx){
   const breakdownRows = [
     ['攻撃', atk.toFixed(3)],
     ['攻撃ランク補正', atkRankCorr.toFixed(4) + (isCritical && intC('atk_rank',ctx)<=-1 ? '（急所により0扱い）':'')],
-    ['floor(攻撃×攻撃ランク補正)', atkAfterRank],
+    ['A = floor(攻撃×攻撃ランク補正)', atkAfterRank],
     ['防御', def.toFixed(3)],
     ['防御ランク補正', formatNum(defRankFrac.num,3)+'/'+formatNum(defRankFrac.den,3)+' → '+defRankCorr.toFixed(3) + (isCritical && intC('def_rank',ctx)>=1 ? '（急所により0扱い）':'')],
-    ['floor(防御×防御ランク補正)', defAfterRank],
+    ['B = floor(防御×防御ランク補正)', defAfterRank],
     ['技威力', movePower.toFixed(3)],
     ['威力補正', powerUpCorr.toFixed(4)],
+    ['抜群補正', effectiveCorr.toFixed(4)],
+    ['隠し半減補正', hiddenHalfCorr.toFixed(4)],
+    ['C = floor(技威力×威力補正×抜群補正×隠し補正)', moveCorrValue],
     ['WTZ補正', wtzCorr],
     ['タイプ抵抗補正', resistCorr.toFixed(4)],
-    ['抜群補正', effectiveCorr.toFixed(4)],
     ['急所補正', criticalCorr],
     ['ブレイク補正', breakCorr],
     ['サークル補正', circleCorr.toFixed(4)],
     ['スキル装備補正', skillEquipCorr.toFixed(4)],
     ['軽減補正', totalReductionCorr.toFixed(4) + (isCritical ? '（急所により軽減の場を無視）':'')],
     ['ボルテージ補正', voltageCorr.toFixed(4)],
-    ['隠し半減補正', hiddenHalfCorr.toFixed(4)],
-    ['各種補正 合計', variousCorr.toFixed(4)],
+    ['各種補正 合計（D側）', variousCorr.toFixed(4)],
   ];
 
   return {randoms, damages, minDmg, maxDmg, avgDmg, breakdownRows,
     raw: {
-      atk, atkRankCorr, def, defRankCorr, defRankFrac, movePower, variousCorr,
+      atk, atkRankCorr, def, defRankCorr, defRankFrac, movePower, moveCorrValue, variousCorr,
       atkPowerVal, atkEquipVal, atkFormVal, atkBoardVal, atkTeamVal, atkCorrectionVal,
       defPowerVal, defCorrectionVal,
       movePowerVal, moveBoardVal, moveMultiplierVal, falloffMult, terastalMult,
@@ -1183,23 +1189,23 @@ function chainMul(terms){
 }
 
 function buildFormulaPart(raw, r){
-  // ---- 攻撃（floor #1） ----
+  // ---- A = floor(攻撃×攻撃ランク補正) ----
   let atk = chainAdd([[raw.atkPowerVal,3],[raw.atkEquipVal,3]]);
   atk = applyMul(atk, raw.atkFormVal, 2);
   atk = applyAdd(atk, raw.atkBoardVal, 3);
   atk = applyAdd(atk, raw.atkTeamVal, 3);
   atk = applyMul(atk, raw.atkCorrectionVal, 3);
   atk = applyMul(atk, raw.atkRankCorr, 4);
-  const atkRankPart = `floor(${atk.str})`;
+  const A = `floor(${atk.str})`;
 
-  // ---- 防御（floorあり。ランク補正は分数×1000をfloorして1000で割ることで小数第4位を切り捨て） ----
+  // ---- B = floor(防御×防御ランク補正)（ランク補正は分数×1000をfloorして1000で割ることで小数第4位を切り捨て） ----
   let def = {str: formatNum(raw.defPowerVal,3), hasAdd:false, n:1};
   def = applyMul(def, raw.defCorrectionVal, 3);
   let defTerm = def.str;
   if(!(raw.defRankFrac.num === raw.defRankFrac.den)){
     defTerm += `×floor(${formatNum(raw.defRankFrac.num,3)}/${formatNum(raw.defRankFrac.den,3)}*1000)/1000`;
   }
-  const defRankPart = `floor(${defTerm})`;
+  const B = `floor(${defTerm})`;
 
   // ---- 技威力 ----
   let move = chainAdd([[raw.movePowerVal,3],[raw.moveBoardVal,3]]);
@@ -1207,19 +1213,21 @@ function buildFormulaPart(raw, r){
   move = applyMul(move, raw.falloffMult, 2);
   move = applyMul(move, raw.terastalMult, 2);
 
-  // ---- 各種補正（純積） ----
+  // ---- C = floor(技威力×威力補正×抜群補正×隠し補正) ----
+  let cChain = applyMul(move, raw.powerUpCorr, 4);
+  cChain = applyMul(cChain, raw.effectiveCorr, 4);
+  cChain = applyMul(cChain, raw.hiddenHalfCorr, 4);
+  const C = `floor(${cChain.str})`;
+
+  // ---- 各種補正（D側・純積：急所×WTZ×タイプ抵抗×サークル×ブレイク×ボルテージ×スキル装備×軽減） ----
   const various = chainMul([
-    [raw.powerUpCorr,4],[raw.wtzCorr,4],[raw.resistCorr,4],[raw.effectiveCorr,4],
-    [raw.criticalCorr,4],[raw.breakCorr,4],[raw.circleCorr,4],[raw.skillEquipCorr,4],
-    [raw.totalReductionCorr,4],[raw.voltageCorr,4],[raw.hiddenHalfCorr,4]
+    [raw.criticalCorr,4],[raw.wtzCorr,4],[raw.resistCorr,4],[raw.circleCorr,4],
+    [raw.breakCorr,4],[raw.voltageCorr,4],[raw.skillEquipCorr,4],[raw.totalReductionCorr,4]
   ]);
 
-  // ---- 組み立て：floor(atkRankPart×move×various÷defRankPart×r)（floor #2） ----
-  const parts = [atkRankPart];
-  parts.push(move.hasAdd ? `(${move.str})` : move.str);
-  if(various.str !== '1') parts.push(various.str);
-  let formula = parts.join('×');
-  formula += `÷${defRankPart}`;
+  // ---- D = C×A÷B×各種補正 ／ damage = floor(D×乱数) ----
+  let formula = `${C}×${A}÷${B}`;
+  if(various.str !== '1') formula += `×${various.str}`;
   if(r !== 1){
     formula += `×${r.toFixed(2)}`;
   }
