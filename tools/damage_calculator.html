@@ -79,6 +79,9 @@
   }
   .row label{flex:1 1 auto;color:var(--sub);min-width:0;}
   .row .inputs{display:flex;gap:4px;flex:0 1 auto;min-width:0;}
+  .gauss-wrap{display:inline-flex;align-items:center;gap:2px;min-width:0;}
+  .gauss-wrap .bracket{font-weight:700;color:var(--sub);font-size:15px;line-height:1;user-select:none;}
+  .gauss-wrap input{flex:1 1 auto;min-width:0;}
   input[type=number], input[type=text], select{
     background:var(--panel2);
     border:1px solid var(--border);
@@ -325,11 +328,11 @@
     <details class="panel" data-panel-id="atk" open>
       <summary>攻撃力</summary>
       <div class="panel-body">
-        <div class="row"><label>攻撃・特攻</label><div class="inputs"><input type="text" inputmode="text" id="atk_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-        <div class="row"><label>装備</label><div class="inputs"><input type="text" inputmode="text" id="atk_equip" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>攻撃・特攻</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="atk_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
+        <div class="row"><label>装備</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="atk_equip" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
         <div class="row"><label>フォルムチェンジ倍率</label><div class="inputs"><select id="atk_form"></select></div></div>
-        <div class="row"><label>ボード</label><div class="inputs"><input type="text" inputmode="text" id="atk_board" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-        <div class="row"><label>チームパワー</label><div class="inputs"><input type="text" inputmode="text" id="atk_team" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>ボード</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="atk_board" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
+        <div class="row"><label>チームパワー</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="atk_team" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
         <div class="row"><label>その他補正</label><div class="inputs"><input type="text" inputmode="text" id="atk_correction" value="1" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
         <div class="row"><label>攻撃ランク</label><div class="inputs"><select id="atk_rank"></select></div></div>
         <div class="note">攻撃力 = ((攻撃+装備)×フォルムチェンジ倍率+ボード+チームパワー)×その他補正　</div>
@@ -340,11 +343,11 @@
     <details class="panel" data-panel-id="def" open>
       <summary>防御力</summary>
       <div class="panel-body">
-        <div class="row"><label>防御・特防</label><div class="inputs"><input type="text" inputmode="text" id="def_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>防御・特防</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="def_power" value="83" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
         <div class="row"><label>その他補正</label><div class="inputs"><input type="text" inputmode="text" id="def_correction" value="1" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
         <div class="row"><label>防御ランク</label><div class="inputs"><select id="def_rank"></select></div></div>
         <div class="row"><label>防御ダウン耐性</label><div class="inputs"><select id="def_tolerance"></select></div></div>
-        <div class="row"><label>HP</label><div class="inputs"><input type="text" inputmode="text" id="enemy_hp" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>HP</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="enemy_hp" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
         <div class="note">防御力 = 防御×その他補正</div>
       </div>
     </details>
@@ -353,8 +356,8 @@
     <details class="panel" data-panel-id="move" open>
       <summary>技威力</summary>
       <div class="panel-body">
-        <div class="row"><label>威力</label><div class="inputs"><input type="text" inputmode="text" id="move_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
-        <div class="row"><label>ボード</label><div class="inputs"><input type="text" inputmode="text" id="move_board" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>威力</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="move_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
+        <div class="row"><label>ボード</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="move_board" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
         <div class="row row-full mult-tera-grid">
           <div class="mtg-label">効果倍率</div>
           <div class="mtg-label">範囲減衰</div>
@@ -394,7 +397,7 @@
           <select id="circle_def1"></select><select id="circle_def2"></select><select id="circle_def3"></select>
         </div></div>
         <div class="row"><label>スキル装備</label><div class="inputs"><select id="skill_equip"></select></div></div>
-        <div class="row"><label>ボルテージ</label><div class="inputs"><input type="text" inputmode="text" id="voltage" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>ボルテージ</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="voltage" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
         <div class="row"><label>軽減</label><div class="inputs"><select id="reduction"></select></div></div>
         <div class="row"><label>&nbsp;&nbsp;軽減の場</label><div class="inputs checkbox-group">
           <label><input type="checkbox" id="reduction_field"> あり</label>
@@ -589,6 +592,10 @@ function num(id, ctx){
   const v = evalExpr(raw);
   return isNaN(v) ? 0 : v;
 }
+// 入力値をガウス記号（floor）で切り捨ててから返す。計算前に整数化したい項目で使用。
+function numFloor(id, ctx){
+  return Math.floor(num(id, ctx));
+}
 function sel(id, ctx){
   const raw = (ctx && Object.prototype.hasOwnProperty.call(ctx, id)) ? ctx[id] : ($(id) ? $(id).value : undefined);
   return parseFloat(raw);
@@ -650,7 +657,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
   addOptions($('def_rank'), ranks, {selectedValue:0, labelFn:v=>v});
 
   // 防御ダウン耐性 0〜9
-  addOptions($('def_tolerance'), range(0,9), {selectedValue:0});
+  addOptions($('def_tolerance'), range(0,9), {selectedValue:5});
 
   // タイプ抵抗 -3〜3
   addOptions($('resist'), range(-3,3).reverse(), {selectedValue:0});
@@ -993,11 +1000,11 @@ function computeAll(ctx){
   ctx = ctx || null;
 
   // 攻撃力
-  const atkPowerVal = num('atk_power',ctx);
-  const atkEquipVal = num('atk_equip',ctx);
+  const atkPowerVal = numFloor('atk_power',ctx);
+  const atkEquipVal = numFloor('atk_equip',ctx);
   const atkFormVal = sel('atk_form',ctx);
-  const atkBoardVal = num('atk_board',ctx);
-  const atkTeamVal = num('atk_team',ctx);
+  const atkBoardVal = numFloor('atk_board',ctx);
+  const atkTeamVal = numFloor('atk_team',ctx);
   const atkCorrectionVal = num('atk_correction',ctx);
   const atk = ((atkPowerVal+atkEquipVal)*atkFormVal + atkBoardVal + atkTeamVal) * atkCorrectionVal;
 
@@ -1010,7 +1017,7 @@ function computeAll(ctx){
   const atkRankCorr = rankCorrection(atkRankValue);
 
   // 防御力
-  const defPowerVal = num('def_power',ctx);
+  const defPowerVal = numFloor('def_power',ctx);
   const defCorrectionVal = num('def_correction',ctx);
   const def = defPowerVal * defCorrectionVal;
 
@@ -1024,8 +1031,8 @@ function computeAll(ctx){
   const defRankCorr = (defRankFrac.num / defRankFrac.den);
 
   // 技威力
-  const movePowerVal = num('move_power',ctx);
-  const moveBoardVal = num('move_board',ctx);
+  const movePowerVal = numFloor('move_power',ctx);
+  const moveBoardVal = numFloor('move_board',ctx);
   const moveMultiplierVal = num('move_multiplier',ctx);
   const falloffMult = isChecked('move_falloff',ctx) ? 0.5 : 1;
   const terastalMult = isChecked('terastal',ctx) ? 1.5 : 1;
@@ -1075,7 +1082,7 @@ function computeAll(ctx){
   const totalReductionCorr = reductionCorr * reductionFieldCorr;
 
   // ---- ボルテージ補正 ----
-  const voltageCorr = 1 + num('voltage',ctx)*0.5;
+  const voltageCorr = 1 + numFloor('voltage',ctx)*0.5;
 
   // ---- 隠し半減補正（常時有効。乱数をかける直前の内部補正として×0.5） ----
   const hiddenHalfCorr = 0.5;
@@ -1134,7 +1141,7 @@ function computeAll(ctx){
       powerUpCorr, wtzCorr, resistCorr, effectiveCorr, criticalCorr, breakCorr,
       circleCorr, skillEquipCorr, totalReductionCorr, voltageCorr, hiddenHalfCorr
     },
-    enemyHp: num('enemy_hp', ctx)
+    enemyHp: numFloor('enemy_hp', ctx)
   };
 }
 
@@ -1188,34 +1195,34 @@ function chainMul(terms){
 }
 
 function buildFormulaPart(raw, r){
-  // ---- A = floor(攻撃×攻撃ランク補正) ----
+  // ---- A = [攻撃×攻撃ランク補正] ----
   let atk = chainAdd([[raw.atkPowerVal,3],[raw.atkEquipVal,3]]);
   atk = applyMul(atk, raw.atkFormVal, 2);
   atk = applyAdd(atk, raw.atkBoardVal, 3);
   atk = applyAdd(atk, raw.atkTeamVal, 3);
   atk = applyMul(atk, raw.atkCorrectionVal, 3);
   atk = applyMul(atk, raw.atkRankCorr, 4);
-  const A = `floor(${atk.str})`;
+  const A = `[${atk.str}]`;
 
-  // ---- B = floor(防御×防御ランク補正) ----
+  // ---- B = [防御×防御ランク補正] ----
   let def = {str: formatNum(raw.defPowerVal,3), hasAdd:false, n:1};
   def = applyMul(def, raw.defCorrectionVal, 3);
   let defTerm = def.str;
   if(!(raw.defRankFrac.num === raw.defRankFrac.den)){
     defTerm += `×${formatNum(raw.defRankFrac.num,3)}/${formatNum(raw.defRankFrac.den,3)}`;
   }
-  const B = `floor(${defTerm})`;
+  const B = `[${defTerm}]`;
 
   // ---- 技威力 ----
   let move = chainAdd([[raw.movePowerVal,3],[raw.moveBoardVal,3]]);
   move = applyMul(move, raw.moveMultiplierVal, 3);
   move = applyMul(move, raw.terastalMult, 2);
 
-  // ---- C = floor(技威力×威力補正×抜群補正×隠し補正) ----
+  // ---- C = [技威力×威力補正×抜群補正×隠し補正] ----
   let cChain = applyMul(move, raw.powerUpCorr, 4);
   cChain = applyMul(cChain, raw.effectiveCorr, 4);
   cChain = applyMul(cChain, raw.hiddenHalfCorr, 4);
-  const C = `floor(${cChain.str})`;
+  const C = `[${cChain.str}]`;
 
   // ---- 各種補正（D側・純積：急所×WTZ×タイプ抵抗×サークル×ブレイク×ボルテージ×スキル装備×軽減×範囲減衰） ----
   const various = chainMul([
@@ -1224,13 +1231,13 @@ function buildFormulaPart(raw, r){
     [raw.falloffMult,2]
   ]);
 
-  // ---- D = C×A÷B×各種補正 ／ damage = floor(D×乱数) ----
+  // ---- D = C×A÷B×各種補正 ／ damage = [D×乱数] ----
   let formula = `${C}×${A}÷${B}`;
   if(various.str !== '1') formula += `×${various.str}`;
   if(r !== 1){
     formula += `×${r.toFixed(2)}`;
   }
-  return `floor(${formula})`;
+  return `[${formula}]`;
 }
 
 let lastMinFormula = '';
