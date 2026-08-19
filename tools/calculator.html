@@ -211,7 +211,7 @@
       <button id="resetBtn">リセット</button>
       <button id="copyBtn">結果をコピー</button>
     </div>
-    <div class="hint">+ − × ÷ ( ) ^（累乗） floor() ceil() round() が使えます。Enterキーで計算・履歴に保存されます。</div>
+    <div class="hint">+ − × ÷ ( ) [ ]（ガウス記号） ^（累乗） floor() ceil() round() が使えます。Enterキーで計算・履歴に保存されます。</div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -314,7 +314,9 @@ function calculate() {
     .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
     .replace(/[（]/g, '(')
     .replace(/[）]/g, ')')
-    .replace(/\^/g, '**'); // 累乗
+    .replace(/\^/g, '**') // 累乗
+    .replace(/[\[［]/g, 'floor(') // ガウス記号 [ → floor(
+    .replace(/[\]］]/g, ')');     // ガウス記号 ] → )
 
   // バリデーション（floor/ceil/roundという単語だけ許可し、それ以外の文字をチェック）
   const checkStr = expr.replace(/floor|ceil|round/gi, '');
