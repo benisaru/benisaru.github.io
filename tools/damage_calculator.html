@@ -1202,7 +1202,7 @@ function buildFormulaPart(raw, r){
   def = applyMul(def, raw.defCorrectionVal, 3);
   let defTerm = def.str;
   if(!(raw.defRankFrac.num === raw.defRankFrac.den)){
-    defTerm += `×floor(${formatNum(raw.defRankFrac.num,3)}/${formatNum(raw.defRankFrac.den,3)})`;
+    defTerm += `×${formatNum(raw.defRankFrac.num,3)}/${formatNum(raw.defRankFrac.den,3)}`;
   }
   const B = `floor(${defTerm})`;
 
