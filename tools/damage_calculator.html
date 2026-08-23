@@ -1030,14 +1030,6 @@ function computeAll(ctx){
   //const defRankCorr = truncate3(defRankFrac.num / defRankFrac.den);
   const defRankCorr = (defRankFrac.num / defRankFrac.den);
 
-  // 技威力
-  const movePowerVal = numFloor('move_power',ctx);
-  const moveBoardVal = numFloor('move_board',ctx);
-  const moveMultiplierVal = num('move_multiplier',ctx);
-  const falloffMult = isChecked('move_falloff',ctx) ? 0.5 : 1;
-  const terastalMult = isChecked('terastal',ctx) ? 1.5 : 1;
-  const movePower = (movePowerVal+moveBoardVal) * moveMultiplierVal * terastalMult;
-
   // ---- 威力補正 ----
   const potential = intC('potential',ctx)*0.1;
   const charismaFn = v => v===0 ? 0 : 0.05 + v*0.05;
@@ -1052,6 +1044,15 @@ function computeAll(ctx){
   const otherVal = num('other',ctx);
   const powerUpTotal = potential + charismaSum + leadSum + toukonSum + boostVal + bBoostVal + skillSum + ouenVal + otherVal;
   const powerUpCorr = 1 + powerUpTotal;
+
+  // 技威力
+  const movePowerVal = numFloor('move_power',ctx);
+  const moveBoardVal = numFloor('move_board',ctx);
+  const moveMultiplierVal = num('move_multiplier',ctx);
+  const falloffMult = isChecked('move_falloff',ctx) ? 0.5 : 1;
+  const terastalMult = isChecked('terastal',ctx) ? 1.5 : 1;
+  const movePower = Math.floor( (movePowerVal+moveBoardVal) * powerUpCorr) * moveMultiplierVal *  terastalMult;
+
 
   // ---- WTZ / タイプ抵抗 / 抜群 / 急所 / ブレイク ----
   const wtzCorr = sel('wtz',ctx);
@@ -1094,8 +1095,8 @@ function computeAll(ctx){
   const atkAfterRank = Math.floor(atk * atkRankCorr); // A
   const defAfterRank = Math.floor(def * defRankCorr); // B
 
-  // ---- C = floor(技威力×威力補正×抜群補正×隠し補正) ----
-  const moveCorrValue = Math.floor(movePower * powerUpCorr * effectiveCorr * hiddenHalfCorr); // C
+  // ---- C = floor(技威力×抜群補正×隠し補正) ----
+  const moveCorrValue = Math.floor(movePower * effectiveCorr * hiddenHalfCorr); // C
 
   // ---- 乱数 0.90〜1.00 (0.01刻み) ----
   const randoms=[];
@@ -1213,13 +1214,14 @@ function buildFormulaPart(raw, r){
   }
   const B = `[${defTerm}]`;
 
-  // ---- 技威力 ----
+  // ---- [技威力 × 威力補正]----
   let move = chainAdd([[raw.movePowerVal,3],[raw.moveBoardVal,3]]);
-  move = applyMul(move, raw.moveMultiplierVal, 3);
-  move = applyMul(move, raw.terastalMult, 2);
+  move = applyMul(move, raw.powerUpCorr, 4);
+  move = `[${move.str}]`;
 
-  // ---- C = [技威力×威力補正×抜群補正×隠し補正] ----
-  let cChain = applyMul(move, raw.powerUpCorr, 4);
+  // ---- C = [技威力×威力倍率×テラスタル補正×抜群補正×隠し補正] ----
+  let cChain = applyMul(move, raw.moveMultiplierVal, 3);
+  cChain = applyMul(cChain, raw.terastalMult, 2);
   cChain = applyMul(cChain, raw.effectiveCorr, 4);
   cChain = applyMul(cChain, raw.hiddenHalfCorr, 4);
   const C = `[${cChain.str}]`;
