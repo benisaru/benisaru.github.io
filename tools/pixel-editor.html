@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ドット絵エディタ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+        }
+
+        body {
+            font-family: sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            padding: 10px;
+            background: #16213e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .header h1 {
+            font-size: 16px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 8px 12px;
+            background: #0f3460;
+            color: #eee;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        button:active {
+            background: #e94560;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+        }
+
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+            background: #0f0f23;
+        }
+
+        #pixelCanvas {
+            image-rendering: pixelated;
+            cursor: crosshair;
+            position: relative;
+            z-index: 1;
+        }
+
+        #gridCanvas {
+            position: absolute;
+            pointer-events: none;
+            z-index: 2;
+            image-rendering: pixelated;
+        }
+
+        .footer {
+            padding: 10px;
+            background: #16213e;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .palette-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .current-color {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #fff;
+            border-radius: 4px;
+        }
+
+        .palette {
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+            max-height: 60px;
+            overflow-y: auto;
+        }
+
+        .palette-color {
+            width: 25px;
+            height: 25px;
+            border: 1px solid #444;
+            cursor: pointer;
+        }
+
+        .palette-color.selected {
+            border: 2px solid #fff;
+        }
+
+        .tools {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+        }
+
+        .modal-content h2 {
+            margin-bottom: 15px;
+        }
+
+        .modal-content input,
+        .modal-content select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            background: #0f3460;
+            color: #eee;
+            border: 1px solid #444;
+            border-radius: 4px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+        }
+
+        #newCanvasModal .input-group {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        #newCanvasModal .input-group input {
+            flex: 1;
+        }
+
+        .zoom-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .fill-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #0f3460;
+            color: #eee;
+            border: 3px solid #e94560;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        .fill-button.active {
+            background: #e94560;
+            border-color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ドット絵エディタ</h1>
+        <div class="header-controls">
+            <button onclick="showNewCanvasModal()">新規</button>
+            <button onclick="undo()" id="undoBtn" disabled>戻る</button>
+            <button onclick="toggleGrid()" id="gridBtn">グリッド</button>
+            <button onclick="loadPNG()">PNG読込</button>
+            <button onclick="savePNG()">PNG保存</button>
+            <button onclick="showPaletteModal()">パレット</button>
+        </div>
+    </div>
+
+    <div class="canvas-container" id="canvasContainer">
+        <canvas id="pixelCanvas"></canvas>
+        <canvas id="gridCanvas"></canvas>
+        <div class="zoom-indicator" id="zoomIndicator">100%</div>
+        <button class="fill-button" id="fillButton" onclick="toggleFillMode()">🪣</button>
+    </div>
+
+    <div class="footer">
+        <div class="palette-section">
+            <div class="current-color" id="currentColor"></div>
+            <div class="palette" id="palette"></div>
+        </div>
+        <div class="tools">
+            <button onclick="addColor()">色追加</button>
+            <button onclick="addTransparentColorToMain()">透過色追加</button>
+            <button onclick="importPalette()">パレット読込</button>
+            <button onclick="exportPalette()">パレット保存</button>
+        </div>
+    </div>
+
+    <!-- 新規キャンバスモーダル -->
+    <div class="modal" id="newCanvasModal">
+        <div class="modal-content">
+            <h2>新規キャンバス</h2>
+            <div class="input-group">
+                <input type="number" id="canvasWidth" min="1" max="64" value="16" placeholder="幅">
+                <input type="number" id="canvasHeight" min="1" max="64" value="16" placeholder="高さ">
+            </div>
+            <div class="modal-buttons">
+                <button onclick="createNewCanvas()">作成</button>
+                <button onclick="closeModal('newCanvasModal')">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- パレットモーダル -->
+    <div class="modal" id="paletteModal">
+        <div class="modal-content">
+            <h2>パレット編集</h2>
+            <div class="palette" id="paletteEditor"></div>
+            <div class="modal-buttons">
+                <button onclick="addPaletteColor()">色追加</button>
+                <button onclick="addTransparentColor()">透過色追加</button>
+                <button onclick="importPaletteFromModal()">インポート</button>
+                <button onclick="exportPaletteFromModal()">エクスポート</button>
+                <button onclick="closeModal('paletteModal')">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 色選択モーダル -->
+    <div class="modal" id="colorModal">
+        <div class="modal-content">
+            <h2>色選択</h2>
+            <input type="color" id="colorPicker" value="#ffffff">
+            <div class="modal-buttons">
+                <button onclick="confirmColor()">決定</button>
+                <button onclick="closeModal('colorModal')">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let canvas, ctx;
+        let gridCanvas, gridCtx;
+        let pixelWidth = 16;
+        let pixelHeight = 16;
+        let zoom = 1;
+        let showGrid = true;
+        let currentColor = '#ffffff';
+        let palette = ['#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+        let pixelData = [];
+        let undoStack = [];
+        let maxUndo = 10;
+        let fillMode = false;
+        let zoomMode = 'original'; // 'original' or 'fit'
+
+        // タッチ関連変数
+        let isDrawing = false;
+        let isLongPress = false;
+        let longPressTimer = null;
+        let lastTouchX = 0;
+        let lastTouchY = 0;
+        let initialPinchDistance = 0;
+        let initialZoom = 1;
+        let scrollOffsetX = 0;
+        let scrollOffsetY = 0;
+        let isScrolling = false;
+
+        // 初期化
+        function init() {
+            canvas = document.getElementById('pixelCanvas');
+            ctx = canvas.getContext('2d');
+            gridCanvas = document.getElementById('gridCanvas');
+            gridCtx = gridCanvas.getContext('2d');
+            
+            setupCanvas();
+            setupPalette();
+            setupTouchEvents();
+            
+            updateCurrentColor();
+        }
+
+        // キャンバス設定
+        function setupCanvas() {
+            canvas.width = pixelWidth;
+            canvas.height = pixelHeight;
+            gridCanvas.width = pixelWidth;
+            gridCanvas.height = pixelHeight;
+            
+            // ピクセルデータ初期化
+            if (pixelData.length === 0 || pixelData.length !== pixelWidth * pixelHeight) {
+                pixelData = new Array(pixelWidth * pixelHeight).fill(null);
+            }
+            
+            renderCanvas();
+        }
+
+        // キャンバス描画
+        function renderCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // ピクセル描画
+            for (let y = 0; y < pixelHeight; y++) {
+                for (let x = 0; x < pixelWidth; x++) {
+                    const index = y * pixelWidth + x;
+                    if (pixelData[index]) {
+                        ctx.fillStyle = pixelData[index];
+                        ctx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+            
+            // グリッド描画（別キャンバス）
+            gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+            
+            updateCanvasStyle();
+        }
+
+        // キャンバススタイル更新
+        function updateCanvasStyle() {
+            const displayWidth = pixelWidth * zoom;
+            const displayHeight = pixelHeight * zoom;
+            canvas.style.width = displayWidth + 'px';
+            canvas.style.height = displayHeight + 'px';
+            canvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+
+            gridCanvas.style.width = displayWidth + 'px';
+            gridCanvas.style.height = displayHeight + 'px';
+            gridCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+
+            // ---- グリッド（CSS背景パターン）の切り替え ----
+            if (showGrid && zoom >= 4) { // ※小さすぎる拡大率の時はグリッドを隠すと見やすいです
+                gridCanvas.style.backgroundImage = `
+                    linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px)
+                `;
+                // 1マスの画面上のサイズ（zoom px）に合わせてパターンを繰り返す
+                gridCanvas.style.backgroundSize = `${zoom}px ${zoom}px`;
+            } else {
+                gridCanvas.style.backgroundImage = 'none';
+            }
+            const modeText = zoomMode === 'fit' ? ' (画面合わせ)' : '';
+            document.getElementById('zoomIndicator').textContent = Math.round(zoom * 100) + '%' + modeText;
+        }
+
+        // パレット設定
+        function setupPalette() {
+            const paletteEl = document.getElementById('palette');
+            paletteEl.innerHTML = '';
+            
+            palette.forEach((color, index) => {
+                const colorEl = document.createElement('div');
+                colorEl.className = 'palette-color' + (color === currentColor ? ' selected' : '');
+                if (color === '#0' || color === 'transparent') {
+                    colorEl.style.backgroundColor = 'transparent';
+                    colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
+                    colorEl.style.backgroundSize = '10px 10px';
+                    colorEl.style.backgroundPosition = '0 0, 0 5px, 5px -5px, -5px 0px';
+                } else {
+                    colorEl.style.backgroundColor = color;
+                }
+                colorEl.onclick = () => selectColor(color);
+                paletteEl.appendChild(colorEl);
+            });
+        }
+
+        // 色選択
+        function selectColor(color) {
+            currentColor = color;
+            updateCurrentColor();
+            setupPalette();
+        }
+
+        // 現在の色更新
+        function updateCurrentColor() {
+            const colorEl = document.getElementById('currentColor');
+            if (currentColor === '#0' || currentColor === 'transparent') {
+                colorEl.style.backgroundColor = 'transparent';
+                colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
+                colorEl.style.backgroundSize = '10px 10px';
+                colorEl.style.backgroundPosition = '0 0, 0 5px, 5px -5px, -5px 0px';
+            } else {
+                colorEl.style.backgroundColor = currentColor;
+                colorEl.style.backgroundImage = 'none';
+            }
+        }
+
+        // タッチイベント設定
+        function setupTouchEvents() {
+            const container = document.getElementById('canvasContainer');
+            
+            // タッチ開始（キャンバス外でもピンチズーム対応）
+            container.addEventListener('touchstart', handleContainerTouchStart, { passive: false });
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvas.addEventListener('mousedown', handleMouseDown);
+            
+            // タッチ移動（キャンバス外でもピンチズーム対応）
+            container.addEventListener('touchmove', handleContainerTouchMove, { passive: false });
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('mousemove', handleMouseMove);
+            
+            // タッチ終了
+            container.addEventListener('touchend', handleContainerTouchEnd);
+            canvas.addEventListener('touchend', handleTouchEnd);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('mouseleave', handleMouseUp);
+            
+            // ホイールズーム
+            container.addEventListener('wheel', handleWheel, { passive: false });
+            
+            // ズームインジケーターのタップ
+            document.getElementById('zoomIndicator').addEventListener('click', toggleZoomMode);
+        }
+
+        // コンテナタッチ開始処理（ピンチズーム用）
+        function handleContainerTouchStart(e) {
+            if (e.touches.length === 2) {
+                // ピンチ操作開始
+                initialPinchDistance = getPinchDistance(e.touches);
+                initialZoom = zoom;
+            }
+        }
+
+        // タッチ開始処理
+        function handleTouchStart(e) {
+            e.preventDefault();
+            
+            if (e.touches.length === 2) {
+                // ピンチ操作開始
+                initialPinchDistance = getPinchDistance(e.touches);
+                initialZoom = zoom;
+                return;
+            }
+            
+            const touch = e.touches[0];
+            lastTouchX = touch.clientX;
+            lastTouchY = touch.clientY;
+            isScrolling = false;
+            
+            // ロングプレス検出
+            isLongPress = false;
+            longPressTimer = setTimeout(() => {
+                isLongPress = true;
+                handleLongPress(touch);
+            }, 500);
+        }
+
+        // マウスダウン処理
+        function handleMouseDown(e) {
+            e.preventDefault();
+            lastTouchX = e.clientX;
+            lastTouchY = e.clientY;
+            isScrolling = false;
+            isDrawing = true;
+            
+            if (!fillMode) {
+                saveState();
+            }
+            drawPixel(e);
+        }
+
+        // コンテナタッチ移動処理（ピンチズーム用）
+        function handleContainerTouchMove(e) {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                // ピンチズーム
+                const currentDistance = getPinchDistance(e.touches);
+                const scale = currentDistance / initialPinchDistance;
+                zoom = Math.max(1, Math.min(50, initialZoom * scale));
+                zoomMode = 'manual';
+                renderCanvas();
+            }
+        }
+
+        // タッチ移動処理
+        function handleTouchMove(e) {
+            e.preventDefault();
+            
+            if (e.touches.length === 2) {
+                // ピンチズーム
+                const currentDistance = getPinchDistance(e.touches);
+                const scale = currentDistance / initialPinchDistance;
+                zoom = Math.max(1, Math.min(50, initialZoom * scale));
+                zoomMode = 'manual';
+                renderCanvas();
+                return;
+            }
+            
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - lastTouchX;
+            const deltaY = touch.clientY - lastTouchY;
+            
+            // スクロール判定
+            if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                isScrolling = true;
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            }
+            
+            if (isScrolling) {
+                scrollOffsetX += deltaX;
+                scrollOffsetY += deltaY;
+                updateCanvasStyle();
+            }
+            
+            lastTouchX = touch.clientX;
+            lastTouchY = touch.clientY;
+        }
+
+        // マウス移動処理
+        function handleMouseMove(e) {
+            if (!isDrawing) return;
+            
+            const deltaX = e.clientX - lastTouchX;
+            const deltaY = e.clientY - lastTouchY;
+            
+            if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                isScrolling = true;
+            }
+            
+            if (!isScrolling) {
+                drawPixel(e);
+            }
+            
+            lastTouchX = e.clientX;
+            lastTouchY = e.clientY;
+        }
+
+        // コンテナタッチ終了処理
+        function handleContainerTouchEnd(e) {
+            // ピンチ操作終了時の処理が必要ならここに追加
+        }
+
+        // タッチ終了処理
+        function handleTouchEnd(e) {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            
+            if (!isLongPress && !isScrolling && e.changedTouches.length === 1) {
+                // 短いタップ - ドット入力
+                const touch = e.changedTouches[0];
+                drawPixelAt(touch.clientX, touch.clientY);
+            }
+            
+            isLongPress = false;
+            isScrolling = false;
+        }
+
+        // マウスアップ処理
+        function handleMouseUp(e) {
+            isDrawing = false;
+            isScrolling = false;
+        }
+
+        // ホイール処理
+        function handleWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            zoom = Math.max(1, Math.min(50, zoom * delta));
+            zoomMode = 'manual';
+            renderCanvas();
+        }
+
+        // ピンチ距離計算
+        function getPinchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        // ズームモード切り替え
+        function toggleZoomMode() {
+            const container = document.getElementById('canvasContainer');
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            
+            if (zoomMode === 'original') {
+                // 画面いっぱいに表示
+                const zoomX = (containerWidth - 20) / pixelWidth; // 余白を考慮
+                const zoomY = (containerHeight - 20) / pixelHeight;
+                zoom = Math.floor(Math.min(zoomX, zoomY));
+                if (zoom < 1) zoom = 1;
+                zoomMode = 'fit';
+            } else {
+                // 原寸表示
+                zoom = 1;
+                zoomMode = 'original';
+            }
+            
+            // 中央に配置
+            scrollOffsetX = (containerWidth - pixelWidth * zoom) / 2;
+            scrollOffsetY = (containerHeight - pixelHeight * zoom) / 2;
+            
+            renderCanvas();
+        }
+
+        // ロングプレス処理（スポイト）
+        function handleLongPress(touch) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((touch.clientX - rect.left) / zoom);
+            const y = Math.floor((touch.clientY - rect.top) / zoom);
+            
+            if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+                const index = y * pixelWidth + x;
+                if (pixelData[index]) {
+                    selectColor(pixelData[index]);
+                } else {
+                    selectColor('#0');
+                }
+            }
+        }
+
+        // ピクセル描画
+        function drawPixel(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / zoom);
+            const y = Math.floor((e.clientY - rect.top) / zoom);
+            
+            if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+                if (fillMode) {
+                    floodFill(x, y, currentColor);
+                } else {
+                    const index = y * pixelWidth + x;
+                    if (currentColor === '#0' || currentColor === 'transparent') {
+                        pixelData[index] = null;
+                    } else {
+                        pixelData[index] = currentColor;
+                    }
+                }
+                renderCanvas();
+            }
+        }
+
+        // 座標指定でピクセル描画
+        function drawPixelAt(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((clientX - rect.left) / zoom);
+            const y = Math.floor((clientY - rect.top) / zoom);
+            
+            if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+                if (fillMode) {
+                    floodFill(x, y, currentColor);
+                } else {
+                    const index = y * pixelWidth + x;
+                    if (currentColor === '#0' || currentColor === 'transparent') {
+                        pixelData[index] = null;
+                    } else {
+                        pixelData[index] = currentColor;
+                    }
+                }
+                renderCanvas();
+            }
+        }
+
+        // 塗りつぶし機能
+        function floodFill(startX, startY, newColor) {
+            const startIndex = startY * pixelWidth + startX;
+            const targetColor = pixelData[startIndex];
+            
+            const newColorValue = (newColor === '#0' || newColor === 'transparent') ? null : newColor;
+            
+            if (targetColor === newColorValue) return;
+            
+            saveState();
+            
+            const stack = [[startX, startY]];
+            const visited = new Set();
+            
+            while (stack.length > 0) {
+                const [x, y] = stack.pop();
+                const key = `${x},${y}`;
+                
+                if (visited.has(key)) continue;
+                if (x < 0 || x >= pixelWidth || y < 0 || y >= pixelHeight) continue;
+                
+                const index = y * pixelWidth + x;
+                if (pixelData[index] !== targetColor) continue;
+                
+                visited.add(key);
+                pixelData[index] = newColorValue;
+                
+                stack.push([x + 1, y]);
+                stack.push([x - 1, y]);
+                stack.push([x, y + 1]);
+                stack.push([x, y - 1]);
+            }
+        }
+
+        // 塗りつぶしモード切り替え
+        function toggleFillMode() {
+            fillMode = !fillMode;
+            const btn = document.getElementById('fillButton');
+            btn.classList.toggle('active', fillMode);
+        }
+
+        // 状態保存（アンドゥ用）
+        function saveState() {
+            undoStack.push([...pixelData]);
+            if (undoStack.length > maxUndo) {
+                undoStack.shift();
+            }
+            document.getElementById('undoBtn').disabled = false;
+        }
+
+        // アンドゥ
+        function undo() {
+            if (undoStack.length > 0) {
+                pixelData = undoStack.pop();
+                renderCanvas();
+                document.getElementById('undoBtn').disabled = undoStack.length === 0;
+            }
+        }
+
+        // グリッド切り替え
+        function toggleGrid() {
+            showGrid = !showGrid;
+            document.getElementById('gridBtn').textContent = showGrid ? 'グリッド' : 'グリッドOFF';
+            renderCanvas();
+        }
+
+        // PNG保存
+        function savePNG() {
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = pixelWidth;
+            exportCanvas.height = pixelHeight;
+            const exportCtx = exportCanvas.getContext('2d');
+            
+            for (let y = 0; y < pixelHeight; y++) {
+                for (let x = 0; x < pixelWidth; x++) {
+                    const index = y * pixelWidth + x;
+                    if (pixelData[index]) {
+                        exportCtx.fillStyle = pixelData[index];
+                        exportCtx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+            
+            const link = document.createElement('a');
+            link.download = 'pixel-art.png';
+            link.href = exportCanvas.toDataURL('image/png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // PNG読み込み
+        function loadPNG() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/png';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // 64x64以下に制限
+                        const width = Math.min(img.width, 64);
+                        const height = Math.min(img.height, 64);
+                        
+                        pixelWidth = width;
+                        pixelHeight = height;
+                        pixelData = new Array(pixelWidth * pixelHeight).fill(null);
+                        
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCanvas.width = width;
+                        tempCanvas.height = height;
+                        tempCtx.drawImage(img, 0, 0, width, height);
+                        
+                        const imageData = tempCtx.getImageData(0, 0, width, height);
+                        const data = imageData.data;
+                        
+                        for (let y = 0; y < height; y++) {
+                            for (let x = 0; x < width; x++) {
+                                const index = (y * width + x) * 4;
+                                const r = data[index];
+                                const g = data[index + 1];
+                                const b = data[index + 2];
+                                const a = data[index + 3];
+                                
+                                if (a > 0) {
+                                    const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+                                    pixelData[y * width + x] = hex;
+                                }
+                            }
+                        }
+                        
+                        undoStack = [];
+                        zoom = 1;
+                        scrollOffsetX = 0;
+                        scrollOffsetY = 0;
+                        setupCanvas();
+                        document.getElementById('undoBtn').disabled = true;
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+            input.click();
+        }
+
+        // 新規キャンバスモーダル表示
+        function showNewCanvasModal() {
+            document.getElementById('newCanvasModal').classList.add('active');
+        }
+
+        // 新規キャンバス作成
+        function createNewCanvas() {
+            const width = parseInt(document.getElementById('canvasWidth').value);
+            const height = parseInt(document.getElementById('canvasHeight').value);
+            
+            if (width >= 1 && width <= 64 && height >= 1 && height <= 64) {
+                pixelWidth = width;
+                pixelHeight = height;
+                pixelData = new Array(pixelWidth * pixelHeight).fill(null);
+                undoStack = [];
+                zoom = 1;
+                scrollOffsetX = 0;
+                scrollOffsetY = 0;
+                setupCanvas();
+                closeModal('newCanvasModal');
+                document.getElementById('undoBtn').disabled = true;
+            }
+        }
+
+        // パレットモーダル表示
+        function showPaletteModal() {
+            const editor = document.getElementById('paletteEditor');
+            editor.innerHTML = '';
+            
+            palette.forEach((color, index) => {
+                const colorEl = document.createElement('div');
+                colorEl.className = 'palette-color';
+                if (color === '#0' || color === 'transparent') {
+                    colorEl.style.backgroundColor = 'transparent';
+                    colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
+                    colorEl.style.backgroundSize = '10px 10px';
+                    colorEl.style.backgroundPosition = '0 0, 0 5px, 5px -5px, -5px 0px';
+                } else {
+                    colorEl.style.backgroundColor = color;
+                }
+                colorEl.onclick = () => editPaletteColor(index);
+                colorEl.oncontextmenu = (e) => {
+                    e.preventDefault();
+                    removePaletteColor(index);
+                };
+                editor.appendChild(colorEl);
+            });
+            
+            document.getElementById('paletteModal').classList.add('active');
+        }
+
+        // パレット色追加
+        function addPaletteColor() {
+            // カラーピッカーを直接開く
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.value = '#ffffff';
+            colorInput.style.position = 'absolute';
+            colorInput.style.visibility = 'hidden';
+            document.body.appendChild(colorInput);
+            
+            colorInput.addEventListener('input', (e) => {
+                palette.push(e.target.value);
+                setupPalette();
+                showPaletteModal();
+            });
+            
+            colorInput.addEventListener('change', (e) => {
+                palette.push(e.target.value);
+                setupPalette();
+                showPaletteModal();
+                document.body.removeChild(colorInput);
+            });
+            
+            colorInput.click();
+        }
+
+        // 透過色追加
+        function addTransparentColor() {
+            palette.push('#0');
+            setupPalette();
+            showPaletteModal();
+        }
+
+        // パレット色編集
+        function editPaletteColor(index) {
+            // カラーピッカーを直接開く
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.value = palette[index];
+            colorInput.style.position = 'absolute';
+            colorInput.style.visibility = 'hidden';
+            document.body.appendChild(colorInput);
+            
+            colorInput.addEventListener('input', (e) => {
+                palette[index] = e.target.value;
+                setupPalette();
+                showPaletteModal();
+            });
+            
+            colorInput.addEventListener('change', (e) => {
+                palette[index] = e.target.value;
+                setupPalette();
+                showPaletteModal();
+                document.body.removeChild(colorInput);
+            });
+            
+            colorInput.click();
+        }
+
+        // パレット色削除
+        function removePaletteColor(index) {
+            palette.splice(index, 1);
+            setupPalette();
+            showPaletteModal();
+        }
+
+        // 色追加
+        function addColor() {
+            // カラーピッカーを直接開く
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.value = '#ffffff';
+            colorInput.style.position = 'absolute';
+            colorInput.style.visibility = 'hidden';
+            document.body.appendChild(colorInput);
+            
+            colorInput.addEventListener('input', (e) => {
+                palette.push(e.target.value);
+                selectColor(e.target.value);
+            });
+            
+            colorInput.addEventListener('change', (e) => {
+                palette.push(e.target.value);
+                selectColor(e.target.value);
+                document.body.removeChild(colorInput);
+            });
+            
+            colorInput.click();
+        }
+
+        // 透過色追加（メインパレット）
+        function addTransparentColorToMain() {
+            palette.push('#0');
+            selectColor('#0');
+        }
+
+        // 色選択モーダル表示
+        function showColorModal(callback, defaultColor = '#ffffff') {
+            document.getElementById('colorPicker').value = defaultColor;
+            document.getElementById('colorModal').classList.add('active');
+            document.getElementById('colorModal').callback = callback;
+        }
+
+        // 色決定
+        function confirmColor() {
+            const color = document.getElementById('colorPicker').value;
+            const callback = document.getElementById('colorModal').callback;
+            if (callback) {
+                callback(color);
+            }
+            closeModal('colorModal');
+        }
+
+        // モーダルを閉じる
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // パレット読み込み
+        function importPalette() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.pal,.png';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                
+                if (file.name.toLowerCase().endsWith('.png')) {
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const tempCanvas = document.createElement('canvas');
+                            const tempCtx = tempCanvas.getContext('2d');
+                            tempCanvas.width = img.width;
+                            tempCanvas.height = 1;
+                            tempCtx.drawImage(img, 0, 0);
+                            
+                            const colors = [];
+                            for (let x = 0; x < img.width; x++) {
+                                const pixel = tempCtx.getImageData(x, 0, 1, 1).data;
+                                const hex = '#' + [pixel[0], pixel[1], pixel[2]].map(x => x.toString(16).padStart(2, '0')).join('');
+                                colors.push(hex);
+                            }
+                            
+                            if (colors.length > 0) {
+                                palette = colors;
+                                setupPalette();
+                                selectColor(colors[0]);
+                            }
+                        };
+                        img.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    reader.onload = (event) => {
+                        try {
+                            const data = JSON.parse(event.target.result);
+                            if (Array.isArray(data.colors)) {
+                                palette = data.colors;
+                                setupPalette();
+                                if (data.colors.length > 0) {
+                                    selectColor(data.colors[0]);
+                                }
+                            }
+                        } catch (err) {
+                            alert('パレットファイルの読み込みに失敗しました');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        }
+
+        // パレット保存
+        function exportPalette() {
+            const data = {
+                colors: palette
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.download = 'palette.pal';
+            link.href = URL.createObjectURL(blob);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        }
+
+        // パレットモーダルからインポート
+        function importPaletteFromModal() {
+            importPalette();
+        }
+
+        // パレットモーダルからエクスポート
+        function exportPaletteFromModal() {
+            exportPalette();
+        }
+
+        // 初期化実行
+        init();
+    </script>
+</body>
+</html>
