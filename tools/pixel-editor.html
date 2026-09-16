@@ -739,6 +739,9 @@ function setupTouchEvents() {
     document.getElementById('zoomIndicator').addEventListener('click', toggleZoomMode);
 }
 
+// ピンチ操作中かを判定するフラグを追加（グローバル変数エリア等に宣言）
+let isPinching = false;
+
 // タッチ開始
 function handleTouchStart(e) {
     if (longPressTimer) {
@@ -748,13 +751,15 @@ function handleTouchStart(e) {
     isLongPress = false;
     isScrolling = false;
 
-    if (e.touches.length === 2) {
+    // 2本指以上の場合はピンチモードに移行（描画を禁止）
+    if (e.touches.length >= 2) {
+        isPinching = true;
         initialPinchDistance = getPinchDistance(e.touches);
         initialZoom = zoom;
         return;
     }
 
-    if (e.touches.length === 1) {
+    if (e.touches.length === 1 && !isPinching) {
         const touch = e.touches[0];
         lastTouchX = touch.clientX;
         lastTouchY = touch.clientY;
@@ -771,7 +776,9 @@ function handleTouchStart(e) {
 function handleTouchMove(e) {
     e.preventDefault();
 
-    if (e.touches.length === 2) {
+    // 2本指ズーム操作
+    if (e.touches.length >= 2) {
+        isPinching = true;
         if (longPressTimer) clearTimeout(longPressTimer);
         const currentDistance = getPinchDistance(e.touches);
         const scale = currentDistance / initialPinchDistance;
@@ -781,7 +788,8 @@ function handleTouchMove(e) {
         return;
     }
 
-    if (e.touches.length === 1) {
+    // 1本指移動（ピンチ操作中でない場合のみスクロール処理）
+    if (e.touches.length === 1 && !isPinching) {
         const touch = e.touches[0];
         const deltaX = touch.clientX - lastTouchX;
         const deltaY = touch.clientY - lastTouchY;
@@ -809,7 +817,19 @@ function handleTouchEnd(e) {
         longPressTimer = null;
     }
 
-    if (e.changedTouches.length === 1 && !isScrolling && !isLongPress) {
+    // すべての指が離れたらピンチ状態を解除
+    if (e.touches.length === 0) {
+        if (isPinching) {
+            // ピンチ終了直後の誤描画を防ぐためフラグを下ろして処理を抜ける
+            isPinching = false;
+            isScrolling = false;
+            isLongPress = false;
+            return;
+        }
+    }
+
+    // 1本指でのタップ描画判定（ピンチ操作・スクロール・長押しでなければ描画）
+    if (e.changedTouches.length === 1 && !isScrolling && !isLongPress && !isPinching) {
         const touch = e.changedTouches[0];
         const rect = canvas.getBoundingClientRect();
         
@@ -827,7 +847,6 @@ function handleTouchEnd(e) {
     isScrolling = false;
     isLongPress = false;
 }
-
 // PC用マウス操作
 function handleMouseDown(e) {
     if (e.button !== 0) return;
