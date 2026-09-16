@@ -869,31 +869,31 @@
             return Math.sqrt(dx * dx + dy * dy);
         }
 
-        // ズームモード切り替え
-        function toggleZoomMode() {
-            const container = document.getElementById('canvasContainer');
-            const containerWidth = container.clientWidth;
-            const containerHeight = container.clientHeight;
-            
-            if (zoomMode === 'original') {
-                // 画面いっぱいに表示
-                const zoomX = (containerWidth - 20) / pixelWidth; // 余白を考慮
-                const zoomY = (containerHeight - 20) / pixelHeight;
-                zoom = Math.floor(Math.min(zoomX, zoomY));
-                if (zoom < 1) zoom = 1;
-                zoomMode = 'fit';
-            } else {
-                // 原寸表示
-                zoom = 1;
-                zoomMode = 'original';
-            }
-            
-            // 中央に配置
-            scrollOffsetX = (containerWidth - pixelWidth * zoom) / 2;
-            scrollOffsetY = (containerHeight - pixelHeight * zoom) / 2;
-            
-            renderCanvas();
-        }
+// ズームモード切り替え（中央揃え修正版）
+function toggleZoomMode() {
+    const container = document.getElementById('canvasContainer');
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    
+    if (zoomMode === 'original') {
+        // 画面いっぱいに表示（余白を考慮）
+        const zoomX = (containerWidth - 40) / pixelWidth;
+        const zoomY = (containerHeight - 40) / pixelHeight;
+        zoom = Math.max(1, Math.floor(Math.min(zoomX, zoomY)));
+        zoomMode = 'fit';
+    } else {
+        // 原寸表示
+        zoom = 1;
+        zoomMode = 'original';
+    }
+    
+    // Flexboxで元々中央に居るため、オフセットは 0 にリセットする
+    scrollOffsetX = 0;
+    scrollOffsetY = 0;
+    
+    // 最後にスタイル更新＆キャンバス描画を実行
+    renderCanvas();
+}
 
         // ロングプレス処理（スポイト）
         function handleLongPress(touch) {
