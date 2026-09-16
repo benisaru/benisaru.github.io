@@ -682,41 +682,46 @@
             }
         }
 
-        // タッチイベント設定
-        function setupTouchEvents() {
-            const container = document.getElementById('canvasContainer');
-            
-            // タッチ開始（キャンバス外でもピンチズーム対応）
-            container.addEventListener('touchstart', handleContainerTouchStart, { passive: false });
-            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-            canvas.addEventListener('mousedown', handleMouseDown);
-            
-            // タッチ移動（キャンバス外でもピンチズーム対応）
-            container.addEventListener('touchmove', handleContainerTouchMove, { passive: false });
-            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-            canvas.addEventListener('mousemove', handleMouseMove);
-            
-            // タッチ終了
-            container.addEventListener('touchend', handleContainerTouchEnd);
-            canvas.addEventListener('touchend', handleTouchEnd);
-            canvas.addEventListener('mouseup', handleMouseUp);
-            canvas.addEventListener('mouseleave', handleMouseUp);
-            
-            // ホイールズーム
-            container.addEventListener('wheel', handleWheel, { passive: false });
-            
-            // ズームインジケーターのタップ
-            document.getElementById('zoomIndicator').addEventListener('click', toggleZoomMode);
-        }
+// タッチイベント設定（キャンバス外スワイプ対応版）
+function setupTouchEvents() {
+    const container = document.getElementById('canvasContainer');
+    
+    // コンテナ全体のタッチイベント
+    container.addEventListener('touchstart', handleContainerTouchStart, { passive: false });
+    container.addEventListener('touchmove', handleContainerTouchMove, { passive: false });
+    container.addEventListener('touchend', handleContainerTouchEnd);
+    
+    // マウスドラッグ操作（コンテナ全体）
+    container.addEventListener('mousedown', handleContainerMouseDown);
+    window.addEventListener('mousemove', handleContainerMouseMove);
+    window.addEventListener('mouseup', handleContainerMouseUp);
+    
+    // ホイールズーム
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    
+    // ズームインジケーターのタップ
+    document.getElementById('zoomIndicator').addEventListener('click', toggleZoomMode);
+}
 
-        // コンテナタッチ開始処理（ピンチズーム用）
-        function handleContainerTouchStart(e) {
-            if (e.touches.length === 2) {
-                // ピンチ操作開始
-                initialPinchDistance = getPinchDistance(e.touches);
-                initialZoom = zoom;
-            }
-        }
+// コンテナタッチ開始
+function handleContainerTouchStart(e) {
+    if (e.touches.length === 2) {
+        // ピンチ操作開始
+        initialPinchDistance = getPinchDistance(e.touches);
+        initialZoom = zoom;
+        return;
+    }
+
+    // 1本指の場合、タッチ位置を記憶
+    const touch = e.touches[0];
+    lastTouchX = touch.clientX;
+    lastTouchY = touch.clientY;
+    
+    // タッチ対象がキャンバス以外ならスクロールモードにする
+    if (e.target !== canvas && e.target !== gridCanvas) {
+        isScrolling = true;
+    }
+}
 
         // タッチ開始処理
         function handleTouchStart(e) {
@@ -756,18 +761,36 @@
             drawPixel(e);
         }
 
-        // コンテナタッチ移動処理（ピンチズーム用）
-        function handleContainerTouchMove(e) {
-            if (e.touches.length === 2) {
-                e.preventDefault();
-                // ピンチズーム
-                const currentDistance = getPinchDistance(e.touches);
-                const scale = currentDistance / initialPinchDistance;
-                zoom = Math.max(1, Math.min(50, initialZoom * scale));
-                zoomMode = 'manual';
-                renderCanvas();
-            }
+function handleContainerTouchMove(e) {
+    if (e.touches.length === 2) {
+        e.preventDefault();
+        // ピンチズーム
+        const currentDistance = getPinchDistance(e.touches);
+        const scale = currentDistance / initialPinchDistance;
+        zoom = Math.max(1, Math.min(50, initialZoom * scale));
+        zoomMode = 'manual';
+        renderCanvas();
+        return;
+    }
+
+    if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - lastTouchX;
+        const deltaY = touch.clientY - lastTouchY;
+
+        // キャンバス外からスワイプ開始した場合、または描画中以外はスクロール
+        if (isScrolling || (e.target !== canvas && e.target !== gridCanvas)) {
+            e.preventDefault();
+            isScrolling = true;
+            scrollOffsetX += deltaX;
+            scrollOffsetY += deltaY;
+            updateCanvasStyle();
         }
+
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
+    }
+}
 
         // タッチ移動処理
         function handleTouchMove(e) {
@@ -825,11 +848,45 @@
             lastTouchY = e.clientY;
         }
 
-        // コンテナタッチ終了処理
-        function handleContainerTouchEnd(e) {
-            // ピンチ操作終了時の処理が必要ならここに追加
-        }
+// コンテナタッチ終了
+function handleContainerTouchEnd(e) {
+    if (e.touches.length === 0) {
+        isScrolling = false;
+    }
+}
+// マウス操作（PC用キャンバス外ドラッグ）
+let isContainerMouseDown = false;
 
+function handleContainerMouseDown(e) {
+    // ボタンやモーダル等の操作時は除外
+    if (e.target.tagName === 'BUTTON' || e.target.closest('.top-controls')) return;
+    
+    lastTouchX = e.clientX;
+    lastTouchY = e.clientY;
+
+    // キャンバス外をクリックしたらパン移動を開始
+    if (e.target !== canvas && e.target !== gridCanvas) {
+        isContainerMouseDown = true;
+    }
+}
+
+function handleContainerMouseMove(e) {
+    if (!isContainerMouseDown) return;
+
+    const deltaX = e.clientX - lastTouchX;
+    const deltaY = e.clientY - lastTouchY;
+
+    scrollOffsetX += deltaX;
+    scrollOffsetY += deltaY;
+    updateCanvasStyle();
+
+    lastTouchX = e.clientX;
+    lastTouchY = e.clientY;
+}
+
+function handleContainerMouseUp() {
+    isContainerMouseDown = false;
+}
         // タッチ終了処理
         function handleTouchEnd(e) {
             if (longPressTimer) {
