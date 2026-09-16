@@ -730,12 +730,13 @@ function setupTouchEvents() {
     document.getElementById('zoomIndicator').addEventListener('click', toggleZoomMode);
 }
 
-
-// 重複を解消して統一した handleTouchStart
+// タッチ開始
 function handleTouchStart(e) {
-    // UI要素のタップ時は処理を中断
-    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select');
-    if (isUIElement) return;
+    // 画面上のボタン、パレット、モーダル、右上コントロール（ズーム表示含む）の直接タップを弾く
+    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator');
+    if (isUIElement) {
+        return;
+    }
 
     if (longPressTimer) {
         clearTimeout(longPressTimer);
@@ -763,6 +764,48 @@ function handleTouchStart(e) {
             handleLongPress(touch);
         }, 500);
     }
+}
+
+// タッチ終了
+function handleTouchEnd(e) {
+    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator');
+    if (isUIElement) {
+        return;
+    }
+
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+
+    // すべての指が離れたらピンチ状態を解除
+    if (e.touches.length === 0) {
+        if (isPinching) {
+            isPinching = false;
+            isScrolling = false;
+            isLongPress = false;
+            return;
+        }
+    }
+
+    // 1本指でのタップ描画判定
+    if (e.changedTouches.length === 1 && !isScrolling && !isLongPress && !isPinching) {
+        const touch = e.changedTouches[0];
+        const rect = canvas.getBoundingClientRect();
+        
+        if (
+            touch.clientX >= rect.left &&
+            touch.clientX <= rect.right &&
+            touch.clientY >= rect.top &&
+            touch.clientY <= rect.bottom
+        ) {
+            if (!fillMode) saveState();
+            drawPixelAt(touch.clientX, touch.clientY);
+        }
+    }
+
+    isScrolling = false;
+    isLongPress = false;
 }
 
 function handleTouchMove(e) {
@@ -806,47 +849,6 @@ function handleTouchMove(e) {
     }
 }
 
-// タッチ終了
-function handleTouchEnd(e) {
-    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select');
-    if (isUIElement) {
-        return;
-    }
-
-    if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-    }
-
-    // すべての指が離れたらピンチ状態を解除
-    if (e.touches.length === 0) {
-        if (isPinching) {
-            isPinching = false;
-            isScrolling = false;
-            isLongPress = false;
-            return;
-        }
-    }
-
-    // 1本指でのタップ描画判定
-    if (e.changedTouches.length === 1 && !isScrolling && !isLongPress && !isPinching) {
-        const touch = e.changedTouches[0];
-        const rect = canvas.getBoundingClientRect();
-        
-        if (
-            touch.clientX >= rect.left &&
-            touch.clientX <= rect.right &&
-            touch.clientY >= rect.top &&
-            touch.clientY <= rect.bottom
-        ) {
-            if (!fillMode) saveState();
-            drawPixelAt(touch.clientX, touch.clientY);
-        }
-    }
-
-    isScrolling = false;
-    isLongPress = false;
-}
 // PC用マウス操作
 function handleMouseDown(e) {
     if (e.button !== 0) return;
