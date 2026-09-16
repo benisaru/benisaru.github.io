@@ -529,8 +529,10 @@ let scrollOffsetX = 0;
 let scrollOffsetY = 0;
 let isScrolling = false;
 let isContainerMouseDown = false;
+let isPinching = false;
 
 // 初期化
+// 初期化（復元処理を追加）
 function init() {
     canvas = document.getElementById('pixelCanvas');
     ctx = canvas.getContext('2d');
@@ -538,6 +540,7 @@ function init() {
     gridCtx = gridCanvas.getContext('2d');
     
     loadPaletteFromStorage();
+    loadCanvasFromStorage(); // 保存されたデータがあれば復元
 
     setupCanvas();
     setupPalette();
@@ -739,8 +742,6 @@ function setupTouchEvents() {
     document.getElementById('zoomIndicator').addEventListener('click', toggleZoomMode);
 }
 
-// ピンチ操作中かを判定するフラグを追加（グローバル変数エリア等に宣言）
-let isPinching = false;
 
 // タッチ開始
 function handleTouchStart(e) {
@@ -946,6 +947,7 @@ function drawPixel(e) {
     drawPixelAt(e.clientX, e.clientY);
 }
 
+// ピクセル描画（保存呼び出しを追加）
 function drawPixelAt(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const x = Math.floor((clientX - rect.left) / zoom);
@@ -961,12 +963,13 @@ function drawPixelAt(clientX, clientY) {
             } else {
                 pixelData[index] = currentColor;
             }
+            saveCanvasToStorage(); // 描画後に自動保存
         }
         renderCanvas();
     }
 }
 
-// 塗りつぶし
+// 塗りつぶし（保存呼び出しを追加）
 function floodFill(startX, startY, newColor) {
     const startIndex = startY * pixelWidth + startX;
     const targetColor = pixelData[startIndex];
@@ -997,6 +1000,8 @@ function floodFill(startX, startY, newColor) {
         stack.push([x, y + 1]);
         stack.push([x, y - 1]);
     }
+    
+    saveCanvasToStorage(); // 塗りつぶし後に自動保存
 }
 
 // 塗りつぶしモード切り替え
@@ -1053,6 +1058,7 @@ function savePNG() {
     document.body.removeChild(link);
 }
 
+// PNG読み込み（保存更新を追加）
 function loadPNG() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -1097,6 +1103,7 @@ function loadPNG() {
                 }
                 
                 undoStack = [];
+                saveCanvasToStorage(); // 読み込んだ画像を保存
                 setupCanvas();
                 fitToScreen();
                 document.getElementById('undoBtn').disabled = true;
@@ -1113,6 +1120,7 @@ function showNewCanvasModal() {
     document.getElementById('newCanvasModal').classList.add('active');
 }
 
+// 新規作成（保存更新を追加）
 function createNewCanvas() {
     const width = parseInt(document.getElementById('canvasWidth').value);
     const height = parseInt(document.getElementById('canvasHeight').value);
@@ -1122,6 +1130,7 @@ function createNewCanvas() {
         pixelHeight = height;
         pixelData = new Array(pixelWidth * pixelHeight).fill(null);
         undoStack = [];
+        saveCanvasToStorage(); // リセット状態を保存
         setupCanvas();
         fitToScreen();
         closeModal('newCanvasModal');
@@ -1516,6 +1525,39 @@ function toggleCanvasBg() {
     const currentMode = bgModes[bgModeIndex];
     document.getElementById('canvasContainer').style.backgroundColor = currentMode.color;
     document.getElementById('bgToggleBtn').textContent = currentMode.label;
+}
+
+// キャンバスの状態をローカルストレージに保存
+function saveCanvasToStorage() {
+    try {
+        const canvasData = {
+            width: pixelWidth,
+            height: pixelHeight,
+            data: pixelData
+        };
+        localStorage.setItem('pixel_canvas_data', JSON.stringify(canvasData));
+    } catch (e) {
+        console.warn('キャンバスの保存に失敗しました:', e);
+    }
+}
+
+// ローカルストレージからキャンバスを復元
+function loadCanvasFromStorage() {
+    try {
+        const saved = localStorage.getItem('pixel_canvas_data');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.width && parsed.height && Array.isArray(parsed.data)) {
+                pixelWidth = parsed.width;
+                pixelHeight = parsed.height;
+                pixelData = parsed.data;
+                return true;
+            }
+        }
+    } catch (e) {
+        console.warn('キャンバスの読み込みに失敗しました:', e);
+    }
+    return false;
 }
 
 // 初期化実行
