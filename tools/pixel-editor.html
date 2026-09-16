@@ -501,270 +501,263 @@
     </div>
 
     <script>
-        // グローバル変数
-        let canvas, ctx;
-        let gridCanvas, gridCtx;
-        let pixelWidth = 32;
-        let pixelHeight = 32;
-        let zoom = 1;
-        let showGrid = true;
-        let currentColor = '#ffffff';
-        let palette = ['#0','#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
-        let pixelData = [];
-        let undoStack = [];
-        let maxUndo = 10;
-        let fillMode = false;
-        let zoomMode = 'original'; // 'original' or 'fit'
+// グローバル変数
+let canvas, ctx;
+let gridCanvas, gridCtx;
+let pixelWidth = 32;
+let pixelHeight = 32;
+let zoom = 1;
+let showGrid = true;
+let currentColor = '#ffffff';
+let palette = ['#0','#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+let pixelData = [];
+let undoStack = [];
+let maxUndo = 10;
+let fillMode = false;
+let zoomMode = 'original'; // 'original' or 'fit'
 
-        // タッチ関連変数
-        let isDrawing = false;
-        let isLongPress = false;
-        let longPressTimer = null;
-        let lastTouchX = 0;
-        let lastTouchY = 0;
-        let initialPinchDistance = 0;
-        let initialZoom = 1;
-        let scrollOffsetX = 0;
-        let scrollOffsetY = 0;
-        let isScrolling = false;
+// タッチ・ドラッグ関連変数
+let isDrawing = false;
+let isLongPress = false;
+let longPressTimer = null;
+let lastTouchX = 0;
+let lastTouchY = 0;
+let initialPinchDistance = 0;
+let initialZoom = 1;
+let scrollOffsetX = 0;
+let scrollOffsetY = 0;
+let isScrolling = false;
+let isContainerMouseDown = false;
 
-        // 初期化
-        function init() {
-            canvas = document.getElementById('pixelCanvas');
-            ctx = canvas.getContext('2d');
-            gridCanvas = document.getElementById('gridCanvas');
-            gridCtx = gridCanvas.getContext('2d');
-            
-            setupCanvas();
-            setupPalette();
-            setupTouchEvents();
-            
-            updateCurrentColor();
-            toggleZoomMode();
-        }
+// 初期化
+function init() {
+    canvas = document.getElementById('pixelCanvas');
+    ctx = canvas.getContext('2d');
+    gridCanvas = document.getElementById('gridCanvas');
+    gridCtx = gridCanvas.getContext('2d');
+    
+    // ローカルストレージからパレットを読み込み
+    loadPaletteFromStorage();
 
-        // キャンバス設定
-        function setupCanvas() {
-            canvas.width = pixelWidth;
-            canvas.height = pixelHeight;
-            gridCanvas.width = pixelWidth;
-            gridCanvas.height = pixelHeight;
-            
-            // ピクセルデータ初期化
-            if (pixelData.length === 0 || pixelData.length !== pixelWidth * pixelHeight) {
-                pixelData = new Array(pixelWidth * pixelHeight).fill(null);
-            }
-            
-            renderCanvas();
-        }
+    setupCanvas();
+    setupPalette();
+    setupTouchEvents();
+    
+    updateCurrentColor();
+    toggleZoomMode();
+}
 
-        // キャンバス描画
-        function renderCanvas() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // ピクセル描画
-            for (let y = 0; y < pixelHeight; y++) {
-                for (let x = 0; x < pixelWidth; x++) {
-                    const index = y * pixelWidth + x;
-                    if (pixelData[index]) {
-                        ctx.fillStyle = pixelData[index];
-                        ctx.fillRect(x, y, 1, 1);
-                    }
+// パレットをローカルストレージに保存
+function savePaletteToStorage() {
+    try {
+        localStorage.setItem('pixel_palette', JSON.stringify(palette));
+    } catch (e) {
+        console.warn('パレットの保存に失敗しました:', e);
+    }
+}
+
+// ローカルストレージからパレットを復元
+function loadPaletteFromStorage() {
+    try {
+        const saved = localStorage.getItem('pixel_palette');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                palette = parsed;
+                if (!palette.includes(currentColor)) {
+                    currentColor = palette[0];
                 }
             }
-            
-            // グリッド描画（別キャンバス）
-            gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
-            
-            // 強調グリッド線の描画
-            if (showGrid && zoom >= 2) {
-                const quarterX = Math.floor(pixelWidth / 4);
-                const halfX = Math.floor(pixelWidth / 2);
-                const threeQuarterX = Math.floor(pixelWidth * 3 / 4);
-                const quarterY = Math.floor(pixelHeight / 4);
-                const halfY = Math.floor(pixelHeight / 2);
-                const threeQuarterY = Math.floor(pixelHeight * 3 / 4);
-                
-                const emphasizePositions = [quarterX, halfX, threeQuarterX];
-                const emphasizePositionsY = [quarterY, halfY, threeQuarterY];
-                
-                gridCtx.strokeStyle = 'rgba(255,255,255,0.6)';
-                gridCtx.lineWidth = 0.15;
-                
-                emphasizePositions.forEach(pos => {
-                    if (pos > 0 && pos < pixelWidth) {
-                        gridCtx.beginPath();
-                        gridCtx.moveTo(pos, 0);
-                        gridCtx.lineTo(pos, pixelHeight);
-                        gridCtx.stroke();
-                    }
-                });
-                
-                emphasizePositionsY.forEach(pos => {
-                    if (pos > 0 && pos < pixelHeight) {
-                        gridCtx.beginPath();
-                        gridCtx.moveTo(0, pos);
-                        gridCtx.lineTo(pixelWidth, pos);
-                        gridCtx.stroke();
-                    }
-                });
-            }
-            
-            updateCanvasStyle();
         }
+    } catch (e) {
+        console.warn('パレットの読み込みに失敗しました:', e);
+    }
+}
 
-        // キャンバススタイル更新
-        function updateCanvasStyle() {
-            const displayWidth = pixelWidth * zoom;
-            const displayHeight = pixelHeight * zoom;
-            canvas.style.width = displayWidth + 'px';
-            canvas.style.height = displayHeight + 'px';
-            canvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+// キャンバス設定
+function setupCanvas() {
+    canvas.width = pixelWidth;
+    canvas.height = pixelHeight;
+    gridCanvas.width = pixelWidth;
+    gridCanvas.height = pixelHeight;
+    
+    if (pixelData.length === 0 || pixelData.length !== pixelWidth * pixelHeight) {
+        pixelData = new Array(pixelWidth * pixelHeight).fill(null);
+    }
+    
+    renderCanvas();
+}
 
-            gridCanvas.style.width = displayWidth + 'px';
-            gridCanvas.style.height = displayHeight + 'px';
-            gridCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
-
-            // ---- グリッド（CSS背景パターン）の切り替え ----
-            if (showGrid && zoom >= 2) { // ※小さすぎる拡大率の時はグリッドを隠すと見やすいです
-                gridCanvas.style.backgroundImage = `
-                    linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px)
-                `;
-                // 1マスの画面上のサイズ（zoom px）に合わせてパターンを繰り返す
-                gridCanvas.style.backgroundSize = `${zoom}px ${zoom}px`;
-            } else {
-                gridCanvas.style.backgroundImage = 'none';
-            }
-            const modeText = zoomMode === 'fit' ? ' (画面合わせ)' : '';
-            document.getElementById('zoomIndicator').textContent = Math.round(zoom * 100) + '%' + modeText;
-        }
-
-        // パレット設定
-        function setupPalette() {
-            const paletteEl = document.getElementById('palette');
-            paletteEl.innerHTML = '';
-            
-            palette.forEach((color, index) => {
-                const colorEl = document.createElement('div');
-                colorEl.className = 'palette-color' + (color === currentColor ? ' selected' : '');
-                if (color === '#0' || color === 'transparent') {
-                    colorEl.style.backgroundColor = 'transparent';
-                    colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
-                    colorEl.style.backgroundSize = '10px 10px';
-                    colorEl.style.backgroundPosition = '0 0, 0 5px, 5px -5px, -5px 0px';
-                } else {
-                    colorEl.style.backgroundColor = color;
-                }
-                colorEl.onclick = () => selectColor(color);
-                paletteEl.appendChild(colorEl);
-            });
-        }
-
-        // 色選択
-        function selectColor(color) {
-            currentColor = color;
-            updateCurrentColor();
-            setupPalette();
-        }
-
-        // 現在の色更新
-        function updateCurrentColor() {
-            const colorEl = document.getElementById('currentColor');
-            if (currentColor === '#0' || currentColor === 'transparent') {
-                colorEl.style.backgroundColor = 'transparent';
-                colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
-                colorEl.style.backgroundSize = '10px 10px';
-                colorEl.style.backgroundPosition = '0 0, 0 5px, 5px -5px, -5px 0px';
-            } else {
-                colorEl.style.backgroundColor = currentColor;
-                colorEl.style.backgroundImage = 'none';
+// キャンバス描画
+function renderCanvas() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    for (let y = 0; y < pixelHeight; y++) {
+        for (let x = 0; x < pixelWidth; x++) {
+            const index = y * pixelWidth + x;
+            if (pixelData[index]) {
+                ctx.fillStyle = pixelData[index];
+                ctx.fillRect(x, y, 1, 1);
             }
         }
+    }
+    
+    gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+    
+    if (showGrid && zoom >= 2) {
+        const quarterX = Math.floor(pixelWidth / 4);
+        const halfX = Math.floor(pixelWidth / 2);
+        const threeQuarterX = Math.floor(pixelWidth * 3 / 4);
+        const quarterY = Math.floor(pixelHeight / 4);
+        const halfY = Math.floor(pixelHeight / 2);
+        const threeQuarterY = Math.floor(pixelHeight * 3 / 4);
+        
+        const emphasizePositions = [quarterX, halfX, threeQuarterX];
+        const emphasizePositionsY = [quarterY, halfY, threeQuarterY];
+        
+        gridCtx.strokeStyle = 'rgba(255,255,255,0.6)';
+        gridCtx.lineWidth = 0.15;
+        
+        emphasizePositions.forEach(pos => {
+            if (pos > 0 && pos < pixelWidth) {
+                gridCtx.beginPath();
+                gridCtx.moveTo(pos, 0);
+                gridCtx.lineTo(pos, pixelHeight);
+                gridCtx.stroke();
+            }
+        });
+        
+        emphasizePositionsY.forEach(pos => {
+            if (pos > 0 && pos < pixelHeight) {
+                gridCtx.beginPath();
+                gridCtx.moveTo(0, pos);
+                gridCtx.lineTo(pixelWidth, pos);
+                gridCtx.stroke();
+            }
+        });
+    }
+    
+    updateCanvasStyle();
+}
 
-// タッチイベント設定（キャンバス外スワイプ対応版）
+// キャンバススタイル更新
+function updateCanvasStyle() {
+    const displayWidth = pixelWidth * zoom;
+    const displayHeight = pixelHeight * zoom;
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
+    canvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+
+    gridCanvas.style.width = displayWidth + 'px';
+    gridCanvas.style.height = displayHeight + 'px';
+    gridCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+
+    if (showGrid && zoom >= 2) {
+        gridCanvas.style.backgroundImage = `
+            linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px)
+        `;
+        gridCanvas.style.backgroundSize = `${zoom}px ${zoom}px`;
+    } else {
+        gridCanvas.style.backgroundImage = 'none';
+    }
+    const modeText = zoomMode === 'fit' ? ' (画面合わせ)' : '';
+    document.getElementById('zoomIndicator').textContent = Math.round(zoom * 100) + '%' + modeText;
+}
+
+// パレット設定
+function setupPalette() {
+    const paletteEl = document.getElementById('palette');
+    paletteEl.innerHTML = '';
+    
+    palette.forEach((color) => {
+        const colorEl = document.createElement('div');
+        colorEl.className = 'palette-color' + (color === currentColor ? ' selected' : '');
+        if (color === '#0' || color === 'transparent') {
+            colorEl.style.backgroundColor = 'transparent';
+            colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
+            colorEl.style.backgroundSize = '10px 10px';
+            colorEl.style.backgroundPosition = '0 0, 0 5px, 5px -5px, -5px 0px';
+        } else {
+            colorEl.style.backgroundColor = color;
+        }
+        colorEl.onclick = () => selectColor(color);
+        paletteEl.appendChild(colorEl);
+    });
+}
+
+// 色選択
+function selectColor(color) {
+    currentColor = color;
+    updateCurrentColor();
+    setupPalette();
+}
+
+// 現在の色更新
+function updateCurrentColor() {
+    const colorEl = document.getElementById('currentColor');
+    if (currentColor === '#0' || currentColor === 'transparent') {
+        colorEl.style.backgroundColor = 'transparent';
+        colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
+        colorEl.style.backgroundSize = '10px 10px';
+        colorEl.style.backgroundPosition = '0 0, 0 5px, 5px -5px, -5px 0px';
+    } else {
+        colorEl.style.backgroundColor = currentColor;
+        colorEl.style.backgroundImage = 'none';
+    }
+}
+
+// イベントリスナーの一括設定
 function setupTouchEvents() {
     const container = document.getElementById('canvasContainer');
-    
-    // コンテナ全体のタッチイベント
-    container.addEventListener('touchstart', handleContainerTouchStart, { passive: false });
-    container.addEventListener('touchmove', handleContainerTouchMove, { passive: false });
-    container.addEventListener('touchend', handleContainerTouchEnd);
-    
-    // マウスドラッグ操作（コンテナ全体）
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+
+    canvas.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
     container.addEventListener('mousedown', handleContainerMouseDown);
-    window.addEventListener('mousemove', handleContainerMouseMove);
-    window.addEventListener('mouseup', handleContainerMouseUp);
-    
-    // ホイールズーム
+
     container.addEventListener('wheel', handleWheel, { passive: false });
-    
-    // ズームインジケーターのタップ
     document.getElementById('zoomIndicator').addEventListener('click', toggleZoomMode);
 }
 
-// コンテナタッチ開始
-function handleContainerTouchStart(e) {
+// タッチ開始
+function handleTouchStart(e) {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+    isLongPress = false;
+    isScrolling = false;
+
     if (e.touches.length === 2) {
-        // ピンチ操作開始
         initialPinchDistance = getPinchDistance(e.touches);
         initialZoom = zoom;
         return;
     }
 
-    // 1本指の場合、タッチ位置を記憶
-    const touch = e.touches[0];
-    lastTouchX = touch.clientX;
-    lastTouchY = touch.clientY;
-    
-    // タッチ対象がキャンバス以外ならスクロールモードにする
-    if (e.target !== canvas && e.target !== gridCanvas) {
-        isScrolling = true;
+    if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
+
+        longPressTimer = setTimeout(() => {
+            isLongPress = true;
+            if (navigator.vibrate) navigator.vibrate(40);
+            handleLongPress(touch);
+        }, 500);
     }
 }
 
-        // タッチ開始処理
-        function handleTouchStart(e) {
-            e.preventDefault();
-            
-            if (e.touches.length === 2) {
-                // ピンチ操作開始
-                initialPinchDistance = getPinchDistance(e.touches);
-                initialZoom = zoom;
-                return;
-            }
-            
-            const touch = e.touches[0];
-            lastTouchX = touch.clientX;
-            lastTouchY = touch.clientY;
-            isScrolling = false;
-            
-            // ロングプレス検出
-            isLongPress = false;
-            longPressTimer = setTimeout(() => {
-                isLongPress = true;
-                handleLongPress(touch);
-            }, 500);
-        }
+// タッチ移動
+function handleTouchMove(e) {
+    e.preventDefault();
 
-        // マウスダウン処理
-        function handleMouseDown(e) {
-            e.preventDefault();
-            lastTouchX = e.clientX;
-            lastTouchY = e.clientY;
-            isScrolling = false;
-            isDrawing = true;
-            
-            if (!fillMode) {
-                saveState();
-            }
-            drawPixel(e);
-        }
-
-function handleContainerTouchMove(e) {
     if (e.touches.length === 2) {
-        e.preventDefault();
-        // ピンチズーム
+        if (longPressTimer) clearTimeout(longPressTimer);
         const currentDistance = getPinchDistance(e.touches);
         const scale = currentDistance / initialPinchDistance;
         zoom = Math.max(1, Math.min(50, initialZoom * scale));
@@ -778,9 +771,11 @@ function handleContainerTouchMove(e) {
         const deltaX = touch.clientX - lastTouchX;
         const deltaY = touch.clientY - lastTouchY;
 
-        // キャンバス外からスワイプ開始した場合、または描画中以外はスクロール
-        if (isScrolling || (e.target !== canvas && e.target !== gridCanvas)) {
-            e.preventDefault();
+        if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3 || isScrolling) {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
             isScrolling = true;
             scrollOffsetX += deltaX;
             scrollOffsetY += deltaY;
@@ -792,508 +787,421 @@ function handleContainerTouchMove(e) {
     }
 }
 
-        // タッチ移動処理
-        function handleTouchMove(e) {
-            e.preventDefault();
-            
-            if (e.touches.length === 2) {
-                // ピンチズーム
-                const currentDistance = getPinchDistance(e.touches);
-                const scale = currentDistance / initialPinchDistance;
-                zoom = Math.max(1, Math.min(50, initialZoom * scale));
-                zoomMode = 'manual';
-                renderCanvas();
-                return;
-            }
-            
-            const touch = e.touches[0];
-            const deltaX = touch.clientX - lastTouchX;
-            const deltaY = touch.clientY - lastTouchY;
-            
-            // スクロール判定
-            if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-                isScrolling = true;
-                if (longPressTimer) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-                }
-            }
-            
-            if (isScrolling) {
-                scrollOffsetX += deltaX;
-                scrollOffsetY += deltaY;
-                updateCanvasStyle();
-            }
-            
-            lastTouchX = touch.clientX;
-            lastTouchY = touch.clientY;
-        }
+// タッチ終了
+function handleTouchEnd(e) {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
 
-        // マウス移動処理
-        function handleMouseMove(e) {
-            if (!isDrawing) return;
-            
-            const deltaX = e.clientX - lastTouchX;
-            const deltaY = e.clientY - lastTouchY;
-            
-            if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-                isScrolling = true;
-            }
-            
-            if (!isScrolling) {
-                drawPixel(e);
-            }
-            
-            lastTouchX = e.clientX;
-            lastTouchY = e.clientY;
+    if (e.changedTouches.length === 1 && !isScrolling && !isLongPress) {
+        const touch = e.changedTouches[0];
+        const rect = canvas.getBoundingClientRect();
+        
+        if (
+            touch.clientX >= rect.left &&
+            touch.clientX <= rect.right &&
+            touch.clientY >= rect.top &&
+            touch.clientY <= rect.bottom
+        ) {
+            if (!fillMode) saveState();
+            drawPixelAt(touch.clientX, touch.clientY);
         }
+    }
 
-// コンテナタッチ終了
-function handleContainerTouchEnd(e) {
-    if (e.touches.length === 0) {
-        isScrolling = false;
+    isScrolling = false;
+    isLongPress = false;
+}
+
+// PC用マウス操作
+function handleMouseDown(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    isDrawing = true;
+    if (!fillMode) saveState();
+    drawPixel(e);
+}
+
+function handleMouseMove(e) {
+    if (isDrawing) {
+        drawPixel(e);
+    } else if (isContainerMouseDown) {
+        const deltaX = e.clientX - lastTouchX;
+        const deltaY = e.clientY - lastTouchY;
+        scrollOffsetX += deltaX;
+        scrollOffsetY += deltaY;
+        updateCanvasStyle();
+        lastTouchX = e.clientX;
+        lastTouchY = e.clientY;
     }
 }
-// マウス操作（PC用キャンバス外ドラッグ）
-let isContainerMouseDown = false;
+
+function handleMouseUp() {
+    isDrawing = false;
+    isContainerMouseDown = false;
+}
 
 function handleContainerMouseDown(e) {
-    // ボタンやモーダル等の操作時は除外
     if (e.target.tagName === 'BUTTON' || e.target.closest('.top-controls')) return;
-    
     lastTouchX = e.clientX;
     lastTouchY = e.clientY;
-
-    // キャンバス外をクリックしたらパン移動を開始
     if (e.target !== canvas && e.target !== gridCanvas) {
         isContainerMouseDown = true;
     }
 }
 
-function handleContainerMouseMove(e) {
-    if (!isContainerMouseDown) return;
-
-    const deltaX = e.clientX - lastTouchX;
-    const deltaY = e.clientY - lastTouchY;
-
-    scrollOffsetX += deltaX;
-    scrollOffsetY += deltaY;
-    updateCanvasStyle();
-
-    lastTouchX = e.clientX;
-    lastTouchY = e.clientY;
+// スポイト
+function handleLongPress(touch) {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((touch.clientX - rect.left) / zoom);
+    const y = Math.floor((touch.clientY - rect.top) / zoom);
+    
+    if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+        const index = y * pixelWidth + x;
+        const pickedColor = pixelData[index];
+        selectColor(pickedColor ? pickedColor : '#0');
+    }
 }
 
-function handleContainerMouseUp() {
-    isContainerMouseDown = false;
+// ホイールズーム
+function handleWheel(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    zoom = Math.max(1, Math.min(50, zoom * delta));
+    zoomMode = 'manual';
+    renderCanvas();
 }
-        // タッチ終了処理
-        function handleTouchEnd(e) {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-            
-            if (!isLongPress && !isScrolling && e.changedTouches.length === 1) {
-                // 短いタップ - ドット入力
-                const touch = e.changedTouches[0];
-                drawPixelAt(touch.clientX, touch.clientY);
-            }
-            
-            isLongPress = false;
-            isScrolling = false;
-        }
 
-        // マウスアップ処理
-        function handleMouseUp(e) {
-            isDrawing = false;
-            isScrolling = false;
-        }
+// ピンチ距離計算
+function getPinchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
 
-        // ホイール処理
-        function handleWheel(e) {
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? 0.9 : 1.1;
-            zoom = Math.max(1, Math.min(50, zoom * delta));
-            zoomMode = 'manual';
-            renderCanvas();
-        }
-
-        // ピンチ距離計算
-        function getPinchDistance(touches) {
-            const dx = touches[0].clientX - touches[1].clientX;
-            const dy = touches[0].clientY - touches[1].clientY;
-            return Math.sqrt(dx * dx + dy * dy);
-        }
-
-// ズームモード切り替え（中央揃え修正版）
-function toggleZoomMode() {
+// 画面サイズにフィット拡大
+function fitToScreen() {
     const container = document.getElementById('canvasContainer');
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
     
-    if (zoomMode === 'original') {
-        // 画面いっぱいに表示（余白を考慮）
-        const zoomX = (containerWidth - 40) / pixelWidth;
-        const zoomY = (containerHeight - 40) / pixelHeight;
-        zoom = Math.max(1, Math.floor(Math.min(zoomX, zoomY)));
-        zoomMode = 'fit';
-    } else {
-        // 原寸表示
-        zoom = 1;
-        zoomMode = 'original';
-    }
-    
-    // Flexboxで元々中央に居るため、オフセットは 0 にリセットする
+    const zoomX = (containerWidth - 40) / pixelWidth;
+    const zoomY = (containerHeight - 40) / pixelHeight;
+    zoom = Math.max(1, Math.floor(Math.min(zoomX, zoomY)));
+    zoomMode = 'fit';
     scrollOffsetX = 0;
     scrollOffsetY = 0;
-    
-    // 最後にスタイル更新＆キャンバス描画を実行
     renderCanvas();
 }
 
-        // ロングプレス処理（スポイト）
-        function handleLongPress(touch) {
-            const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((touch.clientX - rect.left) / zoom);
-            const y = Math.floor((touch.clientY - rect.top) / zoom);
-            
-            if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
-                const index = y * pixelWidth + x;
-                if (pixelData[index]) {
-                    selectColor(pixelData[index]);
-                } else {
-                    selectColor('#0');
-                }
+// ズームモード切り替え
+function toggleZoomMode() {
+    if (zoomMode === 'original') {
+        fitToScreen();
+    } else {
+        zoom = 1;
+        zoomMode = 'original';
+        scrollOffsetX = 0;
+        scrollOffsetY = 0;
+        renderCanvas();
+    }
+}
+
+// ピクセル描画
+function drawPixel(e) {
+    drawPixelAt(e.clientX, e.clientY);
+}
+
+function drawPixelAt(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((clientX - rect.left) / zoom);
+    const y = Math.floor((clientY - rect.top) / zoom);
+    
+    if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+        if (fillMode) {
+            floodFill(x, y, currentColor);
+        } else {
+            const index = y * pixelWidth + x;
+            if (currentColor === '#0' || currentColor === 'transparent') {
+                pixelData[index] = null;
+            } else {
+                pixelData[index] = currentColor;
             }
         }
+        renderCanvas();
+    }
+}
 
-        // ピクセル描画
-        function drawPixel(e) {
-            const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / zoom);
-            const y = Math.floor((e.clientY - rect.top) / zoom);
-            
-            if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
-                if (fillMode) {
-                    floodFill(x, y, currentColor);
-                } else {
-                    const index = y * pixelWidth + x;
-                    if (currentColor === '#0' || currentColor === 'transparent') {
-                        pixelData[index] = null;
-                    } else {
-                        pixelData[index] = currentColor;
-                    }
-                }
-                renderCanvas();
+// 塗りつぶし
+function floodFill(startX, startY, newColor) {
+    const startIndex = startY * pixelWidth + startX;
+    const targetColor = pixelData[startIndex];
+    const newColorValue = (newColor === '#0' || newColor === 'transparent') ? null : newColor;
+    
+    if (targetColor === newColorValue) return;
+    
+    saveState();
+    const stack = [[startX, startY]];
+    const visited = new Set();
+    
+    while (stack.length > 0) {
+        const [x, y] = stack.pop();
+        
+        if (x < 0 || x >= pixelWidth || y < 0 || y >= pixelHeight) continue;
+        
+        const key = `${x},${y}`;
+        if (visited.has(key)) continue;
+        
+        const index = y * pixelWidth + x;
+        if (pixelData[index] !== targetColor) continue;
+        
+        visited.add(key);
+        pixelData[index] = newColorValue;
+        
+        stack.push([x + 1, y]);
+        stack.push([x - 1, y]);
+        stack.push([x, y + 1]);
+        stack.push([x, y - 1]);
+    }
+}
+
+// 塗りつぶしモード切り替え
+function toggleFillMode() {
+    fillMode = !fillMode;
+    document.getElementById('fillButton').classList.toggle('active', fillMode);
+}
+
+// アンドゥ
+function saveState() {
+    undoStack.push([...pixelData]);
+    if (undoStack.length > maxUndo) undoStack.shift();
+    document.getElementById('undoBtn').disabled = false;
+}
+
+function undo() {
+    if (undoStack.length > 0) {
+        pixelData = undoStack.pop();
+        renderCanvas();
+        document.getElementById('undoBtn').disabled = undoStack.length === 0;
+    }
+}
+
+// グリッド切り替え
+function toggleGrid() {
+    showGrid = !showGrid;
+    document.getElementById('gridBtn').textContent = showGrid ? 'グリッド' : 'グリッドOFF';
+    renderCanvas();
+}
+
+// PNG保存・読込
+function savePNG() {
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = pixelWidth;
+    exportCanvas.height = pixelHeight;
+    const exportCtx = exportCanvas.getContext('2d');
+    
+    exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
+    for (let y = 0; y < pixelHeight; y++) {
+        for (let x = 0; x < pixelWidth; x++) {
+            const index = y * pixelWidth + x;
+            if (pixelData[index]) {
+                exportCtx.fillStyle = pixelData[index];
+                exportCtx.fillRect(x, y, 1, 1);
             }
         }
+    }
+    
+    const link = document.createElement('a');
+    link.download = 'pixel-art.png';
+    link.href = exportCanvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 
-        // 座標指定でピクセル描画
-        function drawPixelAt(clientX, clientY) {
-            const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((clientX - rect.left) / zoom);
-            const y = Math.floor((clientY - rect.top) / zoom);
-            
-            if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
-                if (fillMode) {
-                    floodFill(x, y, currentColor);
-                } else {
-                    const index = y * pixelWidth + x;
-                    if (currentColor === '#0' || currentColor === 'transparent') {
-                        pixelData[index] = null;
-                    } else {
-                        pixelData[index] = currentColor;
-                    }
-                }
-                renderCanvas();
-            }
-        }
-
-        // 塗りつぶし機能
-        function floodFill(startX, startY, newColor) {
-            const startIndex = startY * pixelWidth + startX;
-            const targetColor = pixelData[startIndex];
-            
-            const newColorValue = (newColor === '#0' || newColor === 'transparent') ? null : newColor;
-            
-            if (targetColor === newColorValue) return;
-            
-            saveState();
-            
-            const stack = [[startX, startY]];
-            const visited = new Set();
-            
-            while (stack.length > 0) {
-                const [x, y] = stack.pop();
-                const key = `${x},${y}`;
+function loadPNG() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const width = Math.min(img.width, 64);
+                const height = Math.min(img.height, 64);
                 
-                if (visited.has(key)) continue;
-                if (x < 0 || x >= pixelWidth || y < 0 || y >= pixelHeight) continue;
-                
-                const index = y * pixelWidth + x;
-                if (pixelData[index] !== targetColor) continue;
-                
-                visited.add(key);
-                pixelData[index] = newColorValue;
-                
-                stack.push([x + 1, y]);
-                stack.push([x - 1, y]);
-                stack.push([x, y + 1]);
-                stack.push([x, y - 1]);
-            }
-        }
-
-        // 塗りつぶしモード切り替え
-        function toggleFillMode() {
-            fillMode = !fillMode;
-            const btn = document.getElementById('fillButton');
-            btn.classList.toggle('active', fillMode);
-        }
-
-        // 状態保存（アンドゥ用）
-        function saveState() {
-            undoStack.push([...pixelData]);
-            if (undoStack.length > maxUndo) {
-                undoStack.shift();
-            }
-            document.getElementById('undoBtn').disabled = false;
-        }
-
-        // アンドゥ
-        function undo() {
-            if (undoStack.length > 0) {
-                pixelData = undoStack.pop();
-                renderCanvas();
-                document.getElementById('undoBtn').disabled = undoStack.length === 0;
-            }
-        }
-
-        // グリッド切り替え
-        function toggleGrid() {
-            showGrid = !showGrid;
-            document.getElementById('gridBtn').textContent = showGrid ? 'グリッド' : 'グリッドOFF';
-            renderCanvas();
-        }
-
-        // PNG保存
-        function savePNG() {
-            const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = pixelWidth;
-            exportCanvas.height = pixelHeight;
-            const exportCtx = exportCanvas.getContext('2d');
-            
-            // キャンバスをクリアして透明状態にする
-            exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
-            
-            for (let y = 0; y < pixelHeight; y++) {
-                for (let x = 0; x < pixelWidth; x++) {
-                    const index = y * pixelWidth + x;
-                    if (pixelData[index]) {
-                        exportCtx.fillStyle = pixelData[index];
-                        exportCtx.fillRect(x, y, 1, 1);
-                    }
-                }
-            }
-            
-            const link = document.createElement('a');
-            link.download = 'pixel-art.png';
-            link.href = exportCanvas.toDataURL('image/png');
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        // PNG読み込み
-        function loadPNG() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/png';
-            input.onchange = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        // 64x64以下に制限
-                        const width = Math.min(img.width, 64);
-                        const height = Math.min(img.height, 64);
-                        
-                        pixelWidth = width;
-                        pixelHeight = height;
-                        pixelData = new Array(pixelWidth * pixelHeight).fill(null);
-                        
-                        const tempCanvas = document.createElement('canvas');
-                        const tempCtx = tempCanvas.getContext('2d');
-                        tempCanvas.width = width;
-                        tempCanvas.height = height;
-                        tempCtx.drawImage(img, 0, 0, width, height);
-                        
-                        const imageData = tempCtx.getImageData(0, 0, width, height);
-                        const data = imageData.data;
-                        
-                        for (let y = 0; y < height; y++) {
-                            for (let x = 0; x < width; x++) {
-                                const index = (y * width + x) * 4;
-                                const r = data[index];
-                                const g = data[index + 1];
-                                const b = data[index + 2];
-                                const a = data[index + 3];
-                                
-                                if (a > 0) {
-                                    const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-                                    pixelData[y * width + x] = hex;
-                                }
-                            }
-                        }
-                        
-                        undoStack = [];
-                        zoom = 1;
-                        scrollOffsetX = 0;
-                        scrollOffsetY = 0;
-                        setupCanvas();
-                        document.getElementById('undoBtn').disabled = true;
-                    };
-                    img.src = event.target.result;
-                };
-                reader.readAsDataURL(file);
-            };
-            input.click();
-        }
-
-        // 新規キャンバスモーダル表示
-        function showNewCanvasModal() {
-            document.getElementById('newCanvasModal').classList.add('active');
-        }
-
-        // 新規キャンバス作成
-        function createNewCanvas() {
-            const width = parseInt(document.getElementById('canvasWidth').value);
-            const height = parseInt(document.getElementById('canvasHeight').value);
-            
-            if (width >= 1 && width <= 64 && height >= 1 && height <= 64) {
                 pixelWidth = width;
                 pixelHeight = height;
                 pixelData = new Array(pixelWidth * pixelHeight).fill(null);
-                undoStack = [];
-                zoom = 1;
-                scrollOffsetX = 0;
-                scrollOffsetY = 0;
-                setupCanvas();
-                closeModal('newCanvasModal');
-                document.getElementById('undoBtn').disabled = true;
-            }
-        }
-
-        // パレットモーダル表示
-        function showPaletteModal() {
-            const editor = document.getElementById('paletteEditor');
-            editor.innerHTML = '';
-            
-            palette.forEach((color, index) => {
-                const colorEl = document.createElement('div');
-                colorEl.className = 'palette-color';
-                if (color === '#0' || color === 'transparent') {
-                    colorEl.style.backgroundColor = 'transparent';
-                    colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
-                    colorEl.style.backgroundSize = '10px 10px';
-                    colorEl.style.backgroundPosition = '0 0, 0 5px, 5px -5px, -5px 0px';
-                } else {
-                    colorEl.style.backgroundColor = color;
+                
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                tempCtx.drawImage(img, 0, 0, width, height);
+                
+                const imageData = tempCtx.getImageData(0, 0, width, height);
+                const data = imageData.data;
+                
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const index = (y * width + x) * 4;
+                        const r = data[index];
+                        const g = data[index + 1];
+                        const b = data[index + 2];
+                        const a = data[index + 3];
+                        
+                        if (a > 0) {
+                            const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+                            pixelData[y * width + x] = hex;
+                        }
+                    }
                 }
-                colorEl.onclick = () => editPaletteColor(index);
-                colorEl.oncontextmenu = (e) => {
-                    e.preventDefault();
-                    removePaletteColor(index);
-                };
-                editor.appendChild(colorEl);
-            });
-            
-            document.getElementById('paletteModal').classList.add('active');
+                
+                undoStack = [];
+                setupCanvas();
+                fitToScreen();
+                document.getElementById('undoBtn').disabled = true;
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+    input.click();
+}
+
+// モーダル管理
+function showNewCanvasModal() {
+    document.getElementById('newCanvasModal').classList.add('active');
+}
+
+function createNewCanvas() {
+    const width = parseInt(document.getElementById('canvasWidth').value);
+    const height = parseInt(document.getElementById('canvasHeight').value);
+    
+    if (width >= 1 && width <= 64 && height >= 1 && height <= 64) {
+        pixelWidth = width;
+        pixelHeight = height;
+        pixelData = new Array(pixelWidth * pixelHeight).fill(null);
+        undoStack = [];
+        setupCanvas();
+        fitToScreen();
+        closeModal('newCanvasModal');
+        document.getElementById('undoBtn').disabled = true;
+    }
+}
+
+function showPaletteModal() {
+    const editor = document.getElementById('paletteEditor');
+    editor.innerHTML = '';
+    
+    palette.forEach((color, index) => {
+        const colorEl = document.createElement('div');
+        colorEl.className = 'palette-color';
+        if (color === '#0' || color === 'transparent') {
+            colorEl.style.backgroundColor = 'transparent';
+            colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
+            colorEl.style.backgroundSize = '10px 10px';
+            colorEl.style.backgroundPosition = '0 0, 0 5px, 5px -5px, -5px 0px';
+        } else {
+            colorEl.style.backgroundColor = color;
         }
+        colorEl.onclick = () => editPaletteColor(index);
+        colorEl.oncontextmenu = (e) => {
+            e.preventDefault();
+            removePaletteColor(index);
+        };
+        editor.appendChild(colorEl);
+    });
+    
+    document.getElementById('paletteModal').classList.add('active');
+}
 
+function addDetailedPaletteColor() {
+    showColorModal((color) => {
+        palette.push(color);
+        savePaletteToStorage(); // 保存
+        setupPalette();
+        showPaletteModal();
+    }, '#ffffff', 'argb');
+}
 
-        // パレット詳細色追加（ARGBモーダル）
-        function addDetailedPaletteColor() {
-            showColorModal((color) => {
-                palette.push(color);
-                setupPalette();
-                showPaletteModal();
-            }, '#ffffff', 'argb');
-        }
+function removePaletteColor(index) {
+    palette.splice(index, 1);
+    savePaletteToStorage(); // 保存
+    setupPalette();
+    showPaletteModal();
+}
 
-        // パレット色削除
-        function removePaletteColor(index) {
-            palette.splice(index, 1);
-            setupPalette();
-            showPaletteModal();
-        }
+function addDetailedColor() {
+    showColorModal((color) => {
+        palette.push(color);
+        savePaletteToStorage(); // 保存
+        selectColor(color);
+    }, '#ffffff', 'argb');
+}
 
-        // 詳細色追加（ARGBモーダル）
-        function addDetailedColor() {
-            showColorModal((color) => {
-                palette.push(color);
-                selectColor(color);
-            }, '#ffffff', 'argb');
-        }
+function editPaletteColor(index) {
+    showColorModal((newColor) => {
+        palette[index] = newColor;
+        savePaletteToStorage(); // 保存
+        setupPalette();
+        showPaletteModal();
+        if (currentColor === palette[index]) selectColor(newColor);
+    }, palette[index], 'argb');
+}
 
-// 色選択モーダル表示
 function showColorModal(callback, defaultColor = '#ffffff', forceTab = null) {
     document.getElementById('colorModal').classList.add('active');
     document.getElementById('colorModal').callback = callback;
     
-    // タブの切り替え
     if (forceTab) {
         switchColorTab(forceTab);
     } else {
         switchColorTab('hsla');
     }
     
-    // defaultColor を渡すように修正
     initHSLAValues(defaultColor);
     initARGBValues(defaultColor);
 }
 
 function rgbToHsl(r, g, b) {
-  r /= 255;
-  g /= 255;
-  b /= 255;
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
 
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  let h, s, l = (max + min) / 2;
-
-  if (max === min) {
-    h = s = 0; // 無彩色（白・黒・灰色）
-  } else {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      case b: h = (r - g) / d + 4; break;
+    if (max === min) {
+        h = s = 0;
+    } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
     }
-    h /= 6;
-  }
-
-  return {
-    h: Math.round(h * 360),
-    s: s,
-    l: l
-  };
+    return { h: Math.round(h * 360), s, l };
 }
 
-// HSLA値の初期化（alpha100: 0-100）
 function initHSLAValues(hexColor, alpha100 = 100) {
-    if (!hexColor || !hexColor.startsWith('#') || hexColor.length !== 7) {
+    if (!hexColor || !hexColor.startsWith('#') || (hexColor.length !== 7 && hexColor.length !== 9)) {
         hexColor = '#ffffff';
     }
 
     const r = parseInt(hexColor.slice(1, 3), 16);
     const g = parseInt(hexColor.slice(3, 5), 16);
     const b = parseInt(hexColor.slice(5, 7), 16);
+    
+    if (hexColor.length === 9) {
+        alpha100 = Math.round((parseInt(hexColor.slice(7, 9), 16) / 255) * 100);
+    }
 
     const hsl = rgbToHsl(r, g, b);
     const h = hsl.h;
@@ -1312,9 +1220,8 @@ function initHSLAValues(hexColor, alpha100 = 100) {
     updateHSLAPreview();
 }
 
-// ARGB値の初期化（alpha255: 0-255）
 function initARGBValues(hexColor, alpha255 = 255) {
-    if (!hexColor || !hexColor.startsWith('#') || hexColor.length !== 7) {
+    if (!hexColor || !hexColor.startsWith('#') || (hexColor.length !== 7 && hexColor.length !== 9)) {
         hexColor = '#ffffff';
     }
 
@@ -1322,19 +1229,22 @@ function initARGBValues(hexColor, alpha255 = 255) {
     const g = parseInt(hexColor.slice(3, 5), 16);
     const b = parseInt(hexColor.slice(5, 7), 16);
     
+    if (hexColor.length === 9) {
+        alpha255 = parseInt(hexColor.slice(7, 9), 16);
+    }
+    
     document.getElementById('argbRSlider').value = r;
     document.getElementById('argbRInput').value = r;
     document.getElementById('argbGSlider').value = g;
     document.getElementById('argbGInput').value = g;
     document.getElementById('argbBSlider').value = b;
     document.getElementById('argbBInput').value = b;
-    document.getElementById('argbASlider').value = alpha255;
-    document.getElementById('argbAInput').value = alpha255;
+    document.getElementById('argbASlider').value = a = alpha255;
+    document.getElementById('argbAInput').value = a = alpha255;
     
     updateARGBPreview();
 }
 
-// カラータブ切り替え
 function switchColorTab(tab) {
     document.getElementById('hslaTab').classList.toggle('active', tab === 'hsla');
     document.getElementById('argbTab').classList.toggle('active', tab === 'argb');
@@ -1342,194 +1252,126 @@ function switchColorTab(tab) {
     document.getElementById('argbSection').style.display = tab === 'argb' ? 'block' : 'none';
 
     if (tab === 'hsla') {
-        // ARGB側の現在の色を取得してHSLAに反映
         const preview = document.getElementById('argbPreview');
         const hex = preview.dataset.hexColor || '#ffffff';
         const alpha255 = parseInt(preview.dataset.alpha ?? 255);
         const alpha100 = Math.round(alpha255 / 2.55);
-        
         initHSLAValues(hex, alpha100);
     } else if (tab === 'argb') {
-        // HSLA側の現在の色を取得してARGBに反映
         const preview = document.getElementById('hslaPreview');
         const hex = preview.dataset.hexColor || '#ffffff';
-        const alpha100 = parseInt(preview.dataset.alpha ?? 255) / 2.55; // dataset.alphaは0-255変換済み
-        const alpha255 = Math.round(alpha100);
-        
+        const alpha100 = parseInt(document.getElementById('hslaASlider').value);
+        const alpha255 = Math.round(alpha100 * 2.55);
         initARGBValues(hex, alpha255);
     }
 }
 
-        // スライダーからHSLA値を更新
-        function updateHSLAFromSliders() {
-            const h = document.getElementById('hslaHSlider').value;
-            const s = document.getElementById('hslaSSlider').value;
-            const l = document.getElementById('hslaLSlider').value;
-            const a = document.getElementById('hslaASlider').value;
-            
-            document.getElementById('hslaHInput').value = h;
-            document.getElementById('hslaSInput').value = s;
-            document.getElementById('hslaLInput').value = l;
-            document.getElementById('hslaAInput').value = a;
-            
-            updateHSLAPreview();
-        }
+function updateHSLAFromSliders() {
+    const h = document.getElementById('hslaHSlider').value;
+    const s = document.getElementById('hslaSSlider').value;
+    const l = document.getElementById('hslaLSlider').value;
+    const a = document.getElementById('hslaASlider').value;
+    
+    document.getElementById('hslaHInput').value = h;
+    document.getElementById('hslaSInput').value = s;
+    document.getElementById('hslaLInput').value = l;
+    document.getElementById('hslaAInput').value = a;
+    
+    updateHSLAPreview();
+}
 
-        // スライダーからARGB値を更新
-        function updateARGBFromSliders() {
-            const r = document.getElementById('argbRSlider').value;
-            const g = document.getElementById('argbGSlider').value;
-            const b = document.getElementById('argbBSlider').value;
-            const a = document.getElementById('argbASlider').value;
-            
-            document.getElementById('argbRInput').value = r;
-            document.getElementById('argbGInput').value = g;
-            document.getElementById('argbBInput').value = b;
-            document.getElementById('argbAInput').value = a;
-            
-            updateARGBPreview();
-        }
+function updateARGBFromSliders() {
+    const r = document.getElementById('argbRSlider').value;
+    const g = document.getElementById('argbGSlider').value;
+    const b = document.getElementById('argbBSlider').value;
+    const a = document.getElementById('argbASlider').value;
+    
+    document.getElementById('argbRInput').value = r;
+    document.getElementById('argbGInput').value = g;
+    document.getElementById('argbBInput').value = b;
+    document.getElementById('argbAInput').value = a;
+    
+    updateARGBPreview();
+}
 
-        // 入力フィールドからHSLA値を更新
-        function updateHSLAFromInputs() {
-            const h = Math.min(360, Math.max(0, parseInt(document.getElementById('hslaHInput').value) || 0));
-            const s = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaSInput').value) || 0));
-            const l = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaLInput').value) || 0));
-            const a = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaAInput').value) || 0));
-            
-            document.getElementById('hslaHSlider').value = h;
-            document.getElementById('hslaSSlider').value = s;
-            document.getElementById('hslaLSlider').value = l;
-            document.getElementById('hslaASlider').value = a;
-            
-            updateHSLAPreview();
-        }
+function updateHSLAFromInputs() {
+    const h = Math.min(360, Math.max(0, parseInt(document.getElementById('hslaHInput').value) || 0));
+    const s = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaSInput').value) || 0));
+    const l = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaLInput').value) || 0));
+    const a = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaAInput').value) || 0));
+    
+    document.getElementById('hslaHSlider').value = h;
+    document.getElementById('hslaSSlider').value = s;
+    document.getElementById('hslaLSlider').value = l;
+    document.getElementById('hslaASlider').value = a;
+    
+    updateHSLAPreview();
+}
 
-        // 入力フィールドからARGB値を更新
-        function updateARGBFromInputs() {
-            const r = Math.min(255, Math.max(0, parseInt(document.getElementById('argbRInput').value) || 0));
-            const g = Math.min(255, Math.max(0, parseInt(document.getElementById('argbGInput').value) || 0));
-            const b = Math.min(255, Math.max(0, parseInt(document.getElementById('argbBInput').value) || 0));
-            const a = Math.min(255, Math.max(0, parseInt(document.getElementById('argbAInput').value) || 0));
-            
-            document.getElementById('argbRSlider').value = r;
-            document.getElementById('argbGSlider').value = g;
-            document.getElementById('argbBSlider').value = b;
-            document.getElementById('argbASlider').value = a;
-            
-            updateARGBPreview();
-        }
+function updateARGBFromInputs() {
+    const r = Math.min(255, Math.max(0, parseInt(document.getElementById('argbRInput').value) || 0));
+    const g = Math.min(255, Math.max(0, parseInt(document.getElementById('argbGInput').value) || 0));
+    const b = Math.min(255, Math.max(0, parseInt(document.getElementById('argbBInput').value) || 0));
+    const a = Math.min(255, Math.max(0, parseInt(document.getElementById('argbAInput').value) || 0));
+    
+    document.getElementById('argbRSlider').value = r;
+    document.getElementById('argbGSlider').value = g;
+    document.getElementById('argbBSlider').value = b;
+    document.getElementById('argbASlider').value = a;
+    
+    updateARGBPreview();
+}
 
-        // HSLAプレビュー更新
-        function updateHSLAPreview() {
-            const h = document.getElementById('hslaHSlider').value;
-            const s = document.getElementById('hslaSSlider').value;
-            const l = document.getElementById('hslaLSlider').value;
-            const a = document.getElementById('hslaASlider').value;
-            
-            const preview = document.getElementById('hslaPreview');
-            preview.style.setProperty('--overlay-color', `hsla(${h}, ${s}%, ${l}%, ${a / 100})`);
-            preview.style.backgroundColor = `hsla(${h}, ${s}%, ${l}%, ${a / 100})`;
-            
-            // HSLAをHEXに変換
-            const hexColor = hslaToHex(h, s, l, a);
-            preview.dataset.hexColor = hexColor;
-            preview.dataset.alpha = Math.round(a * 2.55); // 0-100 to 0-255
-        }
+function updateHSLAPreview() {
+    const h = document.getElementById('hslaHSlider').value;
+    const s = document.getElementById('hslaSSlider').value;
+    const l = document.getElementById('hslaLSlider').value;
+    const a = document.getElementById('hslaASlider').value;
+    
+    const preview = document.getElementById('hslaPreview');
+    preview.style.setProperty('--overlay-color', `hsla(${h}, ${s}%, ${l}%, ${a / 100})`);
+    preview.style.backgroundColor = `hsla(${h}, ${s}%, ${l}%, ${a / 100})`;
+    
+    const hexColor = hslaToHex(h, s, l, a);
+    preview.dataset.hexColor = hexColor;
+    preview.dataset.alpha = Math.round(a * 2.55);
+}
 
-        // ARGBプレビュー更新
-        function updateARGBPreview() {
-            const r = document.getElementById('argbRSlider').value;
-            const g = document.getElementById('argbGSlider').value;
-            const b = document.getElementById('argbBSlider').value;
-            const a = document.getElementById('argbASlider').value;
-            
-            const hexColor = '#' + [r, g, b].map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
-            const preview = document.getElementById('argbPreview');
-            preview.style.setProperty('--overlay-color', `rgba(${r}, ${g}, ${b}, ${a / 255})`);
-            preview.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
-            preview.dataset.hexColor = hexColor;
-            preview.dataset.alpha = a;
-        }
+function updateARGBPreview() {
+    const r = document.getElementById('argbRSlider').value;
+    const g = document.getElementById('argbGSlider').value;
+    const b = document.getElementById('argbBSlider').value;
+    const a = document.getElementById('argbASlider').value;
+    
+    const hexColor = '#' + [r, g, b].map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+    const preview = document.getElementById('argbPreview');
+    preview.style.setProperty('--overlay-color', `rgba(${r}, ${g}, ${b}, ${a / 255})`);
+    preview.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+    preview.dataset.hexColor = hexColor;
+    preview.dataset.alpha = a;
+}
 
-        // HSLAをHEXに変換
-        function hslaToHex(h, s, l, a) {
-            s /= 100;
-            l /= 100;
-            a /= 100;
-            
-            const c = (1 - Math.abs(2 * l - 1)) * s;
-            const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-            const m = l - c / 2;
-            
-            let r, g, b;
-            
-            if (0 <= h && h < 60) {
-                r = c; g = x; b = 0;
-            } else if (60 <= h && h < 120) {
-                r = x; g = c; b = 0;
-            } else if (120 <= h && h < 180) {
-                r = 0; g = c; b = x;
-            } else if (180 <= h && h < 240) {
-                r = 0; g = x; b = c;
-            } else if (240 <= h && h < 300) {
-                r = x; g = 0; b = c;
-            } else {
-                r = c; g = 0; b = x;
-            }
-            
-            r = Math.round((r + m) * 255);
-            g = Math.round((g + m) * 255);
-            b = Math.round((b + m) * 255);
-            
-            return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-        }
+function hslaToHex(h, s, l, a) {
+    s /= 100; l /= 100; a /= 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = l - c / 2;
+    let r, g, b;
+    
+    if (0 <= h && h < 60) { r = c; g = x; b = 0; }
+    else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
+    else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
+    else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
+    else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
+    else { r = c; g = 0; b = x; }
+    
+    r = Math.round((r + m) * 255);
+    g = Math.round((g + m) * 255);
+    b = Math.round((b + m) * 255);
+    
+    return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
 
-        // HEXをHSLAに変換
-        function hexToHsla(hexColor) {
-            const r = parseInt(hexColor.slice(1, 3), 16);
-            const g = parseInt(hexColor.slice(3, 5), 16);
-            const b = parseInt(hexColor.slice(5, 7), 16);
-            
-            const rNorm = r / 255;
-            const gNorm = g / 255;
-            const bNorm = b / 255;
-            
-            const max = Math.max(rNorm, gNorm, bNorm);
-            const min = Math.min(rNorm, gNorm, bNorm);
-            const delta = max - min;
-            
-            let h, s, l = (max + min) / 2;
-            
-            if (delta === 0) {
-                h = 0;
-                s = 0;
-            } else {
-                s = l > 0.5 ? delta / (2 - max - min) : delta / (max + min);
-                
-                switch (max) {
-                    case rNorm:
-                        h = ((gNorm - bNorm) / delta) % 6;
-                        break;
-                    case gNorm:
-                        h = (bNorm - rNorm) / delta + 2;
-                        break;
-                    case bNorm:
-                        h = (rNorm - gNorm) / delta + 4;
-                        break;
-                }
-                
-                h = Math.round(h * 60);
-                if (h < 0) h += 360;
-            }
-            
-            s = Math.round(s * 100);
-            l = Math.round(l * 100);
-            
-            return { h, s, l };
-        }
-
-// 色決定
 function confirmColor() {
     const activeTab = document.getElementById('hslaTab').classList.contains('active') ? 'hsla' : 'argb';
     let color;
@@ -1540,40 +1382,28 @@ function confirmColor() {
         const a100 = parseInt(document.getElementById('hslaASlider').value);
         const a255 = Math.round(a100 * 2.55);
         
-        if (a255 === 0) {
-            color = '#0';
-        } else if (a255 === 255) {
-            color = hex;
-        } else {
-            color = hex + a255.toString(16).padStart(2, '0');
-        }
+        if (a255 === 0) color = '#0';
+        else if (a255 === 255) color = hex;
+        else color = hex + a255.toString(16).padStart(2, '0');
     } else {
         const preview = document.getElementById('argbPreview');
         const hex = preview.dataset.hexColor || '#ffffff';
         const a255 = parseInt(preview.dataset.alpha ?? 255);
         
-        if (a255 === 0) {
-            color = '#0';
-        } else if (a255 === 255) {
-            color = hex;
-        } else {
-            color = hex + a255.toString(16).padStart(2, '0');
-        }
+        if (a255 === 0) color = '#0';
+        else if (a255 === 255) color = hex;
+        else color = hex + a255.toString(16).padStart(2, '0');
     }
     
     const callback = document.getElementById('colorModal').callback;
-    if (callback) {
-        callback(color);
-    }
+    if (callback) callback(color);
     closeModal('colorModal');
 }
 
-        // モーダルを閉じる
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('active');
-        }
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+}
 
-// パレット読み込み（アルファ値対応）
 function importPalette() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -1604,13 +1434,11 @@ function importPalette() {
                     const a = data[index + 3];
                     
                     if (a === 0) {
-                        colors.push('#0'); // 完全透明
+                        colors.push('#0');
                     } else if (a === 255) {
-                        // 完全不透明（6桁HEX）
                         const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
                         colors.push(hex);
                     } else {
-                        // アルファ値含む半透明（8桁HEX: #RRGGBBAA）
                         const hex = '#' + [r, g, b, a].map(v => v.toString(16).padStart(2, '0')).join('');
                         colors.push(hex);
                     }
@@ -1618,6 +1446,7 @@ function importPalette() {
                 
                 if (colors.length > 0) {
                     palette = colors;
+                    savePaletteToStorage(); // 保存
                     setupPalette();
                     selectColor(colors[0]);
                 }
@@ -1629,7 +1458,6 @@ function importPalette() {
     input.click();
 }
 
-// パレット保存（アルファ値対応）
 function exportPalette() {
     if (palette.length === 0) return;
 
@@ -1638,14 +1466,12 @@ function exportPalette() {
     tempCanvas.width = palette.length;
     tempCanvas.height = 1;
     
-    // クリアして透明化
     tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
     
     palette.forEach((color, index) => {
         if (color === '#0' || color === 'transparent') {
             tempCtx.fillStyle = 'rgba(0,0,0,0)';
         } else if (color.startsWith('#') && color.length === 9) {
-            // #RRGGBBAA 形式を rgba() に変換して描画
             const r = parseInt(color.slice(1, 3), 16);
             const g = parseInt(color.slice(3, 5), 16);
             const b = parseInt(color.slice(5, 7), 16);
@@ -1665,30 +1491,21 @@ function exportPalette() {
     document.body.removeChild(link);
 }
 
-        // パレットモーダルからインポート
-        function importPaletteFromModal() {
-            importPalette();
-        }
+function importPaletteFromModal() { importPalette(); }
+function exportPaletteFromModal() { exportPalette(); }
 
-        // パレットモーダルからエクスポート
-        function exportPaletteFromModal() {
-            exportPalette();
-        }
-
-// 現在選択されている色を編集
 function editCurrentColor() {
     const index = palette.indexOf(currentColor);
     if (index === -1) return;
 
     showColorModal((newColor) => {
         palette[index] = newColor;
+        savePaletteToStorage(); // 保存
         selectColor(newColor);
     }, currentColor, 'argb');
 }
 
-// 現在選択されている色を削除
 function deleteCurrentColor() {
-    // 透明枠('#0')やパレットが1色以下の時は削除させない場合の保護
     if (palette.length <= 1) {
         alert('パレットの色をすべて削除することはできません。');
         return;
@@ -1697,13 +1514,12 @@ function deleteCurrentColor() {
     const index = palette.indexOf(currentColor);
     if (index !== -1) {
         palette.splice(index, 1);
-        // 隣の色（または先頭の色）を新しく選択状態にする
+        savePaletteToStorage(); // 保存
         const nextColor = palette[Math.max(0, index - 1)];
         selectColor(nextColor);
     }
 }
 
-// キャンバス背景色の管理
 let bgModeIndex = 0;
 const bgModes = [
     { label: '背景: 暗', color: '#0f0f23' },
@@ -1714,14 +1530,12 @@ const bgModes = [
 function toggleCanvasBg() {
     bgModeIndex = (bgModeIndex + 1) % bgModes.length;
     const currentMode = bgModes[bgModeIndex];
-    
-    // 背景色とボタンのテキストを変更
     document.getElementById('canvasContainer').style.backgroundColor = currentMode.color;
     document.getElementById('bgToggleBtn').textContent = currentMode.label;
 }
 
-        // 初期化実行
-        init();
-    </script>
+// 初期化実行
+init();
+</script>
 </body>
 </html>
