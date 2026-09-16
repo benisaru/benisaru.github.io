@@ -327,7 +327,7 @@
             border-radius: 4px;
             background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
             background-size: 10px 10px;
-            background-position: 0 0, 0 5px, 5px -5px, -5px 0px;/
+            background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
             --overlay-color: rgba(0, 0, 0, 0);
         }
 
@@ -340,26 +340,6 @@
   height: 100%;
   background-color: var(--overlay-color);
   pointer-events: none;
-}
-
-/* 背景切り替えボタンのスタイル */
-.bg-toggle-btn {
-    position: absolute;
-    top: 10px;
-    right: 70px; /* ズーム表示の左側に配置 */
-    background: rgba(0, 0, 0, 0.7);
-    color: #eee;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 12px;
-    cursor: pointer;
-    user-select: none;
-    border: none;
-    z-index: 10;
-}
-
-.bg-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
 }
     </style>
 </head>
@@ -510,7 +490,7 @@ let zoom = 1;
 let showGrid = true;
 let currentColor = '#ffffff';
 let currentPaletteIndex = 1; // 現在選択中のパレットのインデックス
-let palette = ['#0','#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+let palette = ['#00000000','#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
 let pixelData = [];
 let undoStack = [];
 let maxUndo = 10;
@@ -677,7 +657,7 @@ function setupPalette() {
     palette.forEach((color, index) => {
         const colorEl = document.createElement('div');
         colorEl.className = 'palette-color' + (index === currentPaletteIndex ? ' selected' : '');
-        if (color === '#0' || color === 'transparent') {
+        if (color === '#00000000' || color === 'transparent') {
             colorEl.style.backgroundColor = 'transparent';
             colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
             colorEl.style.backgroundSize = '10px 10px';
@@ -714,7 +694,7 @@ function selectColor(color) {
 // 現在の色更新
 function updateCurrentColor() {
     const colorEl = document.getElementById('currentColor');
-    if (currentColor === '#0' || currentColor === 'transparent') {
+    if (currentColor === '#00000000' || currentColor === 'transparent') {
         colorEl.style.backgroundColor = 'transparent';
         colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
         colorEl.style.backgroundSize = '10px 10px';
@@ -751,8 +731,12 @@ function setupTouchEvents() {
 }
 
 
-// タッチ開始
+// 重複を解消して統一した handleTouchStart
 function handleTouchStart(e) {
+    // UI要素のタップ時は処理を中断
+    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select');
+    if (isUIElement) return;
+
     if (longPressTimer) {
         clearTimeout(longPressTimer);
         longPressTimer = null;
@@ -760,7 +744,7 @@ function handleTouchStart(e) {
     isLongPress = false;
     isScrolling = false;
 
-    // 2本指以上の場合はピンチモードに移行（描画を禁止）
+    // 2本指以上の場合はピンチモードへ
     if (e.touches.length >= 2) {
         isPinching = true;
         initialPinchDistance = getPinchDistance(e.touches);
@@ -780,45 +764,52 @@ function handleTouchStart(e) {
         }, 500);
     }
 }
-// タッチ開始
-function handleTouchStart(e) {
-    // ボタンや操作UI領域をタップした場合はキャンバス処理を即座に中断
-    if (e.target.closest('button, .top-controls, #zoomIndicator, .palette-color, #palette, .modal')) {
-        return;
-    }
 
-    if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-    }
-    isLongPress = false;
-    isScrolling = false;
-
-    // 2本指以上の場合はピンチモードに移行
+function handleTouchMove(e) {
+    // 2本指ズーム処理
     if (e.touches.length >= 2) {
         isPinching = true;
-        initialPinchDistance = getPinchDistance(e.touches);
-        initialZoom = zoom;
+        if (longPressTimer) clearTimeout(longPressTimer);
+
+        const currentDistance = getPinchDistance(e.touches);
+        if (initialPinchDistance > 0) {
+            const scale = currentDistance / initialPinchDistance;
+            zoom = Math.max(1, Math.min(50, initialZoom * scale));
+            zoomMode = 'manual';
+            renderCanvas();
+        }
+        e.preventDefault();
         return;
     }
 
+    // 1本指スクロール処理
     if (e.touches.length === 1 && !isPinching) {
+        if (e.target.closest('button, .palette-color, .modal, input, select')) return;
+
         const touch = e.touches[0];
+        const deltaX = touch.clientX - lastTouchX;
+        const deltaY = touch.clientY - lastTouchY;
+
+        if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3 || isScrolling) {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            isScrolling = true;
+            scrollOffsetX += deltaX;
+            scrollOffsetY += deltaY;
+            updateCanvasStyle();
+        }
+
         lastTouchX = touch.clientX;
         lastTouchY = touch.clientY;
-
-        longPressTimer = setTimeout(() => {
-            isLongPress = true;
-            if (navigator.vibrate) navigator.vibrate(40);
-            handleLongPress(touch);
-        }, 500);
     }
 }
 
 // タッチ終了
 function handleTouchEnd(e) {
-    // タッチが離れた要素がボタンやUI領域だった場合は描画しない
-    if (e.target.closest('button, .top-controls, #zoomIndicator, .palette-color, #palette, .modal')) {
+    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select');
+    if (isUIElement) {
         return;
     }
 
@@ -902,7 +893,7 @@ function handleLongPress(touch) {
     if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
         const index = y * pixelWidth + x;
         const pickedColor = pixelData[index];
-        selectColor(pickedColor ? pickedColor : '#0');
+        selectColor(pickedColor ? pickedColor : '#00000000');
     }
 }
 
@@ -966,7 +957,7 @@ function drawPixelAt(clientX, clientY) {
             floodFill(x, y, currentColor);
         } else {
             const index = y * pixelWidth + x;
-            if (currentColor === '#0' || currentColor === 'transparent') {
+            if (currentColor === '#00000000' || currentColor === 'transparent') {
                 pixelData[index] = null;
             } else {
                 pixelData[index] = currentColor;
@@ -981,7 +972,7 @@ function drawPixelAt(clientX, clientY) {
 function floodFill(startX, startY, newColor) {
     const startIndex = startY * pixelWidth + startX;
     const targetColor = pixelData[startIndex];
-    const newColorValue = (newColor === '#0' || newColor === 'transparent') ? null : newColor;
+    const newColorValue = (newColor === '#00000000' || newColor === 'transparent') ? null : newColor;
     
     if (targetColor === newColorValue) return;
     
@@ -1412,7 +1403,7 @@ function confirmColor() {
         const a100 = parseInt(document.getElementById('hslaASlider').value);
         const a255 = Math.round(a100 * 2.55);
         
-        if (a255 === 0) color = '#0';
+        if (a255 === 0) color = '#00000000';
         else if (a255 === 255) color = hex;
         else color = hex + a255.toString(16).padStart(2, '0');
     } else {
@@ -1420,7 +1411,7 @@ function confirmColor() {
         const hex = preview.dataset.hexColor || '#ffffff';
         const a255 = parseInt(preview.dataset.alpha ?? 255);
         
-        if (a255 === 0) color = '#0';
+        if (a255 === 0) color = '#00000000';
         else if (a255 === 255) color = hex;
         else color = hex + a255.toString(16).padStart(2, '0');
     }
@@ -1465,7 +1456,7 @@ function importPalette() {
                     const a = data[index + 3];
                     
                     if (a === 0) {
-                        colors.push('#0');
+                        colors.push('#00000000');
                     } else if (a === 255) {
                         const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
                         colors.push(hex);
@@ -1499,7 +1490,7 @@ function exportPalette() {
     tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
     
     palette.forEach((color, index) => {
-        if (color === '#0' || color === 'transparent') {
+        if (color === '#00000000' || color === 'transparent') {
             tempCtx.fillStyle = 'rgba(0,0,0,0)';
         } else if (color.startsWith('#') && color.length === 9) {
             const r = parseInt(color.slice(1, 3), 16);
