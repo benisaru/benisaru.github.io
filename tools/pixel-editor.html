@@ -780,47 +780,48 @@ function handleTouchStart(e) {
         }, 500);
     }
 }
-
-// タッチ移動
-function handleTouchMove(e) {
-    e.preventDefault();
-
-    // 2本指ズーム操作
-    if (e.touches.length >= 2) {
-        isPinching = true;
-        if (longPressTimer) clearTimeout(longPressTimer);
-        const currentDistance = getPinchDistance(e.touches);
-        const scale = currentDistance / initialPinchDistance;
-        zoom = Math.max(1, Math.min(50, initialZoom * scale));
-        zoomMode = 'manual';
-        renderCanvas();
+// タッチ開始
+function handleTouchStart(e) {
+    // ボタンや操作UI領域をタップした場合はキャンバス処理を即座に中断
+    if (e.target.closest('button, .top-controls, #zoomIndicator, .palette-color, #palette, .modal')) {
         return;
     }
 
-    // 1本指移動（ピンチ操作中でない場合のみスクロール処理）
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+    isLongPress = false;
+    isScrolling = false;
+
+    // 2本指以上の場合はピンチモードに移行
+    if (e.touches.length >= 2) {
+        isPinching = true;
+        initialPinchDistance = getPinchDistance(e.touches);
+        initialZoom = zoom;
+        return;
+    }
+
     if (e.touches.length === 1 && !isPinching) {
         const touch = e.touches[0];
-        const deltaX = touch.clientX - lastTouchX;
-        const deltaY = touch.clientY - lastTouchY;
-
-        if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3 || isScrolling) {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-            isScrolling = true;
-            scrollOffsetX += deltaX;
-            scrollOffsetY += deltaY;
-            updateCanvasStyle();
-        }
-
         lastTouchX = touch.clientX;
         lastTouchY = touch.clientY;
+
+        longPressTimer = setTimeout(() => {
+            isLongPress = true;
+            if (navigator.vibrate) navigator.vibrate(40);
+            handleLongPress(touch);
+        }, 500);
     }
 }
 
 // タッチ終了
 function handleTouchEnd(e) {
+    // タッチが離れた要素がボタンやUI領域だった場合は描画しない
+    if (e.target.closest('button, .top-controls, #zoomIndicator, .palette-color, #palette, .modal')) {
+        return;
+    }
+
     if (longPressTimer) {
         clearTimeout(longPressTimer);
         longPressTimer = null;
@@ -829,7 +830,6 @@ function handleTouchEnd(e) {
     // すべての指が離れたらピンチ状態を解除
     if (e.touches.length === 0) {
         if (isPinching) {
-            // ピンチ終了直後の誤描画を防ぐためフラグを下ろして処理を抜ける
             isPinching = false;
             isScrolling = false;
             isLongPress = false;
@@ -837,7 +837,7 @@ function handleTouchEnd(e) {
         }
     }
 
-    // 1本指でのタップ描画判定（ピンチ操作・スクロール・長押しでなければ描画）
+    // 1本指でのタップ描画判定
     if (e.changedTouches.length === 1 && !isScrolling && !isLongPress && !isPinching) {
         const touch = e.changedTouches[0];
         const rect = canvas.getBoundingClientRect();
