@@ -393,9 +393,10 @@
             <div class="palette" id="palette"></div>
         </div>
 <div class="tools">
-    <button onclick="addDetailedColor()">色追加</button>
-    <button onclick="editCurrentColor()">色編集</button>
-    <button onclick="deleteCurrentColor()">色削除</button>
+    <button onclick="addDetailedColor()">追加</button>
+    <button onclick="editCurrentColor()">編集</button>
+    <button onclick="deleteCurrentColor()">削除</button>
+    <button onclick="duplicateCurrentColor()">コピー</button>
 </div>
 <div class="tools">
     <button onclick="importPalette()">パレット読込</button>
@@ -1532,6 +1533,30 @@ function toggleCanvasBg() {
     const currentMode = bgModes[bgModeIndex];
     document.getElementById('canvasContainer').style.backgroundColor = currentMode.color;
     document.getElementById('bgToggleBtn').textContent = currentMode.label;
+}
+
+// 現在選択中の色をパレットに複製して追加
+function duplicateCurrentColor() {
+    if (!currentColor) return;
+    
+    const index = palette.indexOf(currentColor);
+    if (index !== -1) {
+        // 選択中の色のすぐ後ろに挿入
+        palette.splice(index + 1, 0, currentColor);
+    } else {
+        // 見つからない場合は末尾に追加
+        palette.push(currentColor);
+    }
+    
+    savePaletteToStorage(); // ローカルストレージに保存
+    setupPalette();        // メインパレット更新
+    selectColor(currentColor);
+    
+    // パレットモーダルが開いている場合は表示を更新
+    const modal = document.getElementById('paletteModal');
+    if (modal && modal.classList.contains('active')) {
+        showPaletteModal();
+    }
 }
 
 // 初期化実行
