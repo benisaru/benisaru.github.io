@@ -41,6 +41,16 @@
             gap: 5px;
             flex-wrap: wrap;
         }
+/* 右上のコントロールグループ（文字長さに応じて可変・自動配置） */
+.top-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px; /* ボタン同士のすき間 */
+    z-index: 100;
+}
 
         button {
             padding: 8px 12px;
@@ -192,17 +202,33 @@
             flex: 1;
         }
 
-        .zoom-indicator {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.7);
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-            user-select: none;
-        }
+/* ボタンとインジケーターのスタイル（位置指定は親のFlexboxに任せる） */
+.bg-toggle-btn,
+.zoom-indicator {
+    position: static !important; /* 絶対位置指定を解除 */
+    top: auto !important;
+    right: auto !important;
+    background: rgba(0, 0, 0, 0.75);
+    color: #eee;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    user-select: none;
+    white-space: nowrap; /* テキストの改行を防ぐ */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.bg-toggle-btn {
+    border: 1px solid rgba(255,255,255,0.2);
+    cursor: pointer;
+}
+
+.bg-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.zoom-indicator {
+    cursor: pointer;
+}
 
         .fill-button {
             position: fixed;
@@ -227,6 +253,114 @@
             background: #e94560;
             border-color: #fff;
         }
+
+        .color-input-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .color-input-tabs button {
+            flex: 1;
+        }
+
+        .color-input-tabs button.active {
+            background: #e94560;
+        }
+
+        .hsla-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .hsla-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .hsla-input label {
+            width: 80px;
+            font-size: 12px;
+        }
+
+        .hsla-input input[type="range"] {
+            flex: 1;
+        }
+
+        .hsla-input input[type="number"] {
+            width: 50px;
+        }
+
+        .argb-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .argb-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .argb-input label {
+            width: 80px;
+            font-size: 12px;
+        }
+
+        .argb-input input[type="range"] {
+            flex: 1;
+        }
+
+        .argb-input input[type="number"] {
+            width: 50px;
+        }
+
+        .color-preview {
+            position: relative;
+            width: 100%;
+            height: 40px;
+            margin-top: 10px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
+            background-size: 10px 10px;
+            background-position: 0 0, 0 5px, 5px -5px, -5px 0px;/
+            --overlay-color: rgba(0, 0, 0, 0);
+        }
+
+.color-preview::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--overlay-color);
+  pointer-events: none;
+}
+
+/* 背景切り替えボタンのスタイル */
+.bg-toggle-btn {
+    position: absolute;
+    top: 10px;
+    right: 70px; /* ズーム表示の左側に配置 */
+    background: rgba(0, 0, 0, 0.7);
+    color: #eee;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+    border: none;
+    z-index: 10;
+}
+
+.bg-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
     </style>
 </head>
 <body>
@@ -234,32 +368,39 @@
         <h1>ドット絵エディタ</h1>
         <div class="header-controls">
             <button onclick="showNewCanvasModal()">新規</button>
-            <button onclick="undo()" id="undoBtn" disabled>戻る</button>
-            <button onclick="toggleGrid()" id="gridBtn">グリッド</button>
             <button onclick="loadPNG()">PNG読込</button>
             <button onclick="savePNG()">PNG保存</button>
-            <button onclick="showPaletteModal()">パレット</button>
+        </div>
+        <div class="header-controls">
+            <button onclick="undo()" id="undoBtn" disabled>戻る</button>
+            <button onclick="toggleGrid()" id="gridBtn">グリッド</button>
         </div>
     </div>
 
-    <div class="canvas-container" id="canvasContainer">
-        <canvas id="pixelCanvas"></canvas>
-        <canvas id="gridCanvas"></canvas>
-        <div class="zoom-indicator" id="zoomIndicator">100%</div>
-        <button class="fill-button" id="fillButton" onclick="toggleFillMode()">🪣</button>
-    </div>
+<div class="canvas-container" id="canvasContainer">
+    <canvas id="pixelCanvas"></canvas>
+    <canvas id="gridCanvas"></canvas>
+<div class="top-controls">
+    <button class="bg-toggle-btn" id="bgToggleBtn" onclick="toggleCanvasBg()">背景: 暗</button>
+    <div class="zoom-indicator" id="zoomIndicator">100%</div>
+</div>
+    <button class="fill-button" id="fillButton" onclick="toggleFillMode()">🪣</button>
+</div>
 
     <div class="footer">
         <div class="palette-section">
             <div class="current-color" id="currentColor"></div>
             <div class="palette" id="palette"></div>
         </div>
-        <div class="tools">
-            <button onclick="addColor()">色追加</button>
-            <button onclick="addTransparentColorToMain()">透過色追加</button>
-            <button onclick="importPalette()">パレット読込</button>
-            <button onclick="exportPalette()">パレット保存</button>
-        </div>
+<div class="tools">
+    <button onclick="addDetailedColor()">色追加</button>
+    <button onclick="editCurrentColor()">色編集</button>
+    <button onclick="deleteCurrentColor()">色削除</button>
+</div>
+<div class="tools">
+    <button onclick="importPalette()">パレット読込</button>
+    <button onclick="exportPalette()">パレット保存</button>
+</div>
     </div>
 
     <!-- 新規キャンバスモーダル -->
@@ -283,8 +424,7 @@
             <h2>パレット編集</h2>
             <div class="palette" id="paletteEditor"></div>
             <div class="modal-buttons">
-                <button onclick="addPaletteColor()">色追加</button>
-                <button onclick="addTransparentColor()">透過色追加</button>
+                <button onclick="addDetailedPaletteColor()">色追加</button>
                 <button onclick="importPaletteFromModal()">インポート</button>
                 <button onclick="exportPaletteFromModal()">エクスポート</button>
                 <button onclick="closeModal('paletteModal')">閉じる</button>
@@ -296,7 +436,63 @@
     <div class="modal" id="colorModal">
         <div class="modal-content">
             <h2>色選択</h2>
-            <input type="color" id="colorPicker" value="#ffffff">
+            <div class="color-input-tabs">
+                <button id="hslaTab" onclick="switchColorTab('hsla')" class="active">HSLA</button>
+                <button id="argbTab" onclick="switchColorTab('argb')">ARGB</button>
+            </div>
+            
+            <div id="hslaSection" style="display: none;">
+                <div class="hsla-inputs">
+                    <div class="hsla-input">
+                        <label>H:</label>
+                        <input type="range" id="hslaHSlider" min="0" max="360" value="0" oninput="updateHSLAFromSliders()">
+                        <input type="number" id="hslaHInput" min="0" max="360" value="0" oninput="updateHSLAFromInputs()">
+                    </div>
+                    <div class="hsla-input">
+                        <label>S:</label>
+                        <input type="range" id="hslaSSlider" min="0" max="100" value="100" oninput="updateHSLAFromSliders()">
+                        <input type="number" id="hslaSInput" min="0" max="100" value="100" oninput="updateHSLAFromInputs()">
+                    </div>
+                    <div class="hsla-input">
+                        <label>L:</label>
+                        <input type="range" id="hslaLSlider" min="0" max="100" value="100" oninput="updateHSLAFromSliders()">
+                        <input type="number" id="hslaLInput" min="0" max="100" value="100" oninput="updateHSLAFromInputs()">
+                    </div>
+                    <div class="hsla-input">
+                        <label>A:</label>
+                        <input type="range" id="hslaASlider" min="0" max="100" value="100" oninput="updateHSLAFromSliders()">
+                        <input type="number" id="hslaAInput" min="0" max="100" value="100" oninput="updateHSLAFromInputs()">
+                    </div>
+                </div>
+                <div class="color-preview" id="hslaPreview"></div>
+            </div>
+
+            <div id="argbSection" style="display: none;">
+                <div class="argb-inputs">
+                    <div class="argb-input">
+                        <label>A (Alpha):</label>
+                        <input type="range" id="argbASlider" min="0" max="255" value="255" oninput="updateARGBFromSliders()">
+                        <input type="number" id="argbAInput" min="0" max="255" value="255" oninput="updateARGBFromInputs()">
+                    </div>
+                    <div class="argb-input">
+                        <label>R (Red):</label>
+                        <input type="range" id="argbRSlider" min="0" max="255" value="255" oninput="updateARGBFromSliders()">
+                        <input type="number" id="argbRInput" min="0" max="255" value="255" oninput="updateARGBFromInputs()">
+                    </div>
+                    <div class="argb-input">
+                        <label>G (Green):</label>
+                        <input type="range" id="argbGSlider" min="0" max="255" value="255" oninput="updateARGBFromSliders()">
+                        <input type="number" id="argbGInput" min="0" max="255" value="255" oninput="updateARGBFromInputs()">
+                    </div>
+                    <div class="argb-input">
+                        <label>B (Blue):</label>
+                        <input type="range" id="argbBSlider" min="0" max="255" value="255" oninput="updateARGBFromSliders()">
+                        <input type="number" id="argbBInput" min="0" max="255" value="255" oninput="updateARGBFromInputs()">
+                    </div>
+                </div>
+                <div class="color-preview" id="argbPreview"></div>
+            </div>
+            
             <div class="modal-buttons">
                 <button onclick="confirmColor()">決定</button>
                 <button onclick="closeModal('colorModal')">キャンセル</button>
@@ -308,12 +504,12 @@
         // グローバル変数
         let canvas, ctx;
         let gridCanvas, gridCtx;
-        let pixelWidth = 16;
-        let pixelHeight = 16;
+        let pixelWidth = 32;
+        let pixelHeight = 32;
         let zoom = 1;
         let showGrid = true;
         let currentColor = '#ffffff';
-        let palette = ['#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+        let palette = ['#0','#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
         let pixelData = [];
         let undoStack = [];
         let maxUndo = 10;
@@ -344,6 +540,7 @@
             setupTouchEvents();
             
             updateCurrentColor();
+            toggleZoomMode();
         }
 
         // キャンバス設定
@@ -379,6 +576,40 @@
             // グリッド描画（別キャンバス）
             gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
             
+            // 強調グリッド線の描画
+            if (showGrid && zoom >= 2) {
+                const quarterX = Math.floor(pixelWidth / 4);
+                const halfX = Math.floor(pixelWidth / 2);
+                const threeQuarterX = Math.floor(pixelWidth * 3 / 4);
+                const quarterY = Math.floor(pixelHeight / 4);
+                const halfY = Math.floor(pixelHeight / 2);
+                const threeQuarterY = Math.floor(pixelHeight * 3 / 4);
+                
+                const emphasizePositions = [quarterX, halfX, threeQuarterX];
+                const emphasizePositionsY = [quarterY, halfY, threeQuarterY];
+                
+                gridCtx.strokeStyle = 'rgba(255,255,255,0.6)';
+                gridCtx.lineWidth = 0.15;
+                
+                emphasizePositions.forEach(pos => {
+                    if (pos > 0 && pos < pixelWidth) {
+                        gridCtx.beginPath();
+                        gridCtx.moveTo(pos, 0);
+                        gridCtx.lineTo(pos, pixelHeight);
+                        gridCtx.stroke();
+                    }
+                });
+                
+                emphasizePositionsY.forEach(pos => {
+                    if (pos > 0 && pos < pixelHeight) {
+                        gridCtx.beginPath();
+                        gridCtx.moveTo(0, pos);
+                        gridCtx.lineTo(pixelWidth, pos);
+                        gridCtx.stroke();
+                    }
+                });
+            }
+            
             updateCanvasStyle();
         }
 
@@ -395,7 +626,7 @@
             gridCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
 
             // ---- グリッド（CSS背景パターン）の切り替え ----
-            if (showGrid && zoom >= 4) { // ※小さすぎる拡大率の時はグリッドを隠すと見やすいです
+            if (showGrid && zoom >= 2) { // ※小さすぎる拡大率の時はグリッドを隠すと見やすいです
                 gridCanvas.style.backgroundImage = `
                     linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
                     linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px)
@@ -795,6 +1026,9 @@
             exportCanvas.height = pixelHeight;
             const exportCtx = exportCanvas.getContext('2d');
             
+            // キャンバスをクリアして透明状態にする
+            exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
+            
             for (let y = 0; y < pixelHeight; y++) {
                 for (let x = 0; x < pixelWidth; x++) {
                     const index = y * pixelWidth + x;
@@ -923,63 +1157,14 @@
             document.getElementById('paletteModal').classList.add('active');
         }
 
-        // パレット色追加
-        function addPaletteColor() {
-            // カラーピッカーを直接開く
-            const colorInput = document.createElement('input');
-            colorInput.type = 'color';
-            colorInput.value = '#ffffff';
-            colorInput.style.position = 'absolute';
-            colorInput.style.visibility = 'hidden';
-            document.body.appendChild(colorInput);
-            
-            colorInput.addEventListener('input', (e) => {
-                palette.push(e.target.value);
-                setupPalette();
-                showPaletteModal();
-            });
-            
-            colorInput.addEventListener('change', (e) => {
-                palette.push(e.target.value);
-                setupPalette();
-                showPaletteModal();
-                document.body.removeChild(colorInput);
-            });
-            
-            colorInput.click();
-        }
 
-        // 透過色追加
-        function addTransparentColor() {
-            palette.push('#0');
-            setupPalette();
-            showPaletteModal();
-        }
-
-        // パレット色編集
-        function editPaletteColor(index) {
-            // カラーピッカーを直接開く
-            const colorInput = document.createElement('input');
-            colorInput.type = 'color';
-            colorInput.value = palette[index];
-            colorInput.style.position = 'absolute';
-            colorInput.style.visibility = 'hidden';
-            document.body.appendChild(colorInput);
-            
-            colorInput.addEventListener('input', (e) => {
-                palette[index] = e.target.value;
+        // パレット詳細色追加（ARGBモーダル）
+        function addDetailedPaletteColor() {
+            showColorModal((color) => {
+                palette.push(color);
                 setupPalette();
                 showPaletteModal();
-            });
-            
-            colorInput.addEventListener('change', (e) => {
-                palette[index] = e.target.value;
-                setupPalette();
-                showPaletteModal();
-                document.body.removeChild(colorInput);
-            });
-            
-            colorInput.click();
+            }, '#ffffff', 'argb');
         }
 
         // パレット色削除
@@ -989,130 +1174,439 @@
             showPaletteModal();
         }
 
-        // 色追加
-        function addColor() {
-            // カラーピッカーを直接開く
-            const colorInput = document.createElement('input');
-            colorInput.type = 'color';
-            colorInput.value = '#ffffff';
-            colorInput.style.position = 'absolute';
-            colorInput.style.visibility = 'hidden';
-            document.body.appendChild(colorInput);
-            
-            colorInput.addEventListener('input', (e) => {
-                palette.push(e.target.value);
-                selectColor(e.target.value);
-            });
-            
-            colorInput.addEventListener('change', (e) => {
-                palette.push(e.target.value);
-                selectColor(e.target.value);
-                document.body.removeChild(colorInput);
-            });
-            
-            colorInput.click();
+        // 詳細色追加（ARGBモーダル）
+        function addDetailedColor() {
+            showColorModal((color) => {
+                palette.push(color);
+                selectColor(color);
+            }, '#ffffff', 'argb');
         }
 
-        // 透過色追加（メインパレット）
-        function addTransparentColorToMain() {
-            palette.push('#0');
-            selectColor('#0');
+// 色選択モーダル表示
+function showColorModal(callback, defaultColor = '#ffffff', forceTab = null) {
+    document.getElementById('colorModal').classList.add('active');
+    document.getElementById('colorModal').callback = callback;
+    
+    // タブの切り替え
+    if (forceTab) {
+        switchColorTab(forceTab);
+    } else {
+        switchColorTab('hsla');
+    }
+    
+    // defaultColor を渡すように修正
+    initHSLAValues(defaultColor);
+    initARGBValues(defaultColor);
+}
+
+function rgbToHsl(r, g, b) {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+
+  if (max === min) {
+    h = s = 0; // 無彩色（白・黒・灰色）
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+
+  return {
+    h: Math.round(h * 360),
+    s: s,
+    l: l
+  };
+}
+
+// HSLA値の初期化（alpha100: 0-100）
+function initHSLAValues(hexColor, alpha100 = 100) {
+    if (!hexColor || !hexColor.startsWith('#') || hexColor.length !== 7) {
+        hexColor = '#ffffff';
+    }
+
+    const r = parseInt(hexColor.slice(1, 3), 16);
+    const g = parseInt(hexColor.slice(3, 5), 16);
+    const b = parseInt(hexColor.slice(5, 7), 16);
+
+    const hsl = rgbToHsl(r, g, b);
+    const h = hsl.h;
+    const s = Math.round(hsl.s * 100);
+    const l = Math.round(hsl.l * 100);
+    
+    document.getElementById('hslaHSlider').value = h;
+    document.getElementById('hslaHInput').value = h;
+    document.getElementById('hslaSSlider').value = s;
+    document.getElementById('hslaSInput').value = s;
+    document.getElementById('hslaLSlider').value = l;
+    document.getElementById('hslaLInput').value = l;
+    document.getElementById('hslaASlider').value = alpha100;
+    document.getElementById('hslaAInput').value = alpha100;
+    
+    updateHSLAPreview();
+}
+
+// ARGB値の初期化（alpha255: 0-255）
+function initARGBValues(hexColor, alpha255 = 255) {
+    if (!hexColor || !hexColor.startsWith('#') || hexColor.length !== 7) {
+        hexColor = '#ffffff';
+    }
+
+    const r = parseInt(hexColor.slice(1, 3), 16);
+    const g = parseInt(hexColor.slice(3, 5), 16);
+    const b = parseInt(hexColor.slice(5, 7), 16);
+    
+    document.getElementById('argbRSlider').value = r;
+    document.getElementById('argbRInput').value = r;
+    document.getElementById('argbGSlider').value = g;
+    document.getElementById('argbGInput').value = g;
+    document.getElementById('argbBSlider').value = b;
+    document.getElementById('argbBInput').value = b;
+    document.getElementById('argbASlider').value = alpha255;
+    document.getElementById('argbAInput').value = alpha255;
+    
+    updateARGBPreview();
+}
+
+// カラータブ切り替え
+function switchColorTab(tab) {
+    document.getElementById('hslaTab').classList.toggle('active', tab === 'hsla');
+    document.getElementById('argbTab').classList.toggle('active', tab === 'argb');
+    document.getElementById('hslaSection').style.display = tab === 'hsla' ? 'block' : 'none';
+    document.getElementById('argbSection').style.display = tab === 'argb' ? 'block' : 'none';
+
+    if (tab === 'hsla') {
+        // ARGB側の現在の色を取得してHSLAに反映
+        const preview = document.getElementById('argbPreview');
+        const hex = preview.dataset.hexColor || '#ffffff';
+        const alpha255 = parseInt(preview.dataset.alpha ?? 255);
+        const alpha100 = Math.round(alpha255 / 2.55);
+        
+        initHSLAValues(hex, alpha100);
+    } else if (tab === 'argb') {
+        // HSLA側の現在の色を取得してARGBに反映
+        const preview = document.getElementById('hslaPreview');
+        const hex = preview.dataset.hexColor || '#ffffff';
+        const alpha100 = parseInt(preview.dataset.alpha ?? 255) / 2.55; // dataset.alphaは0-255変換済み
+        const alpha255 = Math.round(alpha100);
+        
+        initARGBValues(hex, alpha255);
+    }
+}
+
+        // スライダーからHSLA値を更新
+        function updateHSLAFromSliders() {
+            const h = document.getElementById('hslaHSlider').value;
+            const s = document.getElementById('hslaSSlider').value;
+            const l = document.getElementById('hslaLSlider').value;
+            const a = document.getElementById('hslaASlider').value;
+            
+            document.getElementById('hslaHInput').value = h;
+            document.getElementById('hslaSInput').value = s;
+            document.getElementById('hslaLInput').value = l;
+            document.getElementById('hslaAInput').value = a;
+            
+            updateHSLAPreview();
         }
 
-        // 色選択モーダル表示
-        function showColorModal(callback, defaultColor = '#ffffff') {
-            document.getElementById('colorPicker').value = defaultColor;
-            document.getElementById('colorModal').classList.add('active');
-            document.getElementById('colorModal').callback = callback;
+        // スライダーからARGB値を更新
+        function updateARGBFromSliders() {
+            const r = document.getElementById('argbRSlider').value;
+            const g = document.getElementById('argbGSlider').value;
+            const b = document.getElementById('argbBSlider').value;
+            const a = document.getElementById('argbASlider').value;
+            
+            document.getElementById('argbRInput').value = r;
+            document.getElementById('argbGInput').value = g;
+            document.getElementById('argbBInput').value = b;
+            document.getElementById('argbAInput').value = a;
+            
+            updateARGBPreview();
         }
 
-        // 色決定
-        function confirmColor() {
-            const color = document.getElementById('colorPicker').value;
-            const callback = document.getElementById('colorModal').callback;
-            if (callback) {
-                callback(color);
+        // 入力フィールドからHSLA値を更新
+        function updateHSLAFromInputs() {
+            const h = Math.min(360, Math.max(0, parseInt(document.getElementById('hslaHInput').value) || 0));
+            const s = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaSInput').value) || 0));
+            const l = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaLInput').value) || 0));
+            const a = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaAInput').value) || 0));
+            
+            document.getElementById('hslaHSlider').value = h;
+            document.getElementById('hslaSSlider').value = s;
+            document.getElementById('hslaLSlider').value = l;
+            document.getElementById('hslaASlider').value = a;
+            
+            updateHSLAPreview();
+        }
+
+        // 入力フィールドからARGB値を更新
+        function updateARGBFromInputs() {
+            const r = Math.min(255, Math.max(0, parseInt(document.getElementById('argbRInput').value) || 0));
+            const g = Math.min(255, Math.max(0, parseInt(document.getElementById('argbGInput').value) || 0));
+            const b = Math.min(255, Math.max(0, parseInt(document.getElementById('argbBInput').value) || 0));
+            const a = Math.min(255, Math.max(0, parseInt(document.getElementById('argbAInput').value) || 0));
+            
+            document.getElementById('argbRSlider').value = r;
+            document.getElementById('argbGSlider').value = g;
+            document.getElementById('argbBSlider').value = b;
+            document.getElementById('argbASlider').value = a;
+            
+            updateARGBPreview();
+        }
+
+        // HSLAプレビュー更新
+        function updateHSLAPreview() {
+            const h = document.getElementById('hslaHSlider').value;
+            const s = document.getElementById('hslaSSlider').value;
+            const l = document.getElementById('hslaLSlider').value;
+            const a = document.getElementById('hslaASlider').value;
+            
+            const preview = document.getElementById('hslaPreview');
+            preview.style.setProperty('--overlay-color', `hsla(${h}, ${s}%, ${l}%, ${a / 100})`);
+            preview.style.backgroundColor = `hsla(${h}, ${s}%, ${l}%, ${a / 100})`;
+            
+            // HSLAをHEXに変換
+            const hexColor = hslaToHex(h, s, l, a);
+            preview.dataset.hexColor = hexColor;
+            preview.dataset.alpha = Math.round(a * 2.55); // 0-100 to 0-255
+        }
+
+        // ARGBプレビュー更新
+        function updateARGBPreview() {
+            const r = document.getElementById('argbRSlider').value;
+            const g = document.getElementById('argbGSlider').value;
+            const b = document.getElementById('argbBSlider').value;
+            const a = document.getElementById('argbASlider').value;
+            
+            const hexColor = '#' + [r, g, b].map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+            const preview = document.getElementById('argbPreview');
+            preview.style.setProperty('--overlay-color', `rgba(${r}, ${g}, ${b}, ${a / 255})`);
+            preview.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+            preview.dataset.hexColor = hexColor;
+            preview.dataset.alpha = a;
+        }
+
+        // HSLAをHEXに変換
+        function hslaToHex(h, s, l, a) {
+            s /= 100;
+            l /= 100;
+            a /= 100;
+            
+            const c = (1 - Math.abs(2 * l - 1)) * s;
+            const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+            const m = l - c / 2;
+            
+            let r, g, b;
+            
+            if (0 <= h && h < 60) {
+                r = c; g = x; b = 0;
+            } else if (60 <= h && h < 120) {
+                r = x; g = c; b = 0;
+            } else if (120 <= h && h < 180) {
+                r = 0; g = c; b = x;
+            } else if (180 <= h && h < 240) {
+                r = 0; g = x; b = c;
+            } else if (240 <= h && h < 300) {
+                r = x; g = 0; b = c;
+            } else {
+                r = c; g = 0; b = x;
             }
-            closeModal('colorModal');
+            
+            r = Math.round((r + m) * 255);
+            g = Math.round((g + m) * 255);
+            b = Math.round((b + m) * 255);
+            
+            return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
         }
+
+        // HEXをHSLAに変換
+        function hexToHsla(hexColor) {
+            const r = parseInt(hexColor.slice(1, 3), 16);
+            const g = parseInt(hexColor.slice(3, 5), 16);
+            const b = parseInt(hexColor.slice(5, 7), 16);
+            
+            const rNorm = r / 255;
+            const gNorm = g / 255;
+            const bNorm = b / 255;
+            
+            const max = Math.max(rNorm, gNorm, bNorm);
+            const min = Math.min(rNorm, gNorm, bNorm);
+            const delta = max - min;
+            
+            let h, s, l = (max + min) / 2;
+            
+            if (delta === 0) {
+                h = 0;
+                s = 0;
+            } else {
+                s = l > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+                
+                switch (max) {
+                    case rNorm:
+                        h = ((gNorm - bNorm) / delta) % 6;
+                        break;
+                    case gNorm:
+                        h = (bNorm - rNorm) / delta + 2;
+                        break;
+                    case bNorm:
+                        h = (rNorm - gNorm) / delta + 4;
+                        break;
+                }
+                
+                h = Math.round(h * 60);
+                if (h < 0) h += 360;
+            }
+            
+            s = Math.round(s * 100);
+            l = Math.round(l * 100);
+            
+            return { h, s, l };
+        }
+
+// 色決定
+function confirmColor() {
+    const activeTab = document.getElementById('hslaTab').classList.contains('active') ? 'hsla' : 'argb';
+    let color;
+    
+    if (activeTab === 'hsla') {
+        const preview = document.getElementById('hslaPreview');
+        const hex = preview.dataset.hexColor || '#ffffff';
+        const a100 = parseInt(document.getElementById('hslaASlider').value);
+        const a255 = Math.round(a100 * 2.55);
+        
+        if (a255 === 0) {
+            color = '#0';
+        } else if (a255 === 255) {
+            color = hex;
+        } else {
+            color = hex + a255.toString(16).padStart(2, '0');
+        }
+    } else {
+        const preview = document.getElementById('argbPreview');
+        const hex = preview.dataset.hexColor || '#ffffff';
+        const a255 = parseInt(preview.dataset.alpha ?? 255);
+        
+        if (a255 === 0) {
+            color = '#0';
+        } else if (a255 === 255) {
+            color = hex;
+        } else {
+            color = hex + a255.toString(16).padStart(2, '0');
+        }
+    }
+    
+    const callback = document.getElementById('colorModal').callback;
+    if (callback) {
+        callback(color);
+    }
+    closeModal('colorModal');
+}
 
         // モーダルを閉じる
         function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('active');
         }
 
-        // パレット読み込み
-        function importPalette() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.pal,.png';
-            input.onchange = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
+// パレット読み込み（アルファ値対応）
+function importPalette() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = img.width;
+                tempCanvas.height = 1;
+                tempCtx.drawImage(img, 0, 0);
                 
-                const reader = new FileReader();
+                const imageData = tempCtx.getImageData(0, 0, img.width, 1);
+                const data = imageData.data;
+                const colors = [];
                 
-                if (file.name.toLowerCase().endsWith('.png')) {
-                    reader.onload = (event) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            const tempCanvas = document.createElement('canvas');
-                            const tempCtx = tempCanvas.getContext('2d');
-                            tempCanvas.width = img.width;
-                            tempCanvas.height = 1;
-                            tempCtx.drawImage(img, 0, 0);
-                            
-                            const colors = [];
-                            for (let x = 0; x < img.width; x++) {
-                                const pixel = tempCtx.getImageData(x, 0, 1, 1).data;
-                                const hex = '#' + [pixel[0], pixel[1], pixel[2]].map(x => x.toString(16).padStart(2, '0')).join('');
-                                colors.push(hex);
-                            }
-                            
-                            if (colors.length > 0) {
-                                palette = colors;
-                                setupPalette();
-                                selectColor(colors[0]);
-                            }
-                        };
-                        img.src = event.target.result;
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    reader.onload = (event) => {
-                        try {
-                            const data = JSON.parse(event.target.result);
-                            if (Array.isArray(data.colors)) {
-                                palette = data.colors;
-                                setupPalette();
-                                if (data.colors.length > 0) {
-                                    selectColor(data.colors[0]);
-                                }
-                            }
-                        } catch (err) {
-                            alert('パレットファイルの読み込みに失敗しました');
-                        }
-                    };
-                    reader.readAsText(file);
+                for (let x = 0; x < img.width; x++) {
+                    const index = x * 4;
+                    const r = data[index];
+                    const g = data[index + 1];
+                    const b = data[index + 2];
+                    const a = data[index + 3];
+                    
+                    if (a === 0) {
+                        colors.push('#0'); // 完全透明
+                    } else if (a === 255) {
+                        // 完全不透明（6桁HEX）
+                        const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+                        colors.push(hex);
+                    } else {
+                        // アルファ値含む半透明（8桁HEX: #RRGGBBAA）
+                        const hex = '#' + [r, g, b, a].map(v => v.toString(16).padStart(2, '0')).join('');
+                        colors.push(hex);
+                    }
+                }
+                
+                if (colors.length > 0) {
+                    palette = colors;
+                    setupPalette();
+                    selectColor(colors[0]);
                 }
             };
-            input.click();
-        }
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+    input.click();
+}
 
-        // パレット保存
-        function exportPalette() {
-            const data = {
-                colors: palette
-            };
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const link = document.createElement('a');
-            link.download = 'palette.pal';
-            link.href = URL.createObjectURL(blob);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(link.href);
+// パレット保存（アルファ値対応）
+function exportPalette() {
+    if (palette.length === 0) return;
+
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.width = palette.length;
+    tempCanvas.height = 1;
+    
+    // クリアして透明化
+    tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+    
+    palette.forEach((color, index) => {
+        if (color === '#0' || color === 'transparent') {
+            tempCtx.fillStyle = 'rgba(0,0,0,0)';
+        } else if (color.startsWith('#') && color.length === 9) {
+            // #RRGGBBAA 形式を rgba() に変換して描画
+            const r = parseInt(color.slice(1, 3), 16);
+            const g = parseInt(color.slice(3, 5), 16);
+            const b = parseInt(color.slice(5, 7), 16);
+            const a = parseInt(color.slice(7, 9), 16) / 255;
+            tempCtx.fillStyle = `rgba(${r},${g},${b},${a})`;
+        } else {
+            tempCtx.fillStyle = color;
         }
+        tempCtx.fillRect(index, 0, 1, 1);
+    });
+    
+    const link = document.createElement('a');
+    link.download = 'palette.png';
+    link.href = tempCanvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 
         // パレットモーダルからインポート
         function importPaletteFromModal() {
@@ -1123,6 +1617,51 @@
         function exportPaletteFromModal() {
             exportPalette();
         }
+
+// 現在選択されている色を編集
+function editCurrentColor() {
+    const index = palette.indexOf(currentColor);
+    if (index === -1) return;
+
+    showColorModal((newColor) => {
+        palette[index] = newColor;
+        selectColor(newColor);
+    }, currentColor, 'argb');
+}
+
+// 現在選択されている色を削除
+function deleteCurrentColor() {
+    // 透明枠('#0')やパレットが1色以下の時は削除させない場合の保護
+    if (palette.length <= 1) {
+        alert('パレットの色をすべて削除することはできません。');
+        return;
+    }
+
+    const index = palette.indexOf(currentColor);
+    if (index !== -1) {
+        palette.splice(index, 1);
+        // 隣の色（または先頭の色）を新しく選択状態にする
+        const nextColor = palette[Math.max(0, index - 1)];
+        selectColor(nextColor);
+    }
+}
+
+// キャンバス背景色の管理
+let bgModeIndex = 0;
+const bgModes = [
+    { label: '背景: 暗', color: '#0f0f23' },
+    { label: '背景: 中', color: '#4a4a60' },
+    { label: '背景: 明', color: '#a0a0b5' }
+];
+
+function toggleCanvasBg() {
+    bgModeIndex = (bgModeIndex + 1) % bgModes.length;
+    const currentMode = bgModes[bgModeIndex];
+    
+    // 背景色とボタンのテキストを変更
+    document.getElementById('canvasContainer').style.backgroundColor = currentMode.color;
+    document.getElementById('bgToggleBtn').textContent = currentMode.label;
+}
 
         // 初期化実行
         init();
