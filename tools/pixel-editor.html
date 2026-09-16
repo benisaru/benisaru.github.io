@@ -510,12 +510,13 @@ let pixelHeight = 32;
 let zoom = 1;
 let showGrid = true;
 let currentColor = '#ffffff';
+let currentPaletteIndex = 1; // 現在選択中のパレットのインデックス
 let palette = ['#0','#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
 let pixelData = [];
 let undoStack = [];
 let maxUndo = 10;
 let fillMode = false;
-let zoomMode = 'original'; // 'original' or 'fit'
+let zoomMode = 'original';
 
 // タッチ・ドラッグ関連変数
 let isDrawing = false;
@@ -537,7 +538,6 @@ function init() {
     gridCanvas = document.getElementById('gridCanvas');
     gridCtx = gridCanvas.getContext('2d');
     
-    // ローカルストレージからパレットを読み込み
     loadPaletteFromStorage();
 
     setupCanvas();
@@ -565,9 +565,10 @@ function loadPaletteFromStorage() {
             const parsed = JSON.parse(saved);
             if (Array.isArray(parsed) && parsed.length > 0) {
                 palette = parsed;
-                if (!palette.includes(currentColor)) {
-                    currentColor = palette[0];
+                if (currentPaletteIndex >= palette.length) {
+                    currentPaletteIndex = 0;
                 }
+                currentColor = palette[currentPaletteIndex];
             }
         }
     } catch (e) {
@@ -666,14 +667,15 @@ function updateCanvasStyle() {
     document.getElementById('zoomIndicator').textContent = Math.round(zoom * 100) + '%' + modeText;
 }
 
-// パレット設定
+// パレット設定（インデックスで選択状態を判定）
 function setupPalette() {
     const paletteEl = document.getElementById('palette');
     paletteEl.innerHTML = '';
     
-    palette.forEach((color) => {
+    palette.forEach((color, index) => {
         const colorEl = document.createElement('div');
-        colorEl.className = 'palette-color' + (color === currentColor ? ' selected' : '');
+        // 色の文字列ではなくインデックスで選択判定
+        colorEl.className = 'palette-color' + (index === currentPaletteIndex ? ' selected' : '');
         if (color === '#0' || color === 'transparent') {
             colorEl.style.backgroundColor = 'transparent';
             colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
@@ -682,16 +684,31 @@ function setupPalette() {
         } else {
             colorEl.style.backgroundColor = color;
         }
-        colorEl.onclick = () => selectColor(color);
+        colorEl.onclick = () => selectPaletteIndex(index);
         paletteEl.appendChild(colorEl);
     });
 }
 
-// 色選択
+// パレットをインデックス指定で選択
+function selectPaletteIndex(index) {
+    if (index >= 0 && index < palette.length) {
+        currentPaletteIndex = index;
+        currentColor = palette[index];
+        updateCurrentColor();
+        setupPalette();
+    }
+}
+
+// スポイトなど色から選択する場合の補助（最初に見つかったものを選択）
 function selectColor(color) {
-    currentColor = color;
-    updateCurrentColor();
-    setupPalette();
+    let index = palette.indexOf(color);
+    if (index === -1) {
+        // パレットにない色の場合は末尾に追加
+        palette.push(color);
+        index = palette.length - 1;
+        savePaletteToStorage();
+    }
+    selectPaletteIndex(index);
 }
 
 // 現在の色更新
@@ -1102,7 +1119,7 @@ function showPaletteModal() {
     
     palette.forEach((color, index) => {
         const colorEl = document.createElement('div');
-        colorEl.className = 'palette-color';
+        colorEl.className = 'palette-color' + (index === currentPaletteIndex ? ' selected' : '');
         if (color === '#0' || color === 'transparent') {
             colorEl.style.backgroundColor = 'transparent';
             colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
@@ -1111,7 +1128,10 @@ function showPaletteModal() {
         } else {
             colorEl.style.backgroundColor = color;
         }
-        colorEl.onclick = () => editPaletteColor(index);
+        colorEl.onclick = () => {
+            selectPaletteIndex(index);
+            editPaletteColor(index);
+        };
         colorEl.oncontextmenu = (e) => {
             e.preventDefault();
             removePaletteColor(index);
@@ -1122,18 +1142,42 @@ function showPaletteModal() {
     document.getElementById('paletteModal').classList.add('active');
 }
 
+// 現在選択中の色を複製
+function duplicateCurrentColor() {
+    const insertIndex = currentPaletteIndex + 1;
+    palette.splice(insertIndex, 0, currentColor);
+    
+    savePaletteToStorage();
+    selectPaletteIndex(insertIndex); // 新しく増えた側のインデックスを選択状態にする
+    
+    const modal = document.getElementById('paletteModal');
+    if (modal && modal.classList.contains('active')) {
+        showPaletteModal();
+    }
+}
+
 function addDetailedPaletteColor() {
     showColorModal((color) => {
         palette.push(color);
-        savePaletteToStorage(); // 保存
-        setupPalette();
+        savePaletteToStorage();
+        selectPaletteIndex(palette.length - 1);
         showPaletteModal();
     }, '#ffffff', 'argb');
 }
 
 function removePaletteColor(index) {
+    if (palette.length <= 1) {
+        alert('パレットの色をすべて削除することはできません。');
+        return;
+    }
     palette.splice(index, 1);
-    savePaletteToStorage(); // 保存
+    savePaletteToStorage();
+    
+    if (currentPaletteIndex >= palette.length) {
+        currentPaletteIndex = palette.length - 1;
+    }
+    currentColor = palette[currentPaletteIndex];
+    
     setupPalette();
     showPaletteModal();
 }
@@ -1141,18 +1185,17 @@ function removePaletteColor(index) {
 function addDetailedColor() {
     showColorModal((color) => {
         palette.push(color);
-        savePaletteToStorage(); // 保存
-        selectColor(color);
+        savePaletteToStorage();
+        selectPaletteIndex(palette.length - 1);
     }, '#ffffff', 'argb');
 }
 
 function editPaletteColor(index) {
     showColorModal((newColor) => {
         palette[index] = newColor;
-        savePaletteToStorage(); // 保存
-        setupPalette();
+        savePaletteToStorage();
+        selectPaletteIndex(index);
         showPaletteModal();
-        if (currentColor === palette[index]) selectColor(newColor);
     }, palette[index], 'argb');
 }
 
@@ -1240,8 +1283,8 @@ function initARGBValues(hexColor, alpha255 = 255) {
     document.getElementById('argbGInput').value = g;
     document.getElementById('argbBSlider').value = b;
     document.getElementById('argbBInput').value = b;
-    document.getElementById('argbASlider').value = a = alpha255;
-    document.getElementById('argbAInput').value = a = alpha255;
+    document.getElementById('argbASlider').value = alpha255;
+    document.getElementById('argbAInput').value = alpha255;
     
     updateARGBPreview();
 }
@@ -1447,9 +1490,8 @@ function importPalette() {
                 
                 if (colors.length > 0) {
                     palette = colors;
-                    savePaletteToStorage(); // 保存
-                    setupPalette();
-                    selectColor(colors[0]);
+                    savePaletteToStorage();
+                    selectPaletteIndex(0);
                 }
             };
             img.src = event.target.result;
@@ -1496,29 +1538,11 @@ function importPaletteFromModal() { importPalette(); }
 function exportPaletteFromModal() { exportPalette(); }
 
 function editCurrentColor() {
-    const index = palette.indexOf(currentColor);
-    if (index === -1) return;
-
-    showColorModal((newColor) => {
-        palette[index] = newColor;
-        savePaletteToStorage(); // 保存
-        selectColor(newColor);
-    }, currentColor, 'argb');
+    editPaletteColor(currentPaletteIndex);
 }
 
 function deleteCurrentColor() {
-    if (palette.length <= 1) {
-        alert('パレットの色をすべて削除することはできません。');
-        return;
-    }
-
-    const index = palette.indexOf(currentColor);
-    if (index !== -1) {
-        palette.splice(index, 1);
-        savePaletteToStorage(); // 保存
-        const nextColor = palette[Math.max(0, index - 1)];
-        selectColor(nextColor);
-    }
+    removePaletteColor(currentPaletteIndex);
 }
 
 let bgModeIndex = 0;
@@ -1533,30 +1557,6 @@ function toggleCanvasBg() {
     const currentMode = bgModes[bgModeIndex];
     document.getElementById('canvasContainer').style.backgroundColor = currentMode.color;
     document.getElementById('bgToggleBtn').textContent = currentMode.label;
-}
-
-// 現在選択中の色をパレットに複製して追加
-function duplicateCurrentColor() {
-    if (!currentColor) return;
-    
-    const index = palette.indexOf(currentColor);
-    if (index !== -1) {
-        // 選択中の色のすぐ後ろに挿入
-        palette.splice(index + 1, 0, currentColor);
-    } else {
-        // 見つからない場合は末尾に追加
-        palette.push(currentColor);
-    }
-    
-    savePaletteToStorage(); // ローカルストレージに保存
-    setupPalette();        // メインパレット更新
-    selectColor(currentColor);
-    
-    // パレットモーダルが開いている場合は表示を更新
-    const modal = document.getElementById('paletteModal');
-    if (modal && modal.classList.contains('active')) {
-        showPaletteModal();
-    }
 }
 
 // 初期化実行
