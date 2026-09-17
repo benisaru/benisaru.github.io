@@ -9,7 +9,6 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            touch-action: none;
         }
 
         body {
@@ -126,6 +125,7 @@
             width: calc(100% - 150px);
             overflow-x: auto !important;
             -webkit-overflow-scrolling: touch;
+            touch-action: pan-x;
         }
 
         .palette-color {
@@ -1131,7 +1131,7 @@ function setupTouchEvents() {
     const container = document.getElementById('canvasContainer');
 
     // --- UIボタン類の操作でキャンバス描画が誤作動しないよう伝播を防止 ---
-    const ignoreElements = document.querySelectorAll('button, .top-controls, #zoomIndicator, .palette-color, .layer-popup, .tool-buttons, .palette');
+    const ignoreElements = document.querySelectorAll('button, .top-controls, #zoomIndicator, .layer-popup, .tool-buttons, .layer-popup');
     ignoreElements.forEach(el => {
         const stopPropagation = (e) => e.stopPropagation();
         el.addEventListener('touchstart', stopPropagation, { passive: false });
@@ -1155,11 +1155,10 @@ function setupTouchEvents() {
 // タッチ開始
 function handleTouchStart(e) {
     // 画面上のボタン、パレット、モーダル、右上コントロール（ズーム表示含む）の直接タップを弾く
-    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .layer-popup, .tool-buttons, .palette');
+    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .layer-popup, .tool-buttons, .palette, .layer-popup');
     if (isUIElement) {
         return;
     }
-    isTouchDown = true;
 
     if (longPressTimer) {
         clearTimeout(longPressTimer);
@@ -1212,7 +1211,7 @@ function handleTouchStart(e) {
 
 // タッチ終了
 function handleTouchEnd(e) {
-    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .palette');
+    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .palette, .layer-popup');
     if (isUIElement) {
         return;
     }
@@ -1232,7 +1231,6 @@ function handleTouchEnd(e) {
             isDragging = false;
             inCanvas = false;
             inSelected = false;
-            isTouchDown = false;
             return;
         }
     }
@@ -1262,13 +1260,15 @@ function handleTouchEnd(e) {
     isScrolling = false;
     isLongPress = false;
     isDragging = false;
-    isTouchDown = false;
     inCanvas = false;
     inSelected = false;
-    showToast("タッチ終了");
 }
 
 function handleTouchMove(e) {
+    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .palette, .layer-popup');
+    if (isUIElement) {
+        return;
+    }
     if (inSelected==2) return;
 
     // 2本指ズーム処理
