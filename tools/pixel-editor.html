@@ -389,8 +389,8 @@
         <div class="modal-content">
             <h2>新規キャンバス</h2>
             <div class="input-group">
-                <input type="number" id="canvasWidth" min="1" max="64" value="16" placeholder="幅">
-                <input type="number" id="canvasHeight" min="1" max="64" value="16" placeholder="高さ">
+                <input type="number" id="canvasWidth" min="1" max="256" value="16" placeholder="幅">
+                <input type="number" id="canvasHeight" min="1" max="256" value="16" placeholder="高さ">
             </div>
             <div class="modal-buttons">
                 <button onclick="createNewCanvas()">作成</button>
@@ -1072,8 +1072,8 @@ function loadPNG() {
         reader.onload = (event) => {
             const img = new Image();
             img.onload = () => {
-                const width = Math.min(img.width, 64);
-                const height = Math.min(img.height, 64);
+                const width = Math.min(img.width, 256);
+                const height = Math.min(img.height, 256);
                 
                 pixelWidth = width;
                 pixelHeight = height;
@@ -1126,7 +1126,7 @@ function createNewCanvas() {
     const width = parseInt(document.getElementById('canvasWidth').value);
     const height = parseInt(document.getElementById('canvasHeight').value);
     
-    if (width >= 1 && width <= 64 && height >= 1 && height <= 64) {
+    if (width >= 1 && width <= 256 && height >= 1 && height <= 256) {
         pixelWidth = width;
         pixelHeight = height;
         pixelData = new Array(pixelWidth * pixelHeight).fill(null);
