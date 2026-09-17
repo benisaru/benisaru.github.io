@@ -84,13 +84,13 @@
             image-rendering: pixelated;
             cursor: crosshair;
             position: relative;
-            z-index: 2;
+            z-index: 1;
         }
 
         #gridCanvas {
             position: absolute;
             pointer-events: none;
-            z-index: 1;
+            z-index: 4;
             image-rendering: pixelated;
         }
 
@@ -412,6 +412,8 @@
             background: #0f3460;
             border-radius: 4px;
             cursor: pointer;
+            user-select: none; /* テキスト選択を防止 */
+            touch-action: manipulation;
         }
 
         .layer-item.active {
@@ -431,6 +433,10 @@
             padding: 2px 5px;
             font-size: 10px;
         }
+        .layer-item.dragging {
+            opacity: 0.5;
+            background-color: #1a1a2e;
+        }
 
         .resize-grid {
             display: grid;
@@ -447,6 +453,29 @@
         .resize-grid button.active {
             background: #e94560;
         }
+.toast {
+  position: fixed;
+  bottom: -50px; /* 最初は画面の下に隠しておく */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  font-size: 14px;
+  z-index: 9999;
+  transition: bottom 0.4s ease, opacity 0.4s ease; /* アニメーション効果 */
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 表示状態のクラス */
+.toast.show {
+  bottom: 20px; /* 画面下部から20pxの位置に浮き上がらせる */
+  opacity: 1;
+  pointer-events: auto;
+}
     </style>
 </head>
 <body>
@@ -495,7 +524,7 @@
                 <button onclick="mergeLayer()">❏</button>
                 <button onclick="importLayerPNG()">P</button>
             </div>
-            <div class="layer-list" id="layerList"></div>
+            <div class="layer-list sortable-list" id="layerList"></div>
         </div>
     </div>
 </div>
@@ -639,8 +668,10 @@
             </div>
         </div>
     </div>
-
+    <div id="toast" class="toast">ここにメッセージが入ります</div>
     <script>
+
+
 // グローバル変数
 let canvas, ctx;
 let gridCanvas, gridCtx;
@@ -656,6 +687,8 @@ let undoStack = [];
 let redoStack = [];
 let maxUndo = 10;
 let zoomMode = 'original';
+// アニメーション用のオフセット値（初期値は0）
+let selectionDashOffset = 0;
 
 // Layer関連
 const MAX_LAYERS = 4;
@@ -686,8 +719,11 @@ let scrollOffsetX = 0;
 let scrollOffsetY = 0;
 let isScrolling = false;
 let isPinching = false;
+let inCanvas = false;
+let inSelected = false;
+let isTouchDown = false;
 
-// 初期化
+
 // 初期化（復元処理を追加）
 function init() {
     canvas = document.getElementById('pixelCanvas');
@@ -759,8 +795,8 @@ function loadPaletteFromStorage() {
 function setupCanvas() {
     canvas.width = pixelWidth;
     canvas.height = pixelHeight;
-    gridCanvas.width = pixelWidth;
-    gridCanvas.height = pixelHeight;
+    gridCanvas.width = pixelWidth * zoom;
+    gridCanvas.height = pixelHeight * zoom;
 
     // Layerデータのサイズ調整
     layers.forEach(layer => {
@@ -779,6 +815,10 @@ function setupCanvas() {
 
 // キャンバス描画
 function renderCanvas() {
+    // 【最重要】描画する前に、まずキャンバスのサイズ（解像度）を確定させる
+    updateCanvasStyle();
+
+    // メインキャンバスをクリア
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Layerを合成して描画
@@ -816,14 +856,18 @@ function renderCanvas() {
     ctx.globalCompositeOperation = 'source-over';
     ctx.drawImage(compositeCanvas, 0, 0);
 
-    // 選択範囲を描画
+    // 選択範囲を描画（内側の塗りつぶし）
     if (selectedPixels.size > 0) {
+        ctx.save();
         ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+        
+        // 中身の半透明塗りつぶし（既存の処理）
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.15)'; 
         selectedPixels.forEach(key => {
             const [x, y] = key.split(',').map(Number);
             ctx.fillRect(x, y, 1, 1);
         });
+        ctx.restore(); // 閉じ忘れを修正
     }
 
     // 選択ツールの始点を描画
@@ -833,9 +877,88 @@ function renderCanvas() {
         ctx.fillRect(selectionStart.x, selectionStart.y, 1, 1);
     }
 
+    // 【重要】サイズ更新が先に終わっているので、ここでのクリアと描画が正しく残ります
     gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
 
-    if (showGrid && zoom >= 4) {
+    // 1. 選択範囲の境界線を綺麗な1pxの点線で描画
+    if (selectedPixels.size > 0) {
+        gridCtx.save();
+        
+        gridCtx.lineWidth = 1; 
+        gridCtx.setLineDash([4, 4]); // 実線4px, 空白4px
+
+        gridCtx.beginPath();
+        selectedPixels.forEach(key => {
+            const [x, y] = key.split(',').map(Number);
+
+            // 画面上の実際の座標とサイズを計算
+            const sx = x * zoom;
+            const sy = y * zoom;
+            const sz = zoom; // 1マスの大きさ
+
+            const up = `${x},${y-1}`;
+            const down = `${x},${y+1}`;
+            const left = `${x-1},${y}`;
+            const right = `${x+1},${y}`;
+
+            // 隣に選択ピクセルがなければ、ズーム後のサイズに合わせて境界線を引く
+            if (!selectedPixels.has(up)) {
+                gridCtx.moveTo(sx, sy); gridCtx.lineTo(sx + sz, sy);
+            }
+            if (!selectedPixels.has(down)) {
+                gridCtx.moveTo(sx, sy + sz); gridCtx.lineTo(sx + sz, sy + sz);
+            }
+            if (!selectedPixels.has(left)) {
+                gridCtx.moveTo(sx, sy); gridCtx.lineTo(sx, sy + sz);
+            }
+            if (!selectedPixels.has(right)) {
+                gridCtx.moveTo(sx + sz, sy); gridCtx.lineTo(sx + sz, sy + sz);
+            }
+        });
+
+        // 黒い点線
+        gridCtx.lineDashOffset = selectionDashOffset; 
+        gridCtx.strokeStyle = '#000000';
+        gridCtx.stroke();
+
+        // 白い点線を4pxずらして重ねる
+        gridCtx.lineDashOffset = selectionDashOffset + 4; 
+        gridCtx.strokeStyle = '#ffffff';
+        gridCtx.stroke();
+
+        gridCtx.restore();
+    }
+
+    // 2. 1ドットずつのグリッド表示を追加（元のCSSグリッドの代わり）
+    if (showGrid && zoom >= 4) { // ズームが4倍以上のときに表示
+        gridCtx.save();
+        
+        // 1px幅の非常に薄い白線（背景に合わせて色や透明度は調整してください）
+        gridCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; 
+        gridCtx.lineWidth = 1;
+        gridCtx.beginPath();
+
+        // 縦線を引く
+        for (let x = 1; x < pixelWidth; x++) {
+            const spos = Math.floor(x * zoom);
+            // -0.5 することでブラウザの仕様による線のぼやけを防ぎ、クッキリ1pxにします
+            gridCtx.moveTo(spos - 0.5, 0);
+            gridCtx.lineTo(spos - 0.5, pixelHeight * zoom);
+        }
+
+        // 横線を引く
+        for (let y = 1; y < pixelHeight; y++) {
+            const spos = Math.floor(y * zoom);
+            gridCtx.moveTo(0, spos - 0.5);
+            gridCtx.lineTo(pixelWidth * zoom, spos - 0.5);
+        }
+
+        gridCtx.stroke();
+        gridCtx.restore();
+    }
+
+    // 2. 元々あったグリッド線（中央線などの強調線）の描画
+    if (showGrid && zoom >= 8) {
         const quarterX = Math.floor(pixelWidth / 4);
         const halfX = Math.floor(pixelWidth / 2);
         const threeQuarterX = Math.floor(pixelWidth * 3 / 4);
@@ -849,32 +972,74 @@ function renderCanvas() {
         gridCtx.strokeStyle = 'rgba(255,255,255,0.25)';
         gridCtx.lineWidth = 1;
 
-                gridCtx.beginPath();
+        gridCtx.beginPath();
         emphasizePositions.forEach(pos => {
             if (pos > 0 && pos < pixelWidth) {
-                gridCtx.moveTo(pos-0.5, 0);
-                gridCtx.lineTo(pos-0.5, pixelHeight+0.5);
-                if (pixelWidth%2==0) {
-                    gridCtx.moveTo(pos+0.5, 0);
-                    gridCtx.lineTo(pos+0.5, pixelHeight+0.5);
+                const spos = pos * zoom;
+                gridCtx.moveTo(spos - 0.5, 0);
+                gridCtx.lineTo(spos - 0.5, (pixelHeight * zoom) + 0.5);
+                if (pixelWidth % 2 == 0) {
+                    gridCtx.moveTo(spos + 0.5, 0);
+                    gridCtx.lineTo(spos + 0.5, (pixelHeight * zoom) + 0.5);
                 }
             }
         });
 
         emphasizePositionsY.forEach(pos => {
             if (pos > 0 && pos < pixelHeight) {
-                gridCtx.moveTo(0, pos-0.5);
-                gridCtx.lineTo(pixelWidth+0.5, pos-0.5);
-                if (pixelHeight%2==0) {
-                    gridCtx.moveTo(0,pos+0.5, pos+0.5);
-                    gridCtx.lineTo(pixelWidth+0.5, pos+0.5);
+                const spos = pos * zoom;
+                gridCtx.moveTo(0, spos - 0.5);
+                gridCtx.lineTo((pixelWidth * zoom) + 0.5, spos - 0.5);
+                if (pixelHeight % 2 == 0) {
+                    gridCtx.moveTo(0, spos + 0.5);
+                    gridCtx.lineTo((pixelWidth * zoom) + 0.5, spos + 0.5);
                 }
             }
         });
-                gridCtx.stroke();
+        gridCtx.stroke();
     }
+    
+    // ※一番最後にあった updateCanvasStyle() は先頭に移したため、ここでは呼び出しません。
+}
+let lastLogTime = performance.now();
+function animateSelection() {
+        if (selectedPixels.size > 0) {
+            selectionDashOffset -= 4;
+            if (selectionDashOffset <= -8) {
+                selectionDashOffset = 0;
+            }
+            renderCanvas();
+        }
 
-    updateCanvasStyle();
+    setTimeout(animateSelection,500);
+}
+animateSelection();
+
+// キャンバススタイル更新
+function updateCanvasStyle() {
+    const displayWidth = pixelWidth * zoom;
+    const displayHeight = pixelHeight * zoom;
+
+    // メインキャンバスは等倍（1ドット1px）をCSSで拡大（ボケ防止に pixelated を追加）
+    canvas.style.imageRendering = 'pixelated';
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
+    canvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+
+    // 【重要】gridCanvasの解像度（内部サイズ）をズーム後の実サイズに更新する
+    gridCanvas.width = displayWidth;
+    gridCanvas.height = displayHeight;
+
+    // gridCanvasのスタイル（表示サイズはそのまま、transformだけ適用）
+    gridCanvas.style.width = displayWidth + 'px';
+    gridCanvas.style.height = displayHeight + 'px';
+    gridCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+
+    // ※CSSの背景グリッドは不要になったため削除（または無効化）してOKです。
+    // gridCanvas.style.backgroundImage = 'none';
+
+    const modeText = zoomMode === 'fit' ? ' (画面合わせ)' : '';
+    document.getElementById('zoomIndicator').textContent = Math.round(zoom * 100) + '%' + modeText;
 }
 
 // 合成モードをCanvas APIの値に変換
@@ -886,18 +1051,7 @@ function getBlendMode(mode) {
     }
 }
 
-// キャンバススタイル更新
-function updateCanvasStyle() {
-    const displayWidth = pixelWidth * zoom;
-    const displayHeight = pixelHeight * zoom;
-    canvas.style.width = displayWidth + 'px';
-    canvas.style.height = displayHeight + 'px';
-    canvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
-
-    gridCanvas.style.width = displayWidth + 'px';
-    gridCanvas.style.height = displayHeight + 'px';
-    gridCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
-
+/*
     if (showGrid && zoom >= 2) {
         gridCanvas.style.backgroundImage = `
             linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
@@ -907,9 +1061,7 @@ function updateCanvasStyle() {
     } else {
         gridCanvas.style.backgroundImage = 'none';
     }
-    const modeText = zoomMode === 'fit' ? ' (画面合わせ)' : '';
-    document.getElementById('zoomIndicator').textContent = Math.round(zoom * 100) + '%' + modeText;
-}
+*/
 
 // パレット設定
 function setupPalette() {
@@ -972,7 +1124,7 @@ function setupTouchEvents() {
     const container = document.getElementById('canvasContainer');
 
     // --- UIボタン類の操作でキャンバス描画が誤作動しないよう伝播を防止 ---
-    const ignoreElements = document.querySelectorAll('button, .top-controls, #zoomIndicator, .palette-color');
+    const ignoreElements = document.querySelectorAll('button, .top-controls, #zoomIndicator, .palette-color, .layer-popup, .tool-buttons');
     ignoreElements.forEach(el => {
         const stopPropagation = (e) => e.stopPropagation();
         el.addEventListener('touchstart', stopPropagation, { passive: false });
@@ -996,10 +1148,11 @@ function setupTouchEvents() {
 // タッチ開始
 function handleTouchStart(e) {
     // 画面上のボタン、パレット、モーダル、右上コントロール（ズーム表示含む）の直接タップを弾く
-    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator');
+    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .layer-popup, .tool-buttons');
     if (isUIElement) {
         return;
     }
+    isTouchDown = true;
 
     if (longPressTimer) {
         clearTimeout(longPressTimer);
@@ -1028,10 +1181,31 @@ function handleTouchStart(e) {
             handleLongPress(touch);
         }, 500);
     }
+
+    //キャンバス内外判定
+    inCanvas = false;
+    inSelected = false;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((touch.clientX - rect.left) / zoom);
+    const y = Math.floor((touch.clientY - rect.top) / zoom);
+
+    // キャンバス内
+    if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+        inCanvas = true;
+        // 選択範囲内（文字列のキーを作成して直接チェック）
+        if (selectedPixels.size > 0) {
+            const coordKey = `${x},${y}`;
+            if (selectedPixels.has(coordKey)) {
+                inSelected = true;
+            }
+        }
+    }
+
 }
 
 // タッチ終了
 function handleTouchEnd(e) {
+    if (!isTouchDown) return;
     const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator');
     if (isUIElement) {
         return;
@@ -1079,9 +1253,12 @@ function handleTouchEnd(e) {
     isScrolling = false;
     isLongPress = false;
     isDragging = false;
+    isTouchDown = false;
 }
 
 function handleTouchMove(e) {
+    if (!isTouchDown) return;
+
     // 2本指ズーム処理
     if (e.touches.length >= 2) {
         isPinching = true;
@@ -1122,7 +1299,7 @@ function handleTouchMove(e) {
             const y = Math.floor((touch.clientY - rect.top) / zoom);
 
             // キャンバス内の場合は移動処理
-            if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+            if ((inCanvas && selectedPixels.size==0) || (inCanvas && inSelected)) {
                 if (!isMoving) {
                     isMoving = true;
                     moveStartX = x;
@@ -1167,6 +1344,9 @@ function handleTouchMove(e) {
                             });
 
                             selectedPixels = newSelectedPixels;
+                            if (selectedPixels.size==0) {
+                                isTouchDown = false;
+                            }
                         } else {
                             // Layer全体の移動
                             const newData = new Array(pixelWidth * pixelHeight).fill(null);
@@ -1236,11 +1416,26 @@ function handleMouseDown(e) {
         const rect = canvas.getBoundingClientRect();
         const x = Math.floor((e.clientX - rect.left) / zoom);
         const y = Math.floor((e.clientY - rect.top) / zoom);
+
+        //キャンバス内外判定
+        inCanvas = false;
+        inSelected = false;
+
+        // キャンバス内
         if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+            inCanvas = true;
+            // 選択範囲内（文字列のキーを作成して直接チェック）
+            if (selectedPixels.size > 0) {
+                const coordKey = `${x},${y}`;
+                if (selectedPixels.has(coordKey)) {
+                    inSelected = true;
+                }
+            }
             isMoving = true;
             moveStartX = x;
             moveStartY = y;
         }
+
         return;
     }
 
@@ -1274,7 +1469,7 @@ function handleMouseMove(e) {
         const x = Math.floor((e.clientX - rect.left) / zoom);
         const y = Math.floor((e.clientY - rect.top) / zoom);
 
-        if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+        if ((inCanvas && selectedPixels.size==0) || (inCanvas && inSelected)) {
             const moveDeltaX = x - moveStartX;
             const moveDeltaY = y - moveStartY;
 
@@ -1314,6 +1509,9 @@ function handleMouseMove(e) {
                     });
 
                     selectedPixels = newSelectedPixels;
+                    if (selectedPixels.size==0) {
+                      isMouseDown = false;
+                    }
                 } else {
                     // Layer全体の移動
                     const newData = new Array(pixelWidth * pixelHeight).fill(null);
@@ -1339,8 +1537,10 @@ function handleMouseMove(e) {
                 renderCanvas();
                 saveCanvasToStorage();
             }
+            return;
         }
-    } else if (isMouseDragging) {
+    }
+    if (isMouseDragging) {
         // ドラッグスクロール
         scrollOffsetX += e.clientX - mouseDownX;
         scrollOffsetY += e.clientY - mouseDownY;
@@ -2192,7 +2392,9 @@ function loadCanvasFromStorage() {
     return false;
 }
 
-// LayerUI更新（最初の生成時や、レイヤー数・中身が根本的に変わる時だけ呼ぶ）
+// ドラッグ中の要素インデックスを保持する変数
+let draggedIndex = null;
+
 function updateLayerUI() {
     const layerList = document.getElementById('layerList');
     layerList.innerHTML = '';
@@ -2200,13 +2402,42 @@ function updateLayerUI() {
     for (let i = layers.length - 1; i >= 0; i--) {
         const layer = layers[i];
         const layerItem = document.createElement('div');
-        // あとからJavaScriptで特定のレイヤー要素を探せるように data-index を付与
-        layerItem.dataset.index = i; 
+        layerItem.dataset.index = i;
         layerItem.className = 'layer-item' + (i === currentLayerIndex ? ' active' : '');
         
+        // 要素全体をドラッグ可能にする
+        layerItem.draggable = true;
+
         layerItem.onclick = (e) => {
             if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
                 selectLayer(i);
+            }
+        };
+
+        // --- ドラッグ＆ドロップ イベントの設定 ---
+        layerItem.ondragstart = (e) => {
+            draggedIndex = i;
+            e.dataTransfer.effectAllowed = 'move';
+            layerItem.classList.add('dragging');
+        };
+
+        layerItem.ondragend = () => {
+            layerItem.classList.remove('dragging');
+            draggedIndex = null;
+        };
+
+        layerItem.ondragover = (e) => {
+            e.preventDefault(); // ドロップを許可するために必須
+            e.dataTransfer.dropEffect = 'move';
+        };
+
+        layerItem.ondrop = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const targetIndex = i;
+            if (draggedIndex !== null && draggedIndex !== targetIndex) {
+                reorderLayers(draggedIndex, targetIndex);
             }
         };
 
@@ -2246,11 +2477,46 @@ function updateLayerUI() {
         `;
         blendSelect.style.width = '60px';
 
+        const handleSort = document.createElement('div');
+        handleSort.innerHTML = "⠿";
+        handleSort.style.marginLeft = 'auto';
+        handleSort.style.cursor = 'grab'; // ドラッグ可能であることを示すカーソル
+
         layerItem.appendChild(checkbox);
         layerItem.appendChild(nameInput);
         layerItem.appendChild(blendSelect);
+        layerItem.appendChild(handleSort);
+
         layerList.appendChild(layerItem);
     }
+}
+
+// レイヤー配列の並べ替え処理を行う関数
+function reorderLayers(fromIndex, toIndex) {
+    // 1. 配列からドラッグ対象を切り出す
+    const [movedLayer] = layers.splice(fromIndex, 1);
+    
+    // 2. 移動先に挿入する
+    layers.splice(toIndex, 0, movedLayer);
+
+    // 3. IDの振り直し
+    layers.forEach((layer, index) => {
+        layer.id = index;
+    });
+
+    // 4. 選択中レイヤーインデックスの補正
+    if (currentLayerIndex === fromIndex) {
+        currentLayerIndex = toIndex;
+    } else if (fromIndex < currentLayerIndex && toIndex >= currentLayerIndex) {
+        currentLayerIndex--;
+    } else if (fromIndex > currentLayerIndex && toIndex <= currentLayerIndex) {
+        currentLayerIndex++;
+    }
+
+    // 5. 状態保存と描画更新
+    saveState();
+    updateLayerUI();
+    renderCanvas();
 }
 
 // Layer選択（UI全体をリセットせず、クラスの付け替えのみ行う）
@@ -2732,6 +2998,21 @@ function toggleLayerPopup() {
     popup.classList.toggle('collapsed');
     toggle.textContent = popup.classList.contains('collapsed') ? '◀Layer' : '▶Layer';
     toggle.style.writingMode = popup.classList.contains('collapsed') ? "vertical-lr" : "horizontal-tb";
+}
+
+function showToast(message) {
+  const toast = document.getElementById("toast");
+  
+  // メッセージを動的に設定
+  toast.innerText = message;
+  
+  // showクラスを追加して表示
+  toast.classList.add("show");
+  
+  // 3秒後に自動的に閉じる
+  setTimeout(() => {
+    toast.classList.remove("show");
+  }, 3000);
 }
 
 // 初期化実行
