@@ -203,6 +203,7 @@
         }
 
 /* ボタンとインジケーターのスタイル（位置指定は親のFlexboxに任せる） */
+.toggle-grid-btn,
 .bg-toggle-btn,
 .zoom-indicator {
     position: static !important; /* 絶対位置指定を解除 */
@@ -252,6 +253,85 @@
         .fill-button.active {
             background: #e94560;
             border-color: #fff;
+        }
+
+        .tool-buttons {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .tool-buttons button {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #0f3460;
+            color: #eee;
+            border: 2px solid #444;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        .tool-buttons button.active {
+            background: #e94560;
+            border-color: #fff;
+        }
+
+        .layer-popup {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: #16213e;
+            border-radius: 8px;
+            padding: 10px;
+            z-index: 100;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            max-width: 200px;
+            transition: transform 0.3s ease;
+        }
+
+        .layer-popup.collapsed {
+            transform: translateY(calc(100% - 40px));
+        }
+
+        .layer-popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        .layer-popup-header h3 {
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .layer-popup-toggle {
+            background: none;
+            border: none;
+            color: #eee;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .layer-popup-content {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .layer-popup.collapsed .layer-popup-content {
+            display: none;
         }
 
         .color-input-tabs {
@@ -342,13 +422,6 @@
   pointer-events: none;
 }
 
-        .layer-section {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            margin-top: 10px;
-        }
-
         .layer-controls {
             display: flex;
             gap: 5px;
@@ -392,10 +465,6 @@
             font-size: 10px;
         }
 
-        .tool-button.active {
-            background: #e94560;
-        }
-
         .resize-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -420,20 +489,17 @@
             <button onclick="showNewCanvasModal()">新規</button>
             <button onclick="loadPNG()">PNG読込</button>
             <button onclick="savePNG()">PNG保存</button>
+            <button onclick="saveCustomFile()">PXD保存</button>
+            <button onclick="loadCustomFile()">PXD読込</button>
         </div>
         <div class="header-controls">
+            <button onclick="showResizeModal()">サイズ変更</button>
             <button onclick="undo()" id="undoBtn" disabled>戻る</button>
             <button onclick="redo()" id="redoBtn" disabled>進む</button>
-            <button onclick="toggleGrid()" id="gridBtn">グリッド</button>
-        </div>
-        <div class="header-controls">
             <button onclick="selectAll()">全選択</button>
             <button onclick="clearSelection()">選択解除</button>
         </div>
         <div class="header-controls">
-            <button onclick="showResizeModal()">サイズ変更</button>
-            <button onclick="saveCustomFile()">保存</button>
-            <button onclick="loadCustomFile()">読込</button>
         </div>
     </div>
 
@@ -441,10 +507,31 @@
     <canvas id="pixelCanvas"></canvas>
     <canvas id="gridCanvas"></canvas>
 <div class="top-controls">
+    <button class="toggle-grid-btn" onclick="toggleGrid()" id="gridBtn">グリッド</button>
     <button class="bg-toggle-btn" id="bgToggleBtn" onclick="toggleCanvasBg()">背景: 暗</button>
     <div class="zoom-indicator" id="zoomIndicator">100%</div>
 </div>
     <button class="fill-button" id="fillButton" onclick="toggleFillMode()">🪣</button>
+    <div class="tool-buttons">
+        <button onclick="setTool('draw')" id="drawToolBtn" class="active">🖌️</button>
+        <button onclick="setTool('select')" id="selectToolBtn">🫥</button>
+        <button onclick="setTool('move')" id="moveToolBtn">↔️</button>
+    </div>
+    <div class="layer-popup" id="layerPopup">
+        <div class="layer-popup-header" onclick="toggleLayerPopup()">
+            <h3>レイヤー</h3>
+            <button class="layer-popup-toggle" id="layerPopupToggle">▲</button>
+        </div>
+        <div class="layer-popup-content">
+            <div class="layer-controls">
+                <button onclick="addLayer()">＋</button>
+                <button onclick="deleteLayer()">－</button>
+                <button onclick="mergeLayer()">⮺</button>
+                <button onclick="importLayerPNG()">PNG</button>
+            </div>
+            <div class="layer-list" id="layerList"></div>
+        </div>
+    </div>
 </div>
 
     <div class="footer">
@@ -462,20 +549,7 @@
     <button onclick="importPalette()">パレット読込</button>
     <button onclick="exportPalette()">パレット保存</button>
 </div>
-<div class="tools">
-    <button onclick="setTool('draw')" id="drawToolBtn" class="active">描画</button>
-    <button onclick="setTool('select')" id="selectToolBtn">選択</button>
-    <button onclick="setTool('move')" id="moveToolBtn">移動</button>
-</div>
-<div class="layer-section">
-    <div class="layer-controls">
-        <button onclick="addLayer()">+レイヤー</button>
-        <button onclick="deleteLayer()">-レイヤー</button>
-        <button onclick="mergeLayer()">下とマージ</button>
-        <button onclick="importLayerPNG()">PNG読込</button>
-    </div>
-    <div class="layer-list" id="layerList"></div>
-</div>
+
     </div>
 
     <!-- 新規キャンバスモーダル -->
@@ -2492,6 +2566,14 @@ function handleMoveTool(clientX, clientY, isEnd = false) {
     if (isEnd) {
         isMoving = false;
     }
+}
+
+// レイヤーポップアップの切り替え
+function toggleLayerPopup() {
+    const popup = document.getElementById('layerPopup');
+    const toggle = document.getElementById('layerPopupToggle');
+    popup.classList.toggle('collapsed');
+    toggle.textContent = popup.classList.contains('collapsed') ? '▼' : '▲';
 }
 
 // 初期化実行
