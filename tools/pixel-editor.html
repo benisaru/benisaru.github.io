@@ -1269,7 +1269,7 @@ function handleTouchEnd(e) {
 }
 
 function handleTouchMove(e) {
-    if (!isTouchDown) return;
+    if (inSelected==2) return;
 
     // 2本指ズーム処理
     if (e.touches.length >= 2) {
@@ -1357,7 +1357,7 @@ function handleTouchMove(e) {
 
                             selectedPixels = newSelectedPixels;
                             if (selectedPixels.size==0) {
-                                isTouchDown = false;
+                                inSelected = 2;
                             }
                         } else {
                             // Layer全体の移動
@@ -1583,6 +1583,8 @@ function handleMouseUp(e) {
 
     isMouseDragging = false;
     isLongPress = false;
+    inCanvas = false;
+    inSelected = false;
 }
 
 // ホイールズーム
