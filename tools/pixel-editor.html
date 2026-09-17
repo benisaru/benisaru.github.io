@@ -119,12 +119,13 @@
         }
 
         .palette {
-            display: flex;
+            display: flex !important;
             gap: 2px;
             flex-wrap: nowrap;
             max-height: 60px;
             width: calc(100% - 150px);
-            overflow-x: auto;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
         }
 
         .palette-color {
@@ -1130,7 +1131,7 @@ function setupTouchEvents() {
     const container = document.getElementById('canvasContainer');
 
     // --- UIボタン類の操作でキャンバス描画が誤作動しないよう伝播を防止 ---
-    const ignoreElements = document.querySelectorAll('button, .top-controls, #zoomIndicator, .palette-color, .layer-popup, .tool-buttons');
+    const ignoreElements = document.querySelectorAll('button, .top-controls, #zoomIndicator, .palette-color, .layer-popup, .tool-buttons, .palette');
     ignoreElements.forEach(el => {
         const stopPropagation = (e) => e.stopPropagation();
         el.addEventListener('touchstart', stopPropagation, { passive: false });
@@ -1154,7 +1155,7 @@ function setupTouchEvents() {
 // タッチ開始
 function handleTouchStart(e) {
     // 画面上のボタン、パレット、モーダル、右上コントロール（ズーム表示含む）の直接タップを弾く
-    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .layer-popup, .tool-buttons');
+    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .layer-popup, .tool-buttons, .palette');
     if (isUIElement) {
         return;
     }
@@ -1212,7 +1213,7 @@ function handleTouchStart(e) {
 // タッチ終了
 function handleTouchEnd(e) {
     if (!isTouchDown) return;
-    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator');
+    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .palette');
     if (isUIElement) {
         return;
     }
