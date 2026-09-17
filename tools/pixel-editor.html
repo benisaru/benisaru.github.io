@@ -39,7 +39,7 @@
         .header-controls {
             display: flex;
             gap: 5px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
 /* 右上のコントロールグループ（文字長さに応じて可変・自動配置） */
 .top-controls {
@@ -231,33 +231,9 @@
     cursor: pointer;
 }
 
-        .fill-button {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: #0f3460;
-            color: #eee;
-            border: 3px solid #e94560;
-            font-size: 24px;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        }
-
-        .fill-button.active {
-            background: #e94560;
-            border-color: #fff;
-        }
-
         .tool-buttons {
             position: fixed;
-            bottom: 90px;
+            bottom: 20px;
             right: 20px;
             display: flex;
             flex-direction: column;
@@ -287,19 +263,19 @@
 
         .layer-popup {
             position: fixed;
-            bottom: 20px;
-            left: 20px;
+            bottom: 300px;
+            right: 20px;
             background: #16213e;
             border-radius: 8px;
             padding: 10px;
-            z-index: 100;
+            z-index: 150;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            max-width: 200px;
-            transition: transform 0.3s ease;
+            width: 200px;
+            transition: transform 0.3s ease, width 0.3s ease;
         }
 
         .layer-popup.collapsed {
-            transform: translateY(calc(100% - 40px));
+            transform: translateX(calc(100% - 40px));
         }
 
         .layer-popup-header {
@@ -432,7 +408,7 @@
             display: flex;
             flex-direction: column;
             gap: 2px;
-            max-height: 100px;
+            max-height: 150px;
             overflow-y: auto;
         }
 
@@ -489,11 +465,11 @@
             <button onclick="showNewCanvasModal()">新規</button>
             <button onclick="loadPNG()">PNG読込</button>
             <button onclick="savePNG()">PNG保存</button>
-            <button onclick="saveCustomFile()">PXD保存</button>
-            <button onclick="loadCustomFile()">PXD読込</button>
+            <button onclick="saveCustomFile()">保存</button>
+            <button onclick="loadCustomFile()">読込</button>
         </div>
         <div class="header-controls">
-            <button onclick="showResizeModal()">サイズ変更</button>
+            <button onclick="showResizeModal()">サイズ</button>
             <button onclick="undo()" id="undoBtn" disabled>戻る</button>
             <button onclick="redo()" id="redoBtn" disabled>進む</button>
             <button onclick="selectAll()">全選択</button>
@@ -511,22 +487,21 @@
     <button class="bg-toggle-btn" id="bgToggleBtn" onclick="toggleCanvasBg()">背景: 暗</button>
     <div class="zoom-indicator" id="zoomIndicator">100%</div>
 </div>
-    <button class="fill-button" id="fillButton" onclick="toggleFillMode()">🪣</button>
     <div class="tool-buttons">
         <button onclick="setTool('draw')" id="drawToolBtn" class="active">🖌️</button>
+        <button onclick="setTool('fill')" id="fillToolBtn">🪣</button>
         <button onclick="setTool('select')" id="selectToolBtn">🫥</button>
         <button onclick="setTool('move')" id="moveToolBtn">↔️</button>
     </div>
     <div class="layer-popup" id="layerPopup">
-        <div class="layer-popup-header" onclick="toggleLayerPopup()">
-            <h3>レイヤー</h3>
-            <button class="layer-popup-toggle" id="layerPopupToggle">▲</button>
+        <div class="layer-popup-header" onclick="toggleLayerPopup()" id="layerPopupToggle">
+            <button class="layer-popup-toggle">◀レイヤー</button>
         </div>
         <div class="layer-popup-content">
             <div class="layer-controls">
                 <button onclick="addLayer()">＋</button>
                 <button onclick="deleteLayer()">－</button>
-                <button onclick="mergeLayer()">⮺</button>
+                <button onclick="mergeLayer()">⧉</button>
                 <button onclick="importLayerPNG()">PNG</button>
             </div>
             <div class="layer-list" id="layerList"></div>
@@ -689,7 +664,6 @@ let pixelData = [];
 let undoStack = [];
 let redoStack = [];
 let maxUndo = 10;
-let fillMode = false;
 let zoomMode = 'original';
 
 // レイヤー関連
@@ -701,7 +675,7 @@ let currentLayerIndex = 0;
 let selectedPixels = new Set();
 let selectionStart = null;
 let isSelecting = false;
-let currentTool = 'draw'; // draw, select, move
+let currentTool = 'draw'; // draw, fill, select, move
 
 // 移動ツール関連
 let isMoving = false;
@@ -1463,7 +1437,7 @@ function drawPixelAt(clientX, clientY) {
             return;
         }
 
-        if (fillMode) {
+        if (currentTool === 'fill') {
             floodFill(x, y, currentColor);
         } else {
             const index = y * pixelWidth + x;
@@ -1515,10 +1489,9 @@ function floodFill(startX, startY, newColor) {
     saveCanvasToStorage(); // 塗りつぶし後に自動保存
 }
 
-// 塗りつぶしモード切り替え
+// 塗りつぶしモード切り替え（ツール統合）
 function toggleFillMode() {
-    fillMode = !fillMode;
-    document.getElementById('fillButton').classList.toggle('active', fillMode);
+    setTool('fill');
 }
 
 // アンドゥ
@@ -2317,6 +2290,7 @@ function importLayerPNG() {
 function setTool(tool) {
     currentTool = tool;
     document.getElementById('drawToolBtn').classList.toggle('active', tool === 'draw');
+    document.getElementById('fillToolBtn').classList.toggle('active', tool === 'fill');
     document.getElementById('selectToolBtn').classList.toggle('active', tool === 'select');
     document.getElementById('moveToolBtn').classList.toggle('active', tool === 'move');
 }
@@ -2573,11 +2547,15 @@ function toggleLayerPopup() {
     const popup = document.getElementById('layerPopup');
     const toggle = document.getElementById('layerPopupToggle');
     popup.classList.toggle('collapsed');
-    toggle.textContent = popup.classList.contains('collapsed') ? '▼' : '▲';
+    toggle.textContent = popup.classList.contains('collapsed') ? '◀レイヤー' : '▶レイヤー';
+    toggle.style.writingMode = popup.classList.contains('collapsed') ? "vertical-lr" : "horizontal-tb";
 }
 
 // 初期化実行
 init();
+
+// レイヤーポップアップの初期状態を設定
+document.getElementById('layerPopupToggle').textContent = '▶レイヤー';
 </script>
 </body>
 </html>
