@@ -1212,7 +1212,6 @@ function handleTouchStart(e) {
 
 // タッチ終了
 function handleTouchEnd(e) {
-    if (!isTouchDown) return;
     const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .palette');
     if (isUIElement) {
         return;
@@ -1266,6 +1265,7 @@ function handleTouchEnd(e) {
     isTouchDown = false;
     inCanvas = false;
     inSelected = false;
+    showToast("タッチ終了");
 }
 
 function handleTouchMove(e) {
