@@ -90,7 +90,7 @@
         #gridCanvas {
             position: absolute;
             pointer-events: none;
-            z-index: 2;
+            z-index: 4;
             image-rendering: pixelated;
         }
 
@@ -341,6 +341,76 @@
   background-color: var(--overlay-color);
   pointer-events: none;
 }
+
+        .layer-section {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .layer-controls {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .layer-list {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        .layer-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px;
+            background: #0f3460;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .layer-item.active {
+            background: #e94560;
+        }
+
+        .layer-item input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .layer-item select {
+            flex: 1;
+            padding: 2px;
+            font-size: 10px;
+        }
+
+        .layer-item button {
+            padding: 2px 5px;
+            font-size: 10px;
+        }
+
+        .tool-button.active {
+            background: #e94560;
+        }
+
+        .resize-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            margin: 10px 0;
+        }
+
+        .resize-grid button {
+            padding: 10px;
+            font-size: 10px;
+        }
+
+        .resize-grid button.active {
+            background: #e94560;
+        }
     </style>
 </head>
 <body>
@@ -353,7 +423,17 @@
         </div>
         <div class="header-controls">
             <button onclick="undo()" id="undoBtn" disabled>戻る</button>
+            <button onclick="redo()" id="redoBtn" disabled>進む</button>
             <button onclick="toggleGrid()" id="gridBtn">グリッド</button>
+        </div>
+        <div class="header-controls">
+            <button onclick="selectAll()">全選択</button>
+            <button onclick="clearSelection()">選択解除</button>
+        </div>
+        <div class="header-controls">
+            <button onclick="showResizeModal()">サイズ変更</button>
+            <button onclick="saveCustomFile()">保存</button>
+            <button onclick="loadCustomFile()">読込</button>
         </div>
     </div>
 
@@ -381,6 +461,20 @@
 <div class="tools">
     <button onclick="importPalette()">パレット読込</button>
     <button onclick="exportPalette()">パレット保存</button>
+</div>
+<div class="tools">
+    <button onclick="setTool('draw')" id="drawToolBtn" class="active">描画</button>
+    <button onclick="setTool('select')" id="selectToolBtn">選択</button>
+    <button onclick="setTool('move')" id="moveToolBtn">移動</button>
+</div>
+<div class="layer-section">
+    <div class="layer-controls">
+        <button onclick="addLayer()">+レイヤー</button>
+        <button onclick="deleteLayer()">-レイヤー</button>
+        <button onclick="mergeLayer()">下とマージ</button>
+        <button onclick="importLayerPNG()">PNG読込</button>
+    </div>
+    <div class="layer-list" id="layerList"></div>
 </div>
     </div>
 
@@ -412,6 +506,32 @@
             </div>
         </div>
     </div>
+    <!-- サイズ変更モーダル -->
+    <div class="modal" id="resizeModal">
+        <div class="modal-content">
+            <h2>キャンバスサイズ変更</h2>
+            <div class="input-group">
+                <input type="number" id="newWidth" min="1" max="256" value="32" placeholder="幅">
+                <input type="number" id="newHeight" min="1" max="256" value="32" placeholder="高さ">
+            </div>
+            <div class="resize-grid">
+                <button onclick="setResizeAnchor('top-left')" class="resize-anchor" data-anchor="top-left">左上</button>
+                <button onclick="setResizeAnchor('top')" class="resize-anchor" data-anchor="top">上</button>
+                <button onclick="setResizeAnchor('top-right')" class="resize-anchor" data-anchor="top-right">右上</button>
+                <button onclick="setResizeAnchor('left')" class="resize-anchor" data-anchor="left">左</button>
+                <button onclick="setResizeAnchor('center')" class="resize-anchor active" data-anchor="center">真ん中</button>
+                <button onclick="setResizeAnchor('right')" class="resize-anchor" data-anchor="right">右</button>
+                <button onclick="setResizeAnchor('bottom-left')" class="resize-anchor" data-anchor="bottom-left">左下</button>
+                <button onclick="setResizeAnchor('bottom')" class="resize-anchor" data-anchor="bottom">下</button>
+                <button onclick="setResizeAnchor('bottom-right')" class="resize-anchor" data-anchor="bottom-right">右下</button>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="resizeCanvas()">変更</button>
+                <button onclick="closeModal('resizeModal')">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 色選択モーダル -->
     <div class="modal" id="colorModal">
         <div class="modal-content">
@@ -493,9 +613,26 @@ let currentPaletteIndex = 1; // 現在選択中のパレットのインデック
 let palette = ['#00000000','#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
 let pixelData = [];
 let undoStack = [];
+let redoStack = [];
 let maxUndo = 10;
 let fillMode = false;
 let zoomMode = 'original';
+
+// レイヤー関連
+const MAX_LAYERS = 4;
+let layers = [];
+let currentLayerIndex = 0;
+
+// 選択ツール関連
+let selectedPixels = new Set();
+let selectionStart = null;
+let isSelecting = false;
+let currentTool = 'draw'; // draw, select, move
+
+// 移動ツール関連
+let isMoving = false;
+let moveStartX = 0;
+let moveStartY = 0;
 
 // タッチ・ドラッグ関連変数
 let isDrawing = false;
@@ -518,16 +655,37 @@ function init() {
     ctx = canvas.getContext('2d');
     gridCanvas = document.getElementById('gridCanvas');
     gridCtx = gridCanvas.getContext('2d');
-    
+
     loadPaletteFromStorage();
     loadCanvasFromStorage(); // 保存されたデータがあれば復元
+
+    // レイヤーがなければ初期化
+    if (layers.length === 0) {
+        initLayers();
+    }
 
     setupCanvas();
     setupPalette();
     setupTouchEvents();
-    
+
     updateCurrentColor();
     toggleZoomMode();
+    updateLayerUI();
+}
+
+// レイヤー初期化
+function initLayers() {
+    layers = [];
+    for (let i = 0; i < MAX_LAYERS; i++) {
+        layers.push({
+            id: i,
+            name: `レイヤー ${i + 1}`,
+            visible: i === 0,
+            blendMode: 'normal',
+            data: new Array(pixelWidth * pixelHeight).fill(null)
+        });
+    }
+    currentLayerIndex = 0;
 }
 
 // パレットをローカルストレージに保存
@@ -564,30 +722,73 @@ function setupCanvas() {
     canvas.height = pixelHeight;
     gridCanvas.width = pixelWidth;
     gridCanvas.height = pixelHeight;
-    
-    if (pixelData.length === 0 || pixelData.length !== pixelWidth * pixelHeight) {
-        pixelData = new Array(pixelWidth * pixelHeight).fill(null);
-    }
-    
+
+    // レイヤーデータのサイズ調整
+    layers.forEach(layer => {
+        if (layer.data.length !== pixelWidth * pixelHeight) {
+            const newData = new Array(pixelWidth * pixelHeight).fill(null);
+            // 既存データをコピー
+            for (let i = 0; i < Math.min(layer.data.length, newData.length); i++) {
+                newData[i] = layer.data[i];
+            }
+            layer.data = newData;
+        }
+    });
+
     renderCanvas();
 }
 
 // キャンバス描画
 function renderCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    for (let y = 0; y < pixelHeight; y++) {
-        for (let x = 0; x < pixelWidth; x++) {
-            const index = y * pixelWidth + x;
-            if (pixelData[index]) {
-                ctx.fillStyle = pixelData[index];
-                ctx.fillRect(x, y, 1, 1);
+
+    // レイヤーを合成して描画
+    const compositeCanvas = document.createElement('canvas');
+    compositeCanvas.width = pixelWidth;
+    compositeCanvas.height = pixelHeight;
+    const compositeCtx = compositeCanvas.getContext('2d');
+
+    // 各レイヤーを合成
+    layers.forEach((layer, layerIndex) => {
+        if (!layer.visible) return;
+
+        const layerCanvas = document.createElement('canvas');
+        layerCanvas.width = pixelWidth;
+        layerCanvas.height = pixelHeight;
+        const layerCtx = layerCanvas.getContext('2d');
+
+        // レイヤーデータを描画
+        for (let y = 0; y < pixelHeight; y++) {
+            for (let x = 0; x < pixelWidth; x++) {
+                const index = y * pixelWidth + x;
+                if (layer.data[index]) {
+                    layerCtx.fillStyle = layer.data[index];
+                    layerCtx.fillRect(x, y, 1, 1);
+                }
             }
         }
+
+        // 合成モードを適用
+        compositeCtx.globalCompositeOperation = getBlendMode(layer.blendMode);
+        compositeCtx.drawImage(layerCanvas, 0, 0);
+    });
+
+    // 合成結果をメインキャンバスに描画
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(compositeCanvas, 0, 0);
+
+    // 選択範囲を描画
+    if (selectedPixels.size > 0) {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+        selectedPixels.forEach(key => {
+            const [x, y] = key.split(',').map(Number);
+            ctx.fillRect(x, y, 1, 1);
+        });
     }
-    
+
     gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
-    
+
     if (showGrid && zoom >= 2) {
         const quarterX = Math.floor(pixelWidth / 4);
         const halfX = Math.floor(pixelWidth / 2);
@@ -595,13 +796,13 @@ function renderCanvas() {
         const quarterY = Math.floor(pixelHeight / 4);
         const halfY = Math.floor(pixelHeight / 2);
         const threeQuarterY = Math.floor(pixelHeight * 3 / 4);
-        
+
         const emphasizePositions = [quarterX, halfX, threeQuarterX];
         const emphasizePositionsY = [quarterY, halfY, threeQuarterY];
-        
+
         gridCtx.strokeStyle = 'rgba(255,255,255,0.6)';
         gridCtx.lineWidth = 0.15;
-        
+
         emphasizePositions.forEach(pos => {
             if (pos > 0 && pos < pixelWidth) {
                 gridCtx.beginPath();
@@ -610,7 +811,7 @@ function renderCanvas() {
                 gridCtx.stroke();
             }
         });
-        
+
         emphasizePositionsY.forEach(pos => {
             if (pos > 0 && pos < pixelHeight) {
                 gridCtx.beginPath();
@@ -620,8 +821,17 @@ function renderCanvas() {
             }
         });
     }
-    
+
     updateCanvasStyle();
+}
+
+// 合成モードをCanvas APIの値に変換
+function getBlendMode(mode) {
+    switch (mode) {
+        case 'add': return 'lighter';
+        case 'multiply': return 'multiply';
+        default: return 'source-over';
+    }
 }
 
 // キャンバススタイル更新
@@ -792,15 +1002,19 @@ function handleTouchEnd(e) {
     if (e.changedTouches.length === 1 && !isScrolling && !isLongPress && !isPinching) {
         const touch = e.changedTouches[0];
         const rect = canvas.getBoundingClientRect();
-        
+
         if (
             touch.clientX >= rect.left &&
             touch.clientX <= rect.right &&
             touch.clientY >= rect.top &&
             touch.clientY <= rect.bottom
         ) {
-            if (!fillMode) saveState();
-            drawPixelAt(touch.clientX, touch.clientY);
+            if (currentTool === 'move') {
+                // 移動ツール：タップでは何もしない
+            } else if (!fillMode) {
+                saveState();
+                drawPixelAt(touch.clientX, touch.clientY);
+            }
         }
     }
 
@@ -825,7 +1039,7 @@ function handleTouchMove(e) {
         return;
     }
 
-    // 1本指スクロール処理
+    // 1本指処理
     if (e.touches.length === 1 && !isPinching) {
         if (e.target.closest('button, .palette-color, .modal, input, select')) return;
 
@@ -833,6 +1047,89 @@ function handleTouchMove(e) {
         const deltaX = touch.clientX - lastTouchX;
         const deltaY = touch.clientY - lastTouchY;
 
+        // 移動ツールの場合
+        if (currentTool === 'move') {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((touch.clientX - rect.left) / zoom);
+            const y = Math.floor((touch.clientY - rect.top) / zoom);
+
+            if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+                if (!isMoving) {
+                    isMoving = true;
+                    moveStartX = x;
+                    moveStartY = y;
+                } else {
+                    const moveDeltaX = x - moveStartX;
+                    const moveDeltaY = y - moveStartY;
+
+                    if (moveDeltaX !== 0 || moveDeltaY !== 0) {
+                        saveState();
+
+                        const layer = layers[currentLayerIndex];
+
+                        if (selectedPixels.size > 0) {
+                            // 選択範囲の移動
+                            const newSelectedPixels = new Set();
+                            const movedData = {};
+
+                            selectedPixels.forEach(key => {
+                                const [sx, sy] = key.split(',').map(Number);
+                                const newX = sx + moveDeltaX;
+                                const newY = sy + moveDeltaY;
+
+                                if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
+                                    const oldIndex = sy * pixelWidth + sx;
+                                    const newIndex = newY * pixelWidth + newX;
+                                    movedData[newIndex] = layer.data[oldIndex];
+                                    newSelectedPixels.add(`${newX},${newY}`);
+                                }
+                            });
+
+                            // 移動元をクリア
+                            selectedPixels.forEach(key => {
+                                const [sx, sy] = key.split(',').map(Number);
+                                const oldIndex = sy * pixelWidth + sx;
+                                layer.data[oldIndex] = null;
+                            });
+
+                            // 移動先に設定
+                            Object.entries(movedData).forEach(([index, color]) => {
+                                layer.data[parseInt(index)] = color;
+                            });
+
+                            selectedPixels = newSelectedPixels;
+                        } else {
+                            // レイヤー全体の移動
+                            const newData = new Array(pixelWidth * pixelHeight).fill(null);
+
+                            for (let y = 0; y < pixelHeight; y++) {
+                                for (let x = 0; x < pixelWidth; x++) {
+                                    const oldIndex = y * pixelWidth + x;
+                                    const newX = x + moveDeltaX;
+                                    const newY = y + moveDeltaY;
+
+                                    if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
+                                        const newIndex = newY * pixelWidth + newX;
+                                        newData[newIndex] = layer.data[oldIndex];
+                                    }
+                                }
+                            }
+
+                            layer.data = newData;
+                        }
+
+                        moveStartX = x;
+                        moveStartY = y;
+                        renderCanvas();
+                        saveCanvasToStorage();
+                    }
+                }
+                e.preventDefault();
+                return;
+            }
+        }
+
+        // 通常のスクロール処理
         if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3 || isScrolling) {
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
@@ -853,6 +1150,19 @@ function handleTouchMove(e) {
 function handleMouseDown(e) {
     if (e.button !== 0) return;
     e.preventDefault();
+
+    if (currentTool === 'move') {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.floor((e.clientX - rect.left) / zoom);
+        const y = Math.floor((e.clientY - rect.top) / zoom);
+        if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+            isMoving = true;
+            moveStartX = x;
+            moveStartY = y;
+        }
+        return;
+    }
+
     isDrawing = true;
     if (!fillMode) saveState();
     drawPixel(e);
@@ -861,6 +1171,80 @@ function handleMouseDown(e) {
 function handleMouseMove(e) {
     if (isDrawing) {
         drawPixel(e);
+    } else if (isMoving && currentTool === 'move') {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.floor((e.clientX - rect.left) / zoom);
+        const y = Math.floor((e.clientY - rect.top) / zoom);
+
+        if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+            const deltaX = x - moveStartX;
+            const deltaY = y - moveStartY;
+
+            if (deltaX !== 0 || deltaY !== 0) {
+                if (!isMoving) {
+                    saveState();
+                    isMoving = true;
+                }
+
+                const layer = layers[currentLayerIndex];
+
+                if (selectedPixels.size > 0) {
+                    // 選択範囲の移動
+                    const newSelectedPixels = new Set();
+                    const movedData = {};
+
+                    selectedPixels.forEach(key => {
+                        const [sx, sy] = key.split(',').map(Number);
+                        const newX = sx + deltaX;
+                        const newY = sy + deltaY;
+
+                        if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
+                            const oldIndex = sy * pixelWidth + sx;
+                            const newIndex = newY * pixelWidth + newX;
+                            movedData[newIndex] = layer.data[oldIndex];
+                            newSelectedPixels.add(`${newX},${newY}`);
+                        }
+                    });
+
+                    // 移動元をクリア
+                    selectedPixels.forEach(key => {
+                        const [sx, sy] = key.split(',').map(Number);
+                        const oldIndex = sy * pixelWidth + sx;
+                        layer.data[oldIndex] = null;
+                    });
+
+                    // 移動先に設定
+                    Object.entries(movedData).forEach(([index, color]) => {
+                        layer.data[parseInt(index)] = color;
+                    });
+
+                    selectedPixels = newSelectedPixels;
+                } else {
+                    // レイヤー全体の移動
+                    const newData = new Array(pixelWidth * pixelHeight).fill(null);
+
+                    for (let y = 0; y < pixelHeight; y++) {
+                        for (let x = 0; x < pixelWidth; x++) {
+                            const oldIndex = y * pixelWidth + x;
+                            const newX = x + deltaX;
+                            const newY = y + deltaY;
+
+                            if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
+                                const newIndex = newY * pixelWidth + newX;
+                                newData[newIndex] = layer.data[oldIndex];
+                            }
+                        }
+                    }
+
+                    layer.data = newData;
+                }
+
+                moveStartX = x;
+                moveStartY = y;
+                renderCanvas();
+                saveCanvasToStorage();
+            }
+        }
     } else if (isContainerMouseDown) {
         const deltaX = e.clientX - lastTouchX;
         const deltaY = e.clientY - lastTouchY;
@@ -875,6 +1259,7 @@ function handleMouseMove(e) {
 function handleMouseUp() {
     isDrawing = false;
     isContainerMouseDown = false;
+    isMoving = false;
 }
 
 function handleContainerMouseDown(e) {
@@ -886,16 +1271,48 @@ function handleContainerMouseDown(e) {
     }
 }
 
-// スポイト
+// スポイト/選択ツールの塗りつぶし選択
 function handleLongPress(touch) {
     const rect = canvas.getBoundingClientRect();
     const x = Math.floor((touch.clientX - rect.left) / zoom);
     const y = Math.floor((touch.clientY - rect.top) / zoom);
-    
+
     if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
-        const index = y * pixelWidth + x;
-        const pickedColor = pixelData[index];
-        selectColor(pickedColor ? pickedColor : '#00000000');
+        if (currentTool === 'select') {
+            // 選択ツール：塗りつぶし選択
+            const layer = layers[currentLayerIndex];
+            const startIndex = y * pixelWidth + x;
+            const targetColor = layer.data[startIndex];
+            const stack = [[x, y]];
+            const visited = new Set();
+
+            while (stack.length > 0) {
+                const [cx, cy] = stack.pop();
+
+                if (cx < 0 || cx >= pixelWidth || cy < 0 || cy >= pixelHeight) continue;
+
+                const key = `${cx},${cy}`;
+                if (visited.has(key)) continue;
+
+                const index = cy * pixelWidth + cx;
+                if (layer.data[index] !== targetColor) continue;
+
+                visited.add(key);
+                selectedPixels.add(key);
+
+                stack.push([cx + 1, cy]);
+                stack.push([cx - 1, cy]);
+                stack.push([cx, cy + 1]);
+                stack.push([cx, cy - 1]);
+            }
+            renderCanvas();
+        } else {
+            // スポイト機能
+            const layer = layers[currentLayerIndex];
+            const index = y * pixelWidth + x;
+            const pickedColor = layer.data[index];
+            selectColor(pickedColor ? pickedColor : '#00000000');
+        }
     }
 }
 
@@ -953,16 +1370,34 @@ function drawPixelAt(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const x = Math.floor((clientX - rect.left) / zoom);
     const y = Math.floor((clientY - rect.top) / zoom);
-    
+
     if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+        // 選択ツール
+        if (currentTool === 'select') {
+            const key = `${x},${y}`;
+            if (selectedPixels.has(key)) {
+                selectedPixels.delete(key);
+            } else {
+                selectedPixels.add(key);
+            }
+            renderCanvas();
+            return;
+        }
+
+        // 選択状態がある場合は選択範囲外は編集不可
+        if (selectedPixels.size > 0 && !selectedPixels.has(`${x},${y}`)) {
+            return;
+        }
+
         if (fillMode) {
             floodFill(x, y, currentColor);
         } else {
             const index = y * pixelWidth + x;
+            const layer = layers[currentLayerIndex];
             if (currentColor === '#00000000' || currentColor === 'transparent') {
-                pixelData[index] = null;
+                layer.data[index] = null;
             } else {
-                pixelData[index] = currentColor;
+                layer.data[index] = currentColor;
             }
             saveCanvasToStorage(); // 描画後に自動保存
         }
@@ -972,36 +1407,37 @@ function drawPixelAt(clientX, clientY) {
 
 // 塗りつぶし（保存呼び出しを追加）
 function floodFill(startX, startY, newColor) {
+    const layer = layers[currentLayerIndex];
     const startIndex = startY * pixelWidth + startX;
-    const targetColor = pixelData[startIndex];
+    const targetColor = layer.data[startIndex];
     const newColorValue = (newColor === '#00000000' || newColor === 'transparent') ? null : newColor;
-    
+
     if (targetColor === newColorValue) return;
-    
+
     saveState();
     const stack = [[startX, startY]];
     const visited = new Set();
-    
+
     while (stack.length > 0) {
         const [x, y] = stack.pop();
-        
+
         if (x < 0 || x >= pixelWidth || y < 0 || y >= pixelHeight) continue;
-        
+
         const key = `${x},${y}`;
         if (visited.has(key)) continue;
-        
+
         const index = y * pixelWidth + x;
-        if (pixelData[index] !== targetColor) continue;
-        
+        if (layer.data[index] !== targetColor) continue;
+
         visited.add(key);
-        pixelData[index] = newColorValue;
-        
+        layer.data[index] = newColorValue;
+
         stack.push([x + 1, y]);
         stack.push([x - 1, y]);
         stack.push([x, y + 1]);
         stack.push([x, y - 1]);
     }
-    
+
     saveCanvasToStorage(); // 塗りつぶし後に自動保存
 }
 
@@ -1013,16 +1449,51 @@ function toggleFillMode() {
 
 // アンドゥ
 function saveState() {
-    undoStack.push([...pixelData]);
+    // レイヤー全体の状態を保存
+    const state = layers.map(layer => ({
+        ...layer,
+        data: [...layer.data]
+    }));
+    undoStack.push(state);
     if (undoStack.length > maxUndo) undoStack.shift();
+    redoStack = []; // Redoスタックをクリア
     document.getElementById('undoBtn').disabled = false;
+    document.getElementById('redoBtn').disabled = true;
 }
 
 function undo() {
     if (undoStack.length > 0) {
-        pixelData = undoStack.pop();
+        // 現在の状態をRedoスタックに保存
+        const currentState = layers.map(layer => ({
+            ...layer,
+            data: [...layer.data]
+        }));
+        redoStack.push(currentState);
+
+        // 前の状態を復元
+        const previousState = undoStack.pop();
+        layers = previousState;
         renderCanvas();
         document.getElementById('undoBtn').disabled = undoStack.length === 0;
+        document.getElementById('redoBtn').disabled = false;
+    }
+}
+
+function redo() {
+    if (redoStack.length > 0) {
+        // 現在の状態をUndoスタックに保存
+        const currentState = layers.map(layer => ({
+            ...layer,
+            data: [...layer.data]
+        }));
+        undoStack.push(currentState);
+
+        // Redo状態を復元
+        const nextState = redoStack.pop();
+        layers = nextState;
+        renderCanvas();
+        document.getElementById('undoBtn').disabled = false;
+        document.getElementById('redoBtn').disabled = redoStack.length === 0;
     }
 }
 
@@ -1067,27 +1538,29 @@ function loadPNG() {
     input.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
+
         const reader = new FileReader();
         reader.onload = (event) => {
             const img = new Image();
             img.onload = () => {
                 const width = Math.min(img.width, 256);
                 const height = Math.min(img.height, 256);
-                
+
                 pixelWidth = width;
                 pixelHeight = height;
-                pixelData = new Array(pixelWidth * pixelHeight).fill(null);
-                
+
+                // レイヤーを再初期化
+                initLayers();
+
                 const tempCanvas = document.createElement('canvas');
                 const tempCtx = tempCanvas.getContext('2d');
                 tempCanvas.width = width;
                 tempCanvas.height = height;
                 tempCtx.drawImage(img, 0, 0, width, height);
-                
+
                 const imageData = tempCtx.getImageData(0, 0, width, height);
                 const data = imageData.data;
-                
+
                 for (let y = 0; y < height; y++) {
                     for (let x = 0; x < width; x++) {
                         const index = (y * width + x) * 4;
@@ -1095,19 +1568,22 @@ function loadPNG() {
                         const g = data[index + 1];
                         const b = data[index + 2];
                         const a = data[index + 3];
-                        
+
                         if (a > 0) {
                             const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-                            pixelData[y * width + x] = hex;
+                            layers[0].data[y * width + x] = hex;
                         }
                     }
                 }
-                
+
                 undoStack = [];
+                redoStack = [];
                 saveCanvasToStorage(); // 読み込んだ画像を保存
                 setupCanvas();
                 fitToScreen();
                 document.getElementById('undoBtn').disabled = true;
+                document.getElementById('redoBtn').disabled = true;
+                updateLayerUI();
             };
             img.src = event.target.result;
         };
@@ -1125,17 +1601,21 @@ function showNewCanvasModal() {
 function createNewCanvas() {
     const width = parseInt(document.getElementById('canvasWidth').value);
     const height = parseInt(document.getElementById('canvasHeight').value);
-    
+
     if (width >= 1 && width <= 256 && height >= 1 && height <= 256) {
         pixelWidth = width;
         pixelHeight = height;
-        pixelData = new Array(pixelWidth * pixelHeight).fill(null);
+        initLayers();
         undoStack = [];
+        redoStack = [];
+        selectedPixels.clear();
         saveCanvasToStorage(); // リセット状態を保存
         setupCanvas();
         fitToScreen();
         closeModal('newCanvasModal');
         document.getElementById('undoBtn').disabled = true;
+        document.getElementById('redoBtn').disabled = true;
+        updateLayerUI();
     }
 }
 
@@ -1534,7 +2014,12 @@ function saveCanvasToStorage() {
         const canvasData = {
             width: pixelWidth,
             height: pixelHeight,
-            data: pixelData
+            layers: layers.map(layer => ({
+                ...layer,
+                data: [...layer.data]
+            })),
+            currentLayerIndex: currentLayerIndex,
+            selectedPixels: Array.from(selectedPixels)
         };
         localStorage.setItem('pixel_canvas_data', JSON.stringify(canvasData));
     } catch (e) {
@@ -1548,10 +2033,12 @@ function loadCanvasFromStorage() {
         const saved = localStorage.getItem('pixel_canvas_data');
         if (saved) {
             const parsed = JSON.parse(saved);
-            if (parsed && parsed.width && parsed.height && Array.isArray(parsed.data)) {
+            if (parsed && parsed.width && parsed.height && Array.isArray(parsed.layers)) {
                 pixelWidth = parsed.width;
                 pixelHeight = parsed.height;
-                pixelData = parsed.data;
+                layers = parsed.layers;
+                currentLayerIndex = parsed.currentLayerIndex || 0;
+                selectedPixels = new Set(parsed.selectedPixels || []);
                 return true;
             }
         }
@@ -1559,6 +2046,452 @@ function loadCanvasFromStorage() {
         console.warn('キャンバスの読み込みに失敗しました:', e);
     }
     return false;
+}
+
+// レイヤーUI更新
+function updateLayerUI() {
+    const layerList = document.getElementById('layerList');
+    layerList.innerHTML = '';
+
+    // レイヤーを逆順で表示（上のレイヤーが上に来るように）
+    for (let i = layers.length - 1; i >= 0; i--) {
+        const layer = layers[i];
+        const layerItem = document.createElement('div');
+        layerItem.className = 'layer-item' + (i === currentLayerIndex ? ' active' : '');
+        layerItem.onclick = (e) => {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
+                selectLayer(i);
+            }
+        };
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = layer.visible;
+        checkbox.onchange = (e) => {
+            toggleLayerVisibility(i, e.target.checked);
+        };
+
+        const name = document.createElement('span');
+        name.textContent = layer.name;
+        name.style.flex = '1';
+        name.style.fontSize = '12px';
+
+        const blendSelect = document.createElement('select');
+        blendSelect.value = layer.blendMode;
+        blendSelect.onchange = (e) => {
+            setLayerBlendMode(i, e.target.value);
+        };
+        blendSelect.innerHTML = `
+            <option value="normal">通常</option>
+            <option value="add">加算</option>
+            <option value="multiply">乗算</option>
+        `;
+
+        layerItem.appendChild(checkbox);
+        layerItem.appendChild(name);
+        layerItem.appendChild(blendSelect);
+        layerList.appendChild(layerItem);
+    }
+}
+
+// レイヤー選択
+function selectLayer(index) {
+    if (index >= 0 && index < layers.length) {
+        currentLayerIndex = index;
+        updateLayerUI();
+    }
+}
+
+// レイヤー表示切り替え
+function toggleLayerVisibility(index, visible) {
+    if (index >= 0 && index < layers.length) {
+        layers[index].visible = visible;
+        renderCanvas();
+    }
+}
+
+// レイヤー合成モード設定
+function setLayerBlendMode(index, mode) {
+    if (index >= 0 && index < layers.length) {
+        layers[index].blendMode = mode;
+        renderCanvas();
+    }
+}
+
+// レイヤー追加
+function addLayer() {
+    if (layers.length >= MAX_LAYERS) {
+        alert('最大レイヤー数に達しました');
+        return;
+    }
+    const newLayer = {
+        id: layers.length,
+        name: `レイヤー ${layers.length + 1}`,
+        visible: true,
+        blendMode: 'normal',
+        data: new Array(pixelWidth * pixelHeight).fill(null)
+    };
+    layers.push(newLayer);
+    currentLayerIndex = layers.length - 1;
+    saveState();
+    updateLayerUI();
+    renderCanvas();
+}
+
+// レイヤー削除
+function deleteLayer() {
+    if (layers.length <= 1) {
+        alert('最低1つのレイヤーが必要です');
+        return;
+    }
+    layers.splice(currentLayerIndex, 1);
+    // レイヤーIDを再割り当て
+    layers.forEach((layer, index) => {
+        layer.id = index;
+        layer.name = `レイヤー ${index + 1}`;
+    });
+    if (currentLayerIndex >= layers.length) {
+        currentLayerIndex = layers.length - 1;
+    }
+    saveState();
+    updateLayerUI();
+    renderCanvas();
+}
+
+// レイヤーマージ
+function mergeLayer() {
+    if (currentLayerIndex === 0) {
+        alert('最下層のレイヤーはマージできません');
+        return;
+    }
+    const targetLayer = layers[currentLayerIndex];
+    const belowLayer = layers[currentLayerIndex - 1];
+
+    // 下のレイヤーに合成
+    for (let i = 0; i < targetLayer.data.length; i++) {
+        if (targetLayer.data[i]) {
+            belowLayer.data[i] = targetLayer.data[i];
+        }
+    }
+
+    layers.splice(currentLayerIndex, 1);
+    // レイヤーIDを再割り当て
+    layers.forEach((layer, index) => {
+        layer.id = index;
+        layer.name = `レイヤー ${index + 1}`;
+    });
+    if (currentLayerIndex >= layers.length) {
+        currentLayerIndex = layers.length - 1;
+    }
+    saveState();
+    updateLayerUI();
+    renderCanvas();
+}
+
+// レイヤーPNGインポート
+function importLayerPNG() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const width = Math.min(img.width, pixelWidth);
+                const height = Math.min(img.height, pixelHeight);
+
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                tempCtx.drawImage(img, 0, 0, width, height);
+
+                const imageData = tempCtx.getImageData(0, 0, width, height);
+                const data = imageData.data;
+
+                const layer = layers[currentLayerIndex];
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const index = (y * width + x) * 4;
+                        const r = data[index];
+                        const g = data[index + 1];
+                        const b = data[index + 2];
+                        const a = data[index + 3];
+
+                        if (a > 0) {
+                            const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+                            layer.data[y * pixelWidth + x] = hex;
+                        }
+                    }
+                }
+
+                saveState();
+                renderCanvas();
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+    input.click();
+}
+
+// ツール切り替え
+function setTool(tool) {
+    currentTool = tool;
+    document.getElementById('drawToolBtn').classList.toggle('active', tool === 'draw');
+    document.getElementById('selectToolBtn').classList.toggle('active', tool === 'select');
+    document.getElementById('moveToolBtn').classList.toggle('active', tool === 'move');
+}
+
+// 全選択
+function selectAll() {
+    selectedPixels.clear();
+    for (let y = 0; y < pixelHeight; y++) {
+        for (let x = 0; x < pixelWidth; x++) {
+            selectedPixels.add(`${x},${y}`);
+        }
+    }
+    renderCanvas();
+}
+
+// 選択解除
+function clearSelection() {
+    selectedPixels.clear();
+    renderCanvas();
+}
+
+// サイズ変更モーダル表示
+function showResizeModal() {
+    document.getElementById('newWidth').value = pixelWidth;
+    document.getElementById('newHeight').value = pixelHeight;
+    document.getElementById('resizeModal').classList.add('active');
+}
+
+let resizeAnchor = 'center';
+
+function setResizeAnchor(anchor) {
+    resizeAnchor = anchor;
+    document.querySelectorAll('.resize-anchor').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.anchor === anchor);
+    });
+}
+
+// キャンバスサイズ変更
+function resizeCanvas() {
+    const newWidth = parseInt(document.getElementById('newWidth').value);
+    const newHeight = parseInt(document.getElementById('newHeight').value);
+
+    if (newWidth < 1 || newWidth > 256 || newHeight < 1 || newHeight > 256) {
+        alert('サイズは1〜256の範囲で指定してください');
+        return;
+    }
+
+    saveState();
+
+    // 各レイヤーのデータをリサイズ
+    layers.forEach(layer => {
+        const newData = new Array(newWidth * newHeight).fill(null);
+
+        // アンカー位置に基づいてデータをコピー
+        let offsetX = 0, offsetY = 0;
+        switch (resizeAnchor) {
+            case 'top-left': break;
+            case 'top': offsetX = Math.floor((newWidth - pixelWidth) / 2); break;
+            case 'top-right': offsetX = newWidth - pixelWidth; break;
+            case 'left': offsetY = Math.floor((newHeight - pixelHeight) / 2); break;
+            case 'center':
+                offsetX = Math.floor((newWidth - pixelWidth) / 2);
+                offsetY = Math.floor((newHeight - pixelHeight) / 2);
+                break;
+            case 'right':
+                offsetX = newWidth - pixelWidth;
+                offsetY = Math.floor((newHeight - pixelHeight) / 2);
+                break;
+            case 'bottom-left': offsetY = newHeight - pixelHeight; break;
+            case 'bottom':
+                offsetX = Math.floor((newWidth - pixelWidth) / 2);
+                offsetY = newHeight - pixelHeight;
+                break;
+            case 'bottom-right':
+                offsetX = newWidth - pixelWidth;
+                offsetY = newHeight - pixelHeight;
+                break;
+        }
+
+        for (let y = 0; y < pixelHeight; y++) {
+            for (let x = 0; x < pixelWidth; x++) {
+                const oldIndex = y * pixelWidth + x;
+                const newX = x + offsetX;
+                const newY = y + offsetY;
+                if (newX >= 0 && newX < newWidth && newY >= 0 && newY < newHeight) {
+                    const newIndex = newY * newWidth + newX;
+                    newData[newIndex] = layer.data[oldIndex];
+                }
+            }
+        }
+
+        layer.data = newData;
+    });
+
+    pixelWidth = newWidth;
+    pixelHeight = newHeight;
+
+    // 選択範囲をクリア
+    selectedPixels.clear();
+
+    setupCanvas();
+    closeModal('resizeModal');
+    saveCanvasToStorage();
+}
+
+// 独自形式保存
+function saveCustomFile() {
+    const data = {
+        version: 1,
+        width: pixelWidth,
+        height: pixelHeight,
+        layers: layers.map(layer => ({
+            ...layer,
+            data: [...layer.data]
+        })),
+        currentLayerIndex: currentLayerIndex,
+        selectedPixels: Array.from(selectedPixels)
+    };
+
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.download = 'pixel-art.pxd';
+    link.href = URL.createObjectURL(blob);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// 独自形式読み込み
+function loadCustomFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pxd';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target.result);
+                if (data.version && data.width && data.height && data.layers) {
+                    pixelWidth = data.width;
+                    pixelHeight = data.height;
+                    layers = data.layers;
+                    currentLayerIndex = data.currentLayerIndex || 0;
+                    selectedPixels = new Set(data.selectedPixels || []);
+
+                    undoStack = [];
+                    redoStack = [];
+
+                    setupCanvas();
+                    updateLayerUI();
+                    saveCanvasToStorage();
+                } else {
+                    alert('無効なファイル形式です');
+                }
+            } catch (e) {
+                alert('ファイルの読み込みに失敗しました');
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+// 移動ツールの処理
+function handleMoveTool(clientX, clientY, isEnd = false) {
+    if (currentTool !== 'move') return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((clientX - rect.left) / zoom);
+    const y = Math.floor((clientY - rect.top) / zoom);
+
+    if (!isMoving) {
+        isMoving = true;
+        moveStartX = x;
+        moveStartY = y;
+        return;
+    }
+
+    const deltaX = x - moveStartX;
+    const deltaY = y - moveStartY;
+
+    if (deltaX === 0 && deltaY === 0) return;
+
+    saveState();
+
+    const layer = layers[currentLayerIndex];
+
+    if (selectedPixels.size > 0) {
+        // 選択範囲の移動
+        const newSelectedPixels = new Set();
+        const movedData = {};
+
+        selectedPixels.forEach(key => {
+            const [sx, sy] = key.split(',').map(Number);
+            const newX = sx + deltaX;
+            const newY = sy + deltaY;
+
+            if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
+                const oldIndex = sy * pixelWidth + sx;
+                const newIndex = newY * pixelWidth + newX;
+                movedData[newIndex] = layer.data[oldIndex];
+                newSelectedPixels.add(`${newX},${newY}`);
+            }
+        });
+
+        // 移動元をクリア
+        selectedPixels.forEach(key => {
+            const [sx, sy] = key.split(',').map(Number);
+            const oldIndex = sy * pixelWidth + sx;
+            layer.data[oldIndex] = null;
+        });
+
+        // 移動先に設定
+        Object.entries(movedData).forEach(([index, color]) => {
+            layer.data[parseInt(index)] = color;
+        });
+
+        selectedPixels = newSelectedPixels;
+    } else {
+        // レイヤー全体の移動
+        const newData = new Array(pixelWidth * pixelHeight).fill(null);
+
+        for (let y = 0; y < pixelHeight; y++) {
+            for (let x = 0; x < pixelWidth; x++) {
+                const oldIndex = y * pixelWidth + x;
+                const newX = x + deltaX;
+                const newY = y + deltaY;
+
+                if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
+                    const newIndex = newY * pixelWidth + newX;
+                    newData[newIndex] = layer.data[oldIndex];
+                }
+            }
+        }
+
+        layer.data = newData;
+    }
+
+    moveStartX = x;
+    moveStartY = y;
+    renderCanvas();
+    saveCanvasToStorage();
+
+    if (isEnd) {
+        isMoving = false;
+    }
 }
 
 // 初期化実行
