@@ -218,14 +218,6 @@
     white-space: nowrap; /* テキストの改行を防ぐ */
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
-.bg-toggle-btn {
-    border: 1px solid rgba(255,255,255,0.2);
-    cursor: pointer;
-}
-
-.bg-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
-}
 
 .zoom-indicator {
     cursor: pointer;
@@ -674,6 +666,7 @@ let currentLayerIndex = 0;
 // 選択ツール関連
 let selectedPixels = new Set();
 let selectionStart = null;
+let selectionEnd = null;
 let isSelecting = false;
 let currentTool = 'draw'; // draw, fill, select, move
 
@@ -683,7 +676,6 @@ let moveStartX = 0;
 let moveStartY = 0;
 
 // タッチ・ドラッグ関連変数
-let isDrawing = false;
 let isLongPress = false;
 let longPressTimer = null;
 let lastTouchX = 0;
@@ -693,7 +685,6 @@ let initialZoom = 1;
 let scrollOffsetX = 0;
 let scrollOffsetY = 0;
 let isScrolling = false;
-let isContainerMouseDown = false;
 let isPinching = false;
 
 // 初期化
@@ -835,9 +826,16 @@ function renderCanvas() {
         });
     }
 
+    // 選択ツールの始点を描画
+    if (currentTool === 'select' && selectionStart !== null) {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+        ctx.fillRect(selectionStart.x, selectionStart.y, 1, 1);
+    }
+
     gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
 
-    if (showGrid && zoom >= 2) {
+    if (showGrid && zoom >= 4) {
         const quarterX = Math.floor(pixelWidth / 4);
         const halfX = Math.floor(pixelWidth / 2);
         const threeQuarterX = Math.floor(pixelWidth * 3 / 4);
@@ -848,26 +846,32 @@ function renderCanvas() {
         const emphasizePositions = [quarterX, halfX, threeQuarterX];
         const emphasizePositionsY = [quarterY, halfY, threeQuarterY];
 
-        gridCtx.strokeStyle = 'rgba(255,255,255,0.6)';
-        gridCtx.lineWidth = 0.15;
+        gridCtx.strokeStyle = 'rgba(255,255,255,0.25)';
+        gridCtx.lineWidth = 1;
 
+                gridCtx.beginPath();
         emphasizePositions.forEach(pos => {
             if (pos > 0 && pos < pixelWidth) {
-                gridCtx.beginPath();
-                gridCtx.moveTo(pos, 0);
-                gridCtx.lineTo(pos, pixelHeight);
-                gridCtx.stroke();
+                gridCtx.moveTo(pos-0.5, 0);
+                gridCtx.lineTo(pos-0.5, pixelHeight+0.5);
+                if (pixelWidth%2==0) {
+                    gridCtx.moveTo(pos+0.5, 0);
+                    gridCtx.lineTo(pos+0.5, pixelHeight+0.5);
+                }
             }
         });
 
         emphasizePositionsY.forEach(pos => {
             if (pos > 0 && pos < pixelHeight) {
-                gridCtx.beginPath();
-                gridCtx.moveTo(0, pos);
-                gridCtx.lineTo(pixelWidth, pos);
-                gridCtx.stroke();
+                gridCtx.moveTo(0, pos-0.5);
+                gridCtx.lineTo(pixelWidth+0.5, pos-0.5);
+                if (pixelHeight%2==0) {
+                    gridCtx.moveTo(0,pos+0.5, pos+0.5);
+                    gridCtx.lineTo(pixelWidth+0.5, pos+0.5);
+                }
             }
         });
+                gridCtx.stroke();
     }
 
     updateCanvasStyle();
@@ -972,19 +976,12 @@ function setupTouchEvents() {
     ignoreElements.forEach(el => {
         const stopPropagation = (e) => e.stopPropagation();
         el.addEventListener('touchstart', stopPropagation, { passive: false });
-        el.addEventListener('mousedown', stopPropagation);
     });
 
     container.addEventListener('touchstart', handleTouchStart, { passive: false });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd);
 
-    canvas.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    container.addEventListener('mousedown', handleContainerMouseDown);
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
     document.getElementById('zoomIndicator').addEventListener('click', toggleZoomMode);
 }
 
@@ -1059,7 +1056,7 @@ function handleTouchEnd(e) {
         ) {
             if (currentTool === 'move') {
                 // 移動ツール：タップでは何もしない
-            } else if (!fillMode) {
+            } else if (currentTool !== 'fill') {
                 saveState();
                 drawPixelAt(touch.clientX, touch.clientY);
             }
@@ -1194,131 +1191,6 @@ function handleTouchMove(e) {
     }
 }
 
-// PC用マウス操作
-function handleMouseDown(e) {
-    if (e.button !== 0) return;
-    e.preventDefault();
-
-    if (currentTool === 'move') {
-        const rect = canvas.getBoundingClientRect();
-        const x = Math.floor((e.clientX - rect.left) / zoom);
-        const y = Math.floor((e.clientY - rect.top) / zoom);
-        if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
-            isMoving = true;
-            moveStartX = x;
-            moveStartY = y;
-        }
-        return;
-    }
-
-    isDrawing = true;
-    if (!fillMode) saveState();
-    drawPixel(e);
-}
-
-function handleMouseMove(e) {
-    if (isDrawing) {
-        drawPixel(e);
-    } else if (isMoving && currentTool === 'move') {
-        const rect = canvas.getBoundingClientRect();
-        const x = Math.floor((e.clientX - rect.left) / zoom);
-        const y = Math.floor((e.clientY - rect.top) / zoom);
-
-        if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
-            const deltaX = x - moveStartX;
-            const deltaY = y - moveStartY;
-
-            if (deltaX !== 0 || deltaY !== 0) {
-                if (!isMoving) {
-                    saveState();
-                    isMoving = true;
-                }
-
-                const layer = layers[currentLayerIndex];
-
-                if (selectedPixels.size > 0) {
-                    // 選択範囲の移動
-                    const newSelectedPixels = new Set();
-                    const movedData = {};
-
-                    selectedPixels.forEach(key => {
-                        const [sx, sy] = key.split(',').map(Number);
-                        const newX = sx + deltaX;
-                        const newY = sy + deltaY;
-
-                        if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
-                            const oldIndex = sy * pixelWidth + sx;
-                            const newIndex = newY * pixelWidth + newX;
-                            movedData[newIndex] = layer.data[oldIndex];
-                            newSelectedPixels.add(`${newX},${newY}`);
-                        }
-                    });
-
-                    // 移動元をクリア
-                    selectedPixels.forEach(key => {
-                        const [sx, sy] = key.split(',').map(Number);
-                        const oldIndex = sy * pixelWidth + sx;
-                        layer.data[oldIndex] = null;
-                    });
-
-                    // 移動先に設定
-                    Object.entries(movedData).forEach(([index, color]) => {
-                        layer.data[parseInt(index)] = color;
-                    });
-
-                    selectedPixels = newSelectedPixels;
-                } else {
-                    // Layer全体の移動
-                    const newData = new Array(pixelWidth * pixelHeight).fill(null);
-
-                    for (let y = 0; y < pixelHeight; y++) {
-                        for (let x = 0; x < pixelWidth; x++) {
-                            const oldIndex = y * pixelWidth + x;
-                            const newX = x + deltaX;
-                            const newY = y + deltaY;
-
-                            if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
-                                const newIndex = newY * pixelWidth + newX;
-                                newData[newIndex] = layer.data[oldIndex];
-                            }
-                        }
-                    }
-
-                    layer.data = newData;
-                }
-
-                moveStartX = x;
-                moveStartY = y;
-                renderCanvas();
-                saveCanvasToStorage();
-            }
-        }
-    } else if (isContainerMouseDown) {
-        const deltaX = e.clientX - lastTouchX;
-        const deltaY = e.clientY - lastTouchY;
-        scrollOffsetX += deltaX;
-        scrollOffsetY += deltaY;
-        updateCanvasStyle();
-        lastTouchX = e.clientX;
-        lastTouchY = e.clientY;
-    }
-}
-
-function handleMouseUp() {
-    isDrawing = false;
-    isContainerMouseDown = false;
-    isMoving = false;
-}
-
-function handleContainerMouseDown(e) {
-    if (e.target.tagName === 'BUTTON' || e.target.closest('.top-controls')) return;
-    lastTouchX = e.clientX;
-    lastTouchY = e.clientY;
-    if (e.target !== canvas && e.target !== gridCanvas) {
-        isContainerMouseDown = true;
-    }
-}
-
 // スポイト/選択ツールの塗りつぶし選択
 function handleLongPress(touch) {
     const rect = canvas.getBoundingClientRect();
@@ -1364,12 +1236,11 @@ function handleLongPress(touch) {
     }
 }
 
-// ホイールズーム
-function handleWheel(e) {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    zoom = Math.max(1, Math.min(50, zoom * delta));
-    zoomMode = 'manual';
+// 選択解除時に始点もリセット
+function clearSelection() {
+    selectedPixels.clear();
+    selectionStart = null;
+    selectionEnd = null;
     renderCanvas();
 }
 
@@ -1408,11 +1279,6 @@ function toggleZoomMode() {
     }
 }
 
-// ピクセル描画
-function drawPixel(e) {
-    drawPixelAt(e.clientX, e.clientY);
-}
-
 // ピクセル描画（保存呼び出しを追加）
 function drawPixelAt(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
@@ -1422,11 +1288,15 @@ function drawPixelAt(clientX, clientY) {
     if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
         // 選択ツール
         if (currentTool === 'select') {
-            const key = `${x},${y}`;
-            if (selectedPixels.has(key)) {
-                selectedPixels.delete(key);
+            if (selectionStart === null) {
+                // 始点を設定
+                selectionStart = { x, y };
             } else {
-                selectedPixels.add(key);
+                // 終点を設定して四角形を選択
+                selectionEnd = { x, y };
+                selectRectangle(selectionStart.x, selectionStart.y, selectionEnd.x, selectionEnd.y);
+                selectionStart = null;
+                selectionEnd = null;
             }
             renderCanvas();
             return;
@@ -1450,6 +1320,23 @@ function drawPixelAt(clientX, clientY) {
             saveCanvasToStorage(); // 描画後に自動保存
         }
         renderCanvas();
+    }
+}
+
+// 四角形選択
+function selectRectangle(x1, y1, x2, y2) {
+    selectedPixels.clear();
+    const minX = Math.min(x1, x2);
+    const maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2);
+    const maxY = Math.max(y1, y2);
+
+    for (let cy = minY; cy <= maxY; cy++) {
+        for (let cx = minX; cx <= maxX; cx++) {
+            if (cx >= 0 && cx < pixelWidth && cy >= 0 && cy < pixelHeight) {
+                selectedPixels.add(`${cx},${cy}`);
+            }
+        }
     }
 }
 
