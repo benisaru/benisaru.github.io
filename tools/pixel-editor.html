@@ -495,14 +495,14 @@
     </div>
     <div class="layer-popup" id="layerPopup">
         <div class="layer-popup-header" onclick="toggleLayerPopup()" id="layerPopupToggle">
-            <button class="layer-popup-toggle">◀レイヤー</button>
+            <button class="layer-popup-toggle">◀Layer</button>
         </div>
         <div class="layer-popup-content">
             <div class="layer-controls">
                 <button onclick="addLayer()">＋</button>
                 <button onclick="deleteLayer()">－</button>
-                <button onclick="mergeLayer()">⧉</button>
-                <button onclick="importLayerPNG()">PNG</button>
+                <button onclick="mergeLayer()">❏</button>
+                <button onclick="importLayerPNG()">P</button>
             </div>
             <div class="layer-list" id="layerList"></div>
         </div>
@@ -666,7 +666,7 @@ let redoStack = [];
 let maxUndo = 10;
 let zoomMode = 'original';
 
-// レイヤー関連
+// Layer関連
 const MAX_LAYERS = 4;
 let layers = [];
 let currentLayerIndex = 0;
@@ -707,7 +707,7 @@ function init() {
     loadPaletteFromStorage();
     loadCanvasFromStorage(); // 保存されたデータがあれば復元
 
-    // レイヤーがなければ初期化
+    // Layerがなければ初期化
     if (layers.length === 0) {
         initLayers();
     }
@@ -721,13 +721,13 @@ function init() {
     updateLayerUI();
 }
 
-// レイヤー初期化
+// Layer初期化
 function initLayers() {
     layers = [];
     for (let i = 0; i < MAX_LAYERS; i++) {
         layers.push({
             id: i,
-            name: `レイヤー ${i + 1}`,
+            name: `Layer ${i + 1}`,
             visible: i === 0,
             blendMode: 'normal',
             data: new Array(pixelWidth * pixelHeight).fill(null)
@@ -771,7 +771,7 @@ function setupCanvas() {
     gridCanvas.width = pixelWidth;
     gridCanvas.height = pixelHeight;
 
-    // レイヤーデータのサイズ調整
+    // Layerデータのサイズ調整
     layers.forEach(layer => {
         if (layer.data.length !== pixelWidth * pixelHeight) {
             const newData = new Array(pixelWidth * pixelHeight).fill(null);
@@ -790,13 +790,13 @@ function setupCanvas() {
 function renderCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // レイヤーを合成して描画
+    // Layerを合成して描画
     const compositeCanvas = document.createElement('canvas');
     compositeCanvas.width = pixelWidth;
     compositeCanvas.height = pixelHeight;
     const compositeCtx = compositeCanvas.getContext('2d');
 
-    // 各レイヤーを合成
+    // 各Layerを合成
     layers.forEach((layer, layerIndex) => {
         if (!layer.visible) return;
 
@@ -805,7 +805,7 @@ function renderCanvas() {
         layerCanvas.height = pixelHeight;
         const layerCtx = layerCanvas.getContext('2d');
 
-        // レイヤーデータを描画
+        // Layerデータを描画
         for (let y = 0; y < pixelHeight; y++) {
             for (let x = 0; x < pixelWidth; x++) {
                 const index = y * pixelWidth + x;
@@ -1147,7 +1147,7 @@ function handleTouchMove(e) {
 
                             selectedPixels = newSelectedPixels;
                         } else {
-                            // レイヤー全体の移動
+                            // Layer全体の移動
                             const newData = new Array(pixelWidth * pixelHeight).fill(null);
 
                             for (let y = 0; y < pixelHeight; y++) {
@@ -1268,7 +1268,7 @@ function handleMouseMove(e) {
 
                     selectedPixels = newSelectedPixels;
                 } else {
-                    // レイヤー全体の移動
+                    // Layer全体の移動
                     const newData = new Array(pixelWidth * pixelHeight).fill(null);
 
                     for (let y = 0; y < pixelHeight; y++) {
@@ -1496,7 +1496,7 @@ function toggleFillMode() {
 
 // アンドゥ
 function saveState() {
-    // レイヤー全体の状態を保存
+    // Layer全体の状態を保存
     const state = layers.map(layer => ({
         ...layer,
         data: [...layer.data]
@@ -1596,7 +1596,7 @@ function loadPNG() {
                 pixelWidth = width;
                 pixelHeight = height;
 
-                // レイヤーを再初期化
+                // Layerを再初期化
                 initLayers();
 
                 const tempCanvas = document.createElement('canvas');
@@ -2095,12 +2095,12 @@ function loadCanvasFromStorage() {
     return false;
 }
 
-// レイヤーUI更新
+// LayerUI更新
 function updateLayerUI() {
     const layerList = document.getElementById('layerList');
     layerList.innerHTML = '';
 
-    // レイヤーを逆順で表示（上のレイヤーが上に来るように）
+    // Layerを逆順で表示（上のLayerが上に来るように）
     for (let i = layers.length - 1; i >= 0; i--) {
         const layer = layers[i];
         const layerItem = document.createElement('div');
@@ -2141,7 +2141,7 @@ function updateLayerUI() {
     }
 }
 
-// レイヤー選択
+// Layer選択
 function selectLayer(index) {
     if (index >= 0 && index < layers.length) {
         currentLayerIndex = index;
@@ -2149,7 +2149,7 @@ function selectLayer(index) {
     }
 }
 
-// レイヤー表示切り替え
+// Layer表示切り替え
 function toggleLayerVisibility(index, visible) {
     if (index >= 0 && index < layers.length) {
         layers[index].visible = visible;
@@ -2157,7 +2157,7 @@ function toggleLayerVisibility(index, visible) {
     }
 }
 
-// レイヤー合成モード設定
+// Layer合成モード設定
 function setLayerBlendMode(index, mode) {
     if (index >= 0 && index < layers.length) {
         layers[index].blendMode = mode;
@@ -2165,15 +2165,15 @@ function setLayerBlendMode(index, mode) {
     }
 }
 
-// レイヤー追加
+// Layer追加
 function addLayer() {
     if (layers.length >= MAX_LAYERS) {
-        alert('最大レイヤー数に達しました');
+        alert('最大Layer数に達しました');
         return;
     }
     const newLayer = {
         id: layers.length,
-        name: `レイヤー ${layers.length + 1}`,
+        name: `Layer ${layers.length + 1}`,
         visible: true,
         blendMode: 'normal',
         data: new Array(pixelWidth * pixelHeight).fill(null)
@@ -2185,17 +2185,17 @@ function addLayer() {
     renderCanvas();
 }
 
-// レイヤー削除
+// Layer削除
 function deleteLayer() {
     if (layers.length <= 1) {
-        alert('最低1つのレイヤーが必要です');
+        alert('最低1つのLayerが必要です');
         return;
     }
     layers.splice(currentLayerIndex, 1);
-    // レイヤーIDを再割り当て
+    // LayerIDを再割り当て
     layers.forEach((layer, index) => {
         layer.id = index;
-        layer.name = `レイヤー ${index + 1}`;
+        layer.name = `Layer ${index + 1}`;
     });
     if (currentLayerIndex >= layers.length) {
         currentLayerIndex = layers.length - 1;
@@ -2205,16 +2205,16 @@ function deleteLayer() {
     renderCanvas();
 }
 
-// レイヤーマージ
+// Layerマージ
 function mergeLayer() {
     if (currentLayerIndex === 0) {
-        alert('最下層のレイヤーはマージできません');
+        alert('最下層のLayerはマージできません');
         return;
     }
     const targetLayer = layers[currentLayerIndex];
     const belowLayer = layers[currentLayerIndex - 1];
 
-    // 下のレイヤーに合成
+    // 下のLayerに合成
     for (let i = 0; i < targetLayer.data.length; i++) {
         if (targetLayer.data[i]) {
             belowLayer.data[i] = targetLayer.data[i];
@@ -2222,10 +2222,10 @@ function mergeLayer() {
     }
 
     layers.splice(currentLayerIndex, 1);
-    // レイヤーIDを再割り当て
+    // LayerIDを再割り当て
     layers.forEach((layer, index) => {
         layer.id = index;
-        layer.name = `レイヤー ${index + 1}`;
+        layer.name = `Layer ${index + 1}`;
     });
     if (currentLayerIndex >= layers.length) {
         currentLayerIndex = layers.length - 1;
@@ -2235,7 +2235,7 @@ function mergeLayer() {
     renderCanvas();
 }
 
-// レイヤーPNGインポート
+// LayerPNGインポート
 function importLayerPNG() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -2340,7 +2340,7 @@ function resizeCanvas() {
 
     saveState();
 
-    // 各レイヤーのデータをリサイズ
+    // 各Layerのデータをリサイズ
     layers.forEach(layer => {
         const newData = new Array(newWidth * newHeight).fill(null);
 
@@ -2513,7 +2513,7 @@ function handleMoveTool(clientX, clientY, isEnd = false) {
 
         selectedPixels = newSelectedPixels;
     } else {
-        // レイヤー全体の移動
+        // Layer全体の移動
         const newData = new Array(pixelWidth * pixelHeight).fill(null);
 
         for (let y = 0; y < pixelHeight; y++) {
@@ -2542,20 +2542,20 @@ function handleMoveTool(clientX, clientY, isEnd = false) {
     }
 }
 
-// レイヤーポップアップの切り替え
+// Layerポップアップの切り替え
 function toggleLayerPopup() {
     const popup = document.getElementById('layerPopup');
     const toggle = document.getElementById('layerPopupToggle');
     popup.classList.toggle('collapsed');
-    toggle.textContent = popup.classList.contains('collapsed') ? '◀レイヤー' : '▶レイヤー';
+    toggle.textContent = popup.classList.contains('collapsed') ? '◀Layer' : '▶Layer';
     toggle.style.writingMode = popup.classList.contains('collapsed') ? "vertical-lr" : "horizontal-tb";
 }
 
 // 初期化実行
 init();
 
-// レイヤーポップアップの初期状態を設定
-document.getElementById('layerPopupToggle').textContent = '▶レイヤー';
+// Layerポップアップの初期状態を設定
+document.getElementById('layerPopupToggle').textContent = '▶Layer';
 </script>
 </body>
 </html>
