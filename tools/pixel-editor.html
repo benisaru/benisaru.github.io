@@ -276,7 +276,7 @@
             padding: 10px;
             z-index: 150;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            width: 200px;
+            width: auto;
             transition: transform 0.3s ease, width 0.3s ease;
         }
 
@@ -407,7 +407,7 @@
         .layer-controls {
             display: flex;
             gap: 5px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
 
         .layer-list {
@@ -536,6 +536,7 @@
             <div class="layer-controls">
                 <button onclick="addLayer()">＋</button>
                 <button onclick="deleteLayer()">－</button>
+                <button onclick="duplicateLayer()">⧉</button>
                 <button onclick="mergeLayer()">❏</button>
                 <button onclick="importLayerPNG()">P</button>
             </div>
@@ -808,6 +809,47 @@ function loadPaletteFromStorage() {
         console.warn('パレットの読み込みに失敗しました:', e);
     }
 }
+
+// キャンバスの状態をローカルストレージに保存
+function saveCanvasToStorage() {
+    try {
+        const canvasData = {
+            width: pixelWidth,
+            height: pixelHeight,
+            layers: layers.map(layer => ({
+                ...layer,
+                data: [...layer.data]
+            })),
+            currentLayerIndex: currentLayerIndex,
+            selectedPixels: Array.from(selectedPixels)
+        };
+        localStorage.setItem('pixel_canvas_data', JSON.stringify(canvasData));
+    } catch (e) {
+        console.warn('キャンバスの保存に失敗しました:', e);
+    }
+}
+
+// ローカルストレージからキャンバスを復元
+function loadCanvasFromStorage() {
+    try {
+        const saved = localStorage.getItem('pixel_canvas_data');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.width && parsed.height && Array.isArray(parsed.layers)) {
+                pixelWidth = parsed.width;
+                pixelHeight = parsed.height;
+                layers = parsed.layers;
+                currentLayerIndex = parsed.currentLayerIndex || 0;
+                selectedPixels = new Set(parsed.selectedPixels || []);
+                return true;
+            }
+        }
+    } catch (e) {
+        console.warn('キャンバスの読み込みに失敗しました:', e);
+    }
+    return false;
+}
+
 
 // キャンバス設定
 function setupCanvas() {
@@ -1083,17 +1125,6 @@ function getBlendMode(mode) {
     }
 }
 
-/*
-    if (showGrid && zoom >= 2) {
-        gridCanvas.style.backgroundImage = `
-            linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px)
-        `;
-        gridCanvas.style.backgroundSize = `${zoom}px ${zoom}px`;
-    } else {
-        gridCanvas.style.backgroundImage = 'none';
-    }
-*/
 
 // パレット設定
 function setupPalette() {
@@ -2392,47 +2423,6 @@ function toggleCanvasBg() {
     document.getElementById('canvasContainer').style.backgroundColor = currentMode.color;
     document.getElementById('bgToggleBtn').textContent = currentMode.label;
 }
-
-// キャンバスの状態をローカルストレージに保存
-function saveCanvasToStorage() {
-    try {
-        const canvasData = {
-            width: pixelWidth,
-            height: pixelHeight,
-            layers: layers.map(layer => ({
-                ...layer,
-                data: [...layer.data]
-            })),
-            currentLayerIndex: currentLayerIndex,
-            selectedPixels: Array.from(selectedPixels)
-        };
-        localStorage.setItem('pixel_canvas_data', JSON.stringify(canvasData));
-    } catch (e) {
-        console.warn('キャンバスの保存に失敗しました:', e);
-    }
-}
-
-// ローカルストレージからキャンバスを復元
-function loadCanvasFromStorage() {
-    try {
-        const saved = localStorage.getItem('pixel_canvas_data');
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed && parsed.width && parsed.height && Array.isArray(parsed.layers)) {
-                pixelWidth = parsed.width;
-                pixelHeight = parsed.height;
-                layers = parsed.layers;
-                currentLayerIndex = parsed.currentLayerIndex || 0;
-                selectedPixels = new Set(parsed.selectedPixels || []);
-                return true;
-            }
-        }
-    } catch (e) {
-        console.warn('キャンバスの読み込みに失敗しました:', e);
-    }
-    return false;
-}
-
 // ドラッグ中の要素インデックスを保持する変数
 let draggedIndex = null;
 
@@ -2499,7 +2489,7 @@ function updateLayerUI() {
         nameInput.style.border = '1px solid #444';
         nameInput.style.borderRadius = '2px';
         nameInput.style.padding = '2px';
-        nameInput.style.width = '60px';
+        nameInput.style.width = '90px';
         nameInput.onchange = (e) => {
             e.stopPropagation();
             layer.name = e.target.value;
@@ -2516,10 +2506,12 @@ function updateLayerUI() {
             <option value="add">加算</option>
             <option value="multiply">乗算</option>
         `;
-        blendSelect.style.width = '60px';
+        blendSelect.style.width = '45px';
 
         const handleSort = document.createElement('div');
         handleSort.innerHTML = "⠿";
+        handleSort.style.width = '20px';
+        handleSort.style.textAlign = 'center';
         handleSort.style.marginLeft = 'auto';
         handleSort.style.cursor = 'grab'; // ドラッグ可能であることを示すカーソル
 
@@ -2558,6 +2550,7 @@ function reorderLayers(fromIndex, toIndex) {
     saveState();
     updateLayerUI();
     renderCanvas();
+    saveCanvasToStorage();
 }
 
 // Layer選択（UI全体をリセットせず、クラスの付け替えのみ行う）
@@ -2583,6 +2576,7 @@ function toggleLayerVisibility(index, visible) {
     if (index >= 0 && index < layers.length) {
         layers[index].visible = visible;
         renderCanvas();
+        saveCanvasToStorage();
     }
 }
 
@@ -2591,6 +2585,7 @@ function setLayerBlendMode(index, mode) {
     if (index >= 0 && index < layers.length) {
         layers[index].blendMode = mode;
         renderCanvas();
+        saveCanvasToStorage();
         // UIは再描画しない（フォーカスを維持するため）
     }
 }
@@ -2633,6 +2628,47 @@ function deleteLayer() {
     saveState();
     updateLayerUI();
     renderCanvas();
+    saveCanvasToStorage();
+}
+
+// Layer複製
+function duplicateLayer() {
+    // 最大Layer数のチェック
+    if (layers.length >= MAX_LAYERS) {
+        alert('最大Layer数に達しました');
+        return;
+    }
+
+    // 現在選択中のLayerを取得
+    const sourceLayer = layers[currentLayerIndex];
+
+    // Layerを複製
+    const newLayer = {
+        id: layers.length,
+        name: sourceLayer.name + ' コピー',
+        visible: sourceLayer.visible,
+        blendMode: sourceLayer.blendMode,
+
+        // ドットデータをコピー
+        data: [...sourceLayer.data]
+    };
+
+    // 現在のLayerの上に挿入
+    layers.splice(currentLayerIndex + 1, 0, newLayer);
+
+    // LayerIDを再割り当て
+    layers.forEach((layer, index) => {
+        layer.id = index;
+    });
+
+    // 複製したLayerを選択
+    currentLayerIndex++;
+
+    // 状態保存とUI更新
+    saveState();
+    updateLayerUI();
+    renderCanvas();
+    saveCanvasToStorage();
 }
 
 // Layerマージ
@@ -2680,6 +2716,7 @@ function mergeLayer() {
     saveState();
     updateLayerUI();
     renderCanvas();
+    saveCanvasToStorage();
 }
 
 // 色の合成
@@ -2892,12 +2929,24 @@ function saveCustomFile() {
         version: 1,
         width: pixelWidth,
         height: pixelHeight,
+
+        // レイヤー情報
         layers: layers.map(layer => ({
             ...layer,
             data: [...layer.data]
         })),
+
+        // 現在選択中のレイヤー
         currentLayerIndex: currentLayerIndex,
-        selectedPixels: Array.from(selectedPixels)
+
+        // 選択範囲
+        selectedPixels: Array.from(selectedPixels),
+
+        // パレット情報
+        palette: [...palette],
+
+        // 現在選択中のパレット色
+        currentPaletteIndex: currentPaletteIndex
     };
 
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
@@ -2907,6 +2956,8 @@ function saveCustomFile() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    // オブジェクトURLを解放
+    URL.revokeObjectURL(link.href);
 }
 
 // 独自形式読み込み
@@ -2928,12 +2979,28 @@ function loadCustomFile() {
                     layers = data.layers;
                     currentLayerIndex = data.currentLayerIndex || 0;
                     selectedPixels = new Set(data.selectedPixels || []);
+                    // パレットを復元
+                    if (Array.isArray(data.palette) && data.palette.length > 0) {
+                        palette = data.palette;
 
+                        currentPaletteIndex = data.currentPaletteIndex ?? 0;
+
+                        if (
+                            currentPaletteIndex < 0 ||
+                            currentPaletteIndex >= palette.length
+                        ) {
+                            currentPaletteIndex = 0;
+                        }
+
+                        currentColor = palette[currentPaletteIndex];
+                    }
                     undoStack = [];
                     redoStack = [];
 
                     setupCanvas();
+                    setupPalette();
                     updateLayerUI();
+                    updateCurrentColor();
                     saveCanvasToStorage();
                 } else {
                     alert('無効なファイル形式です');
