@@ -9,6 +9,7 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            touch-action: manipulation;
         }
 
         body {
@@ -19,6 +20,9 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
+            -webkit-user-select: none; /* Safari, Chrome, Opera */
+            -webkit-touch-callout: none; /* iOS Safariの長押しメニュー */
+            user-select: none; /* 標準プロパティ */
         }
 
         .header {
