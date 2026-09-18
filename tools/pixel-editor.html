@@ -1046,47 +1046,67 @@ if (selectedPixels.size > 0) {
     selectCtx.restore();
 }
 
-    // 2. 元々あったグリッド線（中央線などの強調線）の描画
-    if (showGrid && zoom >= 8) {
-        const quarterX = Math.floor(pixelWidth / 4);
-        const halfX = Math.floor(pixelWidth / 2);
-        const threeQuarterX = Math.floor(pixelWidth * 3 / 4);
-        const quarterY = Math.floor(pixelHeight / 4);
-        const halfY = Math.floor(pixelHeight / 2);
-        const threeQuarterY = Math.floor(pixelHeight * 3 / 4);
+// 2. 元々あったグリッド線（中央線などの強調線）の描画
+if (showGrid && zoom >= 8) {
+    const container = document.getElementById('canvasContainer');
 
-        const emphasizePositions = [quarterX, halfX, threeQuarterX];
-        const emphasizePositionsY = [quarterY, halfY, threeQuarterY];
+    const containerRect = container.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
 
-        selectCtx.strokeStyle = 'rgba(255,255,255,0.25)';
-        selectCtx.lineWidth = 1;
+    // canvas の左上位置
+    const canvasOffsetX = canvasRect.left - containerRect.left;
+    const canvasOffsetY = canvasRect.top - containerRect.top;
 
-        selectCtx.beginPath();
-        emphasizePositions.forEach(pos => {
-            if (pos > 0 && pos < pixelWidth) {
-                const spos = pos * zoom;
-                selectCtx.moveTo(spos - 0.5, 0);
-                selectCtx.lineTo(spos - 0.5, (pixelHeight * zoom) + 0.5);
-                if (pixelWidth % 2 == 0) {
-                    selectCtx.moveTo(spos + 0.5, 0);
-                    selectCtx.lineTo(spos + 0.5, (pixelHeight * zoom) + 0.5);
-                }
-            }
-        });
+    // 画像1ドットの表示サイズ
+    const scaleX = canvasRect.width / pixelWidth;
+    const scaleY = canvasRect.height / pixelHeight;
 
-        emphasizePositionsY.forEach(pos => {
-            if (pos > 0 && pos < pixelHeight) {
-                const spos = pos * zoom;
-                selectCtx.moveTo(0, spos - 0.5);
-                selectCtx.lineTo((pixelWidth * zoom) + 0.5, spos - 0.5);
-                if (pixelHeight % 2 == 0) {
-                    selectCtx.moveTo(0, spos + 0.5);
-                    selectCtx.lineTo((pixelWidth * zoom) + 0.5, spos + 0.5);
-                }
-            }
-        });
-        selectCtx.stroke();
-    }
+    // 画像の表示範囲
+    const imageLeft = canvasOffsetX;
+    const imageTop = canvasOffsetY;
+    const imageRight = canvasOffsetX + canvasRect.width;
+    const imageBottom = canvasOffsetY + canvasRect.height;
+
+    // 4分割用の座標計算
+    const quarterX = pixelWidth / 4;
+    const quarterY = pixelHeight / 4;
+
+    const x1 = canvasOffsetX + quarterX * scaleX;
+    const x2 = canvasOffsetX + quarterX * 2 * scaleX; // ※centerXと同じ
+    const x3 = canvasOffsetX + quarterX * 3 * scaleX;
+
+    const y1 = canvasOffsetY + quarterY * scaleY;
+    const y2 = canvasOffsetY + quarterY * 2 * scaleY; // ※centerYと同じ
+    const y3 = canvasOffsetY + quarterY * 3 * scaleY;
+
+    selectCtx.beginPath();;
+    selectCtx.strokeStyle = '#888888';
+    selectCtx.lineWidth = 1;
+
+    // 縦の4分割線（中央線を含む）
+    selectCtx.moveTo(x1, imageTop);
+    selectCtx.lineTo(x1, imageBottom);
+
+    selectCtx.moveTo(x2, imageTop);
+    selectCtx.lineTo(x2, imageBottom);
+
+    selectCtx.moveTo(x3, imageTop);
+    selectCtx.lineTo(x3, imageBottom);
+
+    // 横の4分割線（中央線を含む）
+    selectCtx.moveTo(imageLeft, y1);
+    selectCtx.lineTo(imageRight, y1);
+
+    selectCtx.moveTo(imageLeft, y2);
+    selectCtx.lineTo(imageRight, y2);
+
+    selectCtx.moveTo(imageLeft, y3);
+    selectCtx.lineTo(imageRight, y3); // ← 途切れていた部分を補完
+
+    // 線の描画（色や太さを反映）
+    selectCtx.stroke(); 
+}
+
 /*    
     gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
     // 2. 1ドットずつのグリッド表示を追加（元のCSSグリッドの代わり）
@@ -1384,20 +1404,32 @@ function handleTouchMove(e) {
     if (inSelected==2) return;
 
     // 2本指ズーム処理
-    if (e.touches.length >= 2) {
-        isPinching = true;
-        if (longPressTimer) clearTimeout(longPressTimer);
+if (e.touches.length >= 2) {
+    isPinching = true;
+    if (longPressTimer) clearTimeout(longPressTimer);
 
-        const currentDistance = getPinchDistance(e.touches);
-        if (initialPinchDistance > 0) {
-            const scale = currentDistance / initialPinchDistance;
-            zoom = Math.max(1, Math.min(50, initialZoom * scale));
+    const currentDistance = getPinchDistance(e.touches);
+    if (initialPinchDistance > 0) {
+        const scale = currentDistance / initialPinchDistance;
+        const newZoom = Math.max(1, Math.min(50, initialZoom * scale));
+
+        if (newZoom !== zoom) {
+            const oldZoom = zoom;
+            zoom = newZoom;
+
+            // (0,0)が画面中央となる仕様のため、(0,0)を中心基準として補正計算
+            const zoomRatio = zoom / oldZoom;
+            scrollOffsetX = scrollOffsetX * zoomRatio;
+            scrollOffsetY = scrollOffsetY * zoomRatio;
+
             zoomMode = 'manual';
+            if (typeof updateCanvasStyle === 'function') updateCanvasStyle();
             renderCanvas();
         }
-        e.preventDefault();
-        return;
     }
+    e.preventDefault();
+    return;
+}
 
     // 1本指処理
     if (e.touches.length === 1 && !isPinching) {
@@ -1703,9 +1735,21 @@ function handleMouseUp(e) {
 function handleWheel(e) {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    zoom = Math.max(1, Math.min(50, zoom * delta));
-    zoomMode = 'manual';
-    renderCanvas();
+    const newZoom = Math.max(1, Math.min(50, zoom * delta));
+
+    if (newZoom !== zoom) {
+        const oldZoom = zoom;
+        zoom = newZoom;
+
+        // (0,0)が画面中央のため、(0,0)を中心基準として倍率比をかける
+        const zoomRatio = zoom / oldZoom;
+        scrollOffsetX = scrollOffsetX * zoomRatio;
+        scrollOffsetY = scrollOffsetY * zoomRatio;
+
+        zoomMode = 'manual';
+        if (typeof updateCanvasStyle === 'function') updateCanvasStyle();
+        renderCanvas();
+    }
 }
 
 // スポイト/選択ツールの塗りつぶし選択
