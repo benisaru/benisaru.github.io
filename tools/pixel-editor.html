@@ -89,7 +89,14 @@
         #gridCanvas {
             position: absolute;
             pointer-events: none;
-            z-index: 4;
+            z-index: 5;
+            image-rendering: pixelated;
+        }
+
+        #selectCanvas {
+            position: absolute;
+            pointer-events: none;
+            z-index: 6;
             image-rendering: pixelated;
         }
 
@@ -509,6 +516,7 @@
 <div class="canvas-container" id="canvasContainer">
     <canvas id="pixelCanvas"></canvas>
     <canvas id="gridCanvas"></canvas>
+    <canvas id="selectCanvas"></canvas>
 <div class="top-controls">
     <button class="toggle-grid-btn" onclick="toggleGrid()" id="gridBtn">グリッド</button>
     <button class="bg-toggle-btn" id="bgToggleBtn" onclick="toggleCanvasBg()">背景: 暗</button>
@@ -682,6 +690,7 @@
 // グローバル変数
 let canvas, ctx;
 let gridCanvas, gridCtx;
+let selectCanvas, selectCtx;
 let pixelWidth = 32;
 let pixelHeight = 32;
 let zoom = 1;
@@ -737,6 +746,8 @@ function init() {
     ctx = canvas.getContext('2d');
     gridCanvas = document.getElementById('gridCanvas');
     gridCtx = gridCanvas.getContext('2d');
+    selectCanvas = document.getElementById('selectCanvas');
+    selectCtx = selectCanvas.getContext('2d');
 
     loadPaletteFromStorage();
     loadCanvasFromStorage(); // 保存されたデータがあれば復元
@@ -745,6 +756,7 @@ function init() {
     if (layers.length === 0) {
         initLayers();
     }
+    updateLayerUI();
 
     setupCanvas();
     setupPalette();
@@ -752,7 +764,6 @@ function init() {
 
     updateCurrentColor();
     toggleZoomMode();
-    updateLayerUI();
 }
 
 // Layer初期化
@@ -802,8 +813,10 @@ function loadPaletteFromStorage() {
 function setupCanvas() {
     canvas.width = pixelWidth;
     canvas.height = pixelHeight;
-    gridCanvas.width = pixelWidth * zoom;
-    gridCanvas.height = pixelHeight * zoom;
+    gridCanvas.width = pixelWidth;
+    gridCanvas.height = pixelHeight;
+    selectCanvas.width = pixelWidth * zoom;
+    selectCanvas.height = pixelHeight * zoom;
 
     // Layerデータのサイズ調整
     layers.forEach(layer => {
@@ -885,16 +898,16 @@ function renderCanvas() {
     }
 
     // 【重要】サイズ更新が先に終わっているので、ここでのクリアと描画が正しく残ります
-    gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+    selectCtx.clearRect(0, 0, selectCanvas.width, selectCanvas.height);
 
     // 1. 選択範囲の境界線を綺麗な1pxの点線で描画
     if (selectedPixels.size > 0) {
-        gridCtx.save();
+        selectCtx.save();
         
-        gridCtx.lineWidth = 1; 
-        gridCtx.setLineDash([4, 4]); // 実線4px, 空白4px
+        selectCtx.lineWidth = 1; 
+        selectCtx.setLineDash([4, 4]); // 実線4px, 空白4px
 
-        gridCtx.beginPath();
+        selectCtx.beginPath();
         selectedPixels.forEach(key => {
             const [x, y] = key.split(',').map(Number);
 
@@ -910,32 +923,75 @@ function renderCanvas() {
 
             // 隣に選択ピクセルがなければ、ズーム後のサイズに合わせて境界線を引く
             if (!selectedPixels.has(up)) {
-                gridCtx.moveTo(sx, sy); gridCtx.lineTo(sx + sz, sy);
+                selectCtx.moveTo(sx, sy); selectCtx.lineTo(sx + sz, sy);
             }
             if (!selectedPixels.has(down)) {
-                gridCtx.moveTo(sx, sy + sz); gridCtx.lineTo(sx + sz, sy + sz);
+                selectCtx.moveTo(sx, sy + sz); selectCtx.lineTo(sx + sz, sy + sz);
             }
             if (!selectedPixels.has(left)) {
-                gridCtx.moveTo(sx, sy); gridCtx.lineTo(sx, sy + sz);
+                selectCtx.moveTo(sx, sy); selectCtx.lineTo(sx, sy + sz);
             }
             if (!selectedPixels.has(right)) {
-                gridCtx.moveTo(sx + sz, sy); gridCtx.lineTo(sx + sz, sy + sz);
+                selectCtx.moveTo(sx + sz, sy); selectCtx.lineTo(sx + sz, sy + sz);
             }
         });
 
         // 黒い点線
-        gridCtx.lineDashOffset = selectionDashOffset; 
-        gridCtx.strokeStyle = '#000000';
-        gridCtx.stroke();
+        selectCtx.lineDashOffset = selectionDashOffset; 
+        selectCtx.strokeStyle = '#000000';
+        selectCtx.stroke();
 
         // 白い点線を4pxずらして重ねる
-        gridCtx.lineDashOffset = selectionDashOffset + 4; 
-        gridCtx.strokeStyle = '#ffffff';
-        gridCtx.stroke();
+        selectCtx.lineDashOffset = selectionDashOffset + 4; 
+        selectCtx.strokeStyle = '#ffffff';
+        selectCtx.stroke();
 
-        gridCtx.restore();
+        selectCtx.restore();
     }
 
+    // 2. 元々あったグリッド線（中央線などの強調線）の描画
+    if (showGrid && zoom >= 8) {
+        const quarterX = Math.floor(pixelWidth / 4);
+        const halfX = Math.floor(pixelWidth / 2);
+        const threeQuarterX = Math.floor(pixelWidth * 3 / 4);
+        const quarterY = Math.floor(pixelHeight / 4);
+        const halfY = Math.floor(pixelHeight / 2);
+        const threeQuarterY = Math.floor(pixelHeight * 3 / 4);
+
+        const emphasizePositions = [quarterX, halfX, threeQuarterX];
+        const emphasizePositionsY = [quarterY, halfY, threeQuarterY];
+
+        selectCtx.strokeStyle = 'rgba(255,255,255,0.25)';
+        selectCtx.lineWidth = 1;
+
+        selectCtx.beginPath();
+        emphasizePositions.forEach(pos => {
+            if (pos > 0 && pos < pixelWidth) {
+                const spos = pos * zoom;
+                selectCtx.moveTo(spos - 0.5, 0);
+                selectCtx.lineTo(spos - 0.5, (pixelHeight * zoom) + 0.5);
+                if (pixelWidth % 2 == 0) {
+                    selectCtx.moveTo(spos + 0.5, 0);
+                    selectCtx.lineTo(spos + 0.5, (pixelHeight * zoom) + 0.5);
+                }
+            }
+        });
+
+        emphasizePositionsY.forEach(pos => {
+            if (pos > 0 && pos < pixelHeight) {
+                const spos = pos * zoom;
+                selectCtx.moveTo(0, spos - 0.5);
+                selectCtx.lineTo((pixelWidth * zoom) + 0.5, spos - 0.5);
+                if (pixelHeight % 2 == 0) {
+                    selectCtx.moveTo(0, spos + 0.5);
+                    selectCtx.lineTo((pixelWidth * zoom) + 0.5, spos + 0.5);
+                }
+            }
+        });
+        selectCtx.stroke();
+    }
+/*    
+    gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
     // 2. 1ドットずつのグリッド表示を追加（元のCSSグリッドの代わり）
     if (showGrid && zoom >= 4) { // ズームが4倍以上のときに表示
         gridCtx.save();
@@ -963,49 +1019,8 @@ function renderCanvas() {
         gridCtx.stroke();
         gridCtx.restore();
     }
+*/
 
-    // 2. 元々あったグリッド線（中央線などの強調線）の描画
-    if (showGrid && zoom >= 8) {
-        const quarterX = Math.floor(pixelWidth / 4);
-        const halfX = Math.floor(pixelWidth / 2);
-        const threeQuarterX = Math.floor(pixelWidth * 3 / 4);
-        const quarterY = Math.floor(pixelHeight / 4);
-        const halfY = Math.floor(pixelHeight / 2);
-        const threeQuarterY = Math.floor(pixelHeight * 3 / 4);
-
-        const emphasizePositions = [quarterX, halfX, threeQuarterX];
-        const emphasizePositionsY = [quarterY, halfY, threeQuarterY];
-
-        gridCtx.strokeStyle = 'rgba(255,255,255,0.25)';
-        gridCtx.lineWidth = 1;
-
-        gridCtx.beginPath();
-        emphasizePositions.forEach(pos => {
-            if (pos > 0 && pos < pixelWidth) {
-                const spos = pos * zoom;
-                gridCtx.moveTo(spos - 0.5, 0);
-                gridCtx.lineTo(spos - 0.5, (pixelHeight * zoom) + 0.5);
-                if (pixelWidth % 2 == 0) {
-                    gridCtx.moveTo(spos + 0.5, 0);
-                    gridCtx.lineTo(spos + 0.5, (pixelHeight * zoom) + 0.5);
-                }
-            }
-        });
-
-        emphasizePositionsY.forEach(pos => {
-            if (pos > 0 && pos < pixelHeight) {
-                const spos = pos * zoom;
-                gridCtx.moveTo(0, spos - 0.5);
-                gridCtx.lineTo((pixelWidth * zoom) + 0.5, spos - 0.5);
-                if (pixelHeight % 2 == 0) {
-                    gridCtx.moveTo(0, spos + 0.5);
-                    gridCtx.lineTo((pixelWidth * zoom) + 0.5, spos + 0.5);
-                }
-            }
-        });
-        gridCtx.stroke();
-    }
-    
     // ※一番最後にあった updateCanvasStyle() は先頭に移したため、ここでは呼び出しません。
 }
 
@@ -1034,16 +1049,26 @@ function updateCanvasStyle() {
     canvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
 
     // 【重要】gridCanvasの解像度（内部サイズ）をズーム後の実サイズに更新する
-    gridCanvas.width = displayWidth;
-    gridCanvas.height = displayHeight;
+    selectCanvas.width = displayWidth;
+    selectCanvas.height = displayHeight;
 
     // gridCanvasのスタイル（表示サイズはそのまま、transformだけ適用）
-    gridCanvas.style.width = displayWidth + 'px';
-    gridCanvas.style.height = displayHeight + 'px';
-    gridCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+    selectCanvas.style.width = displayWidth + 'px';
+    selectCanvas.style.height = displayHeight + 'px';
+    selectCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
 
-    // ※CSSの背景グリッドは不要になったため削除（または無効化）してOKです。
-    // gridCanvas.style.backgroundImage = 'none';
+    gridCanvas.width = displayWidth;
+    gridCanvas.height = displayHeight;
+    gridCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+    if (showGrid && zoom >= 2) {
+        gridCanvas.style.backgroundImage = `
+            linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px)
+        `;
+        gridCanvas.style.backgroundSize = `${zoom}px ${zoom}px`;
+    } else {
+        gridCanvas.style.backgroundImage = 'none';
+    }
 
     const modeText = zoomMode === 'fit' ? ' (画面合わせ)' : '';
     document.getElementById('zoomIndicator').textContent = Math.round(zoom * 100) + '%' + modeText;
