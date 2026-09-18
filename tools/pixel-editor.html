@@ -95,9 +95,19 @@
 
         #selectCanvas {
             position: absolute;
+            inset: 0;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
             pointer-events: none;
             z-index: 6;
             image-rendering: pixelated;
+        }
+
+        #canvasContainer {
+            position: relative;
+            overflow: hidden;
         }
 
         .footer {
@@ -851,14 +861,40 @@ function loadCanvasFromStorage() {
 }
 
 
+function getCanvasDisplayInfo() {
+    const container = document.getElementById('canvasContainer');
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+
+    return {
+        left: canvasRect.left - containerRect.left,
+        top: canvasRect.top - containerRect.top,
+        width: canvasRect.width,
+        height: canvasRect.height,
+        pixelSizeX: canvasRect.width / pixelWidth,
+        pixelSizeY: canvasRect.height / pixelHeight
+    };
+}
+
 // キャンバス設定
 function setupCanvas() {
     canvas.width = pixelWidth;
     canvas.height = pixelHeight;
     gridCanvas.width = pixelWidth;
     gridCanvas.height = pixelHeight;
-    selectCanvas.width = pixelWidth * zoom;
-    selectCanvas.height = pixelHeight * zoom;
+
+    const container = document.getElementById('canvasContainer');
+    selectCanvas.width = container.clientWidth;
+    selectCanvas.height = container.clientHeight;
+
+selectCanvas.style.width = '100%';
+selectCanvas.style.height = '100%';
+selectCanvas.style.left = '0';
+selectCanvas.style.top = '0';
+selectCanvas.style.transform = 'none';
+    //selectCanvas.width = pixelWidth * zoom;
+    //selectCanvas.height = pixelHeight * zoom;
 
     // Layerデータのサイズ調整
     layers.forEach(layer => {
@@ -919,7 +955,7 @@ function renderCanvas() {
     ctx.drawImage(compositeCanvas, 0, 0);
 
     // 選択範囲を描画（内側の塗りつぶし）
-    if (selectedPixels.size > 0) {
+    /*if (selectedPixels.size > 0) {
         ctx.save();
         ctx.globalCompositeOperation = 'source-over';
         
@@ -930,7 +966,7 @@ function renderCanvas() {
             ctx.fillRect(x, y, 1, 1);
         });
         ctx.restore(); // 閉じ忘れを修正
-    }
+    }*/
 
     // 選択ツールの始点を描画
     if (currentTool === 'select' && selectionStart !== null) {
@@ -942,54 +978,73 @@ function renderCanvas() {
     // 【重要】サイズ更新が先に終わっているので、ここでのクリアと描画が正しく残ります
     selectCtx.clearRect(0, 0, selectCanvas.width, selectCanvas.height);
 
-    // 1. 選択範囲の境界線を綺麗な1pxの点線で描画
-    if (selectedPixels.size > 0) {
-        selectCtx.save();
-        
-        selectCtx.lineWidth = 1; 
-        selectCtx.setLineDash([4, 4]); // 実線4px, 空白4px
+    // 選択範囲の境界線を描画
+if (selectedPixels.size > 0) {
+    const container = document.getElementById('canvasContainer');
 
-        selectCtx.beginPath();
-        selectedPixels.forEach(key => {
-            const [x, y] = key.split(',').map(Number);
+    const containerRect = container.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
 
-            // 画面上の実際の座標とサイズを計算
-            const sx = x * zoom;
-            const sy = y * zoom;
-            const sz = zoom; // 1マスの大きさ
+    // pixelCanvas の左上が、selectCanvas から何px離れているか
+    const canvasOffsetX = canvasRect.left - containerRect.left;
+    const canvasOffsetY = canvasRect.top - containerRect.top;
 
-            const up = `${x},${y-1}`;
-            const down = `${x},${y+1}`;
-            const left = `${x-1},${y}`;
-            const right = `${x+1},${y}`;
+    // 1ピクセルが画面上で何pxになるか
+    const scaleX = canvasRect.width / pixelWidth;
+    const scaleY = canvasRect.height / pixelHeight;
 
-            // 隣に選択ピクセルがなければ、ズーム後のサイズに合わせて境界線を引く
-            if (!selectedPixels.has(up)) {
-                selectCtx.moveTo(sx, sy); selectCtx.lineTo(sx + sz, sy);
-            }
-            if (!selectedPixels.has(down)) {
-                selectCtx.moveTo(sx, sy + sz); selectCtx.lineTo(sx + sz, sy + sz);
-            }
-            if (!selectedPixels.has(left)) {
-                selectCtx.moveTo(sx, sy); selectCtx.lineTo(sx, sy + sz);
-            }
-            if (!selectedPixels.has(right)) {
-                selectCtx.moveTo(sx + sz, sy); selectCtx.lineTo(sx + sz, sy + sz);
-            }
-        });
+    selectCtx.save();
 
-        // 黒い点線
-        selectCtx.lineDashOffset = selectionDashOffset; 
-        selectCtx.strokeStyle = '#000000';
-        selectCtx.stroke();
+    selectCtx.lineWidth = 1;
+    selectCtx.setLineDash([4, 4]);
+    selectCtx.beginPath();
 
-        // 白い点線を4pxずらして重ねる
-        selectCtx.lineDashOffset = selectionDashOffset + 4; 
-        selectCtx.strokeStyle = '#ffffff';
-        selectCtx.stroke();
+    selectedPixels.forEach(key => {
+        const [x, y] = key.split(',').map(Number);
 
-        selectCtx.restore();
-    }
+        const sx = canvasOffsetX + x * scaleX;
+        const sy = canvasOffsetY + y * scaleY;
+        const szX = scaleX;
+        const szY = scaleY;
+
+        const up = `${x},${y - 1}`;
+        const down = `${x},${y + 1}`;
+        const left = `${x - 1},${y}`;
+        const right = `${x + 1},${y}`;
+
+        if (!selectedPixels.has(up)) {
+            selectCtx.moveTo(sx, sy);
+            selectCtx.lineTo(sx + szX, sy);
+        }
+
+        if (!selectedPixels.has(down)) {
+            selectCtx.moveTo(sx, sy + szY);
+            selectCtx.lineTo(sx + szX, sy + szY);
+        }
+
+        if (!selectedPixels.has(left)) {
+            selectCtx.moveTo(sx, sy);
+            selectCtx.lineTo(sx, sy + szY);
+        }
+
+        if (!selectedPixels.has(right)) {
+            selectCtx.moveTo(sx + szX, sy);
+            selectCtx.lineTo(sx + szX, sy + szY);
+        }
+    });
+
+    // 黒い点線
+    selectCtx.lineDashOffset = selectionDashOffset;
+    selectCtx.strokeStyle = '#000000';
+    selectCtx.stroke();
+
+    // 白い点線
+    selectCtx.lineDashOffset = selectionDashOffset + 4;
+    selectCtx.strokeStyle = '#ffffff';
+    selectCtx.stroke();
+
+    selectCtx.restore();
+}
 
     // 2. 元々あったグリッド線（中央線などの強調線）の描画
     if (showGrid && zoom >= 8) {
@@ -1091,13 +1146,13 @@ function updateCanvasStyle() {
     canvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
 
     // 【重要】gridCanvasの解像度（内部サイズ）をズーム後の実サイズに更新する
-    selectCanvas.width = displayWidth;
-    selectCanvas.height = displayHeight;
+    //selectCanvas.width = displayWidth;
+    //selectCanvas.height = displayHeight;
 
     // gridCanvasのスタイル（表示サイズはそのまま、transformだけ適用）
-    selectCanvas.style.width = displayWidth + 'px';
-    selectCanvas.style.height = displayHeight + 'px';
-    selectCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+    //selectCanvas.style.width = displayWidth + 'px';
+    //selectCanvas.style.height = displayHeight + 'px';
+    //selectCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
 
     gridCanvas.width = displayWidth;
     gridCanvas.height = displayHeight;
