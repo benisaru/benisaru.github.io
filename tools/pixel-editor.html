@@ -1242,7 +1242,6 @@ function handleTouchStart(e) {
             if (navigator.vibrate) navigator.vibrate(40);
             handleLongPress(touch);
         }, 500);
-    }
 
     //キャンバス内外判定
     inCanvas = false;
@@ -1261,6 +1260,8 @@ function handleTouchStart(e) {
                 inSelected = true;
             }
         }
+    }
+
     }
 
 }
@@ -2506,7 +2507,7 @@ function updateLayerUI() {
             <option value="add">加算</option>
             <option value="multiply">乗算</option>
         `;
-        blendSelect.style.width = '45px';
+        blendSelect.style.width = '60px';
 
         const handleSort = document.createElement('div');
         handleSort.innerHTML = "⠿";
