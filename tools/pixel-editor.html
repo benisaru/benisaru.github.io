@@ -775,6 +775,7 @@ function init() {
 
     updateCurrentColor();
     toggleZoomMode();
+    saveState();
 }
 
 // Layer初期化
@@ -1047,7 +1048,7 @@ if (selectedPixels.size > 0) {
 }
 
 // 2. 元々あったグリッド線（中央線などの強調線）の描画
-if (showGrid && zoom >= 8) {
+if (showGrid && zoom >= 6) {
     const container = document.getElementById('canvasContainer');
 
     const containerRect = container.getBoundingClientRect();
@@ -1071,13 +1072,13 @@ if (showGrid && zoom >= 8) {
     const quarterX = pixelWidth / 4;
     const quarterY = pixelHeight / 4;
 
-    const x1 = canvasOffsetX + quarterX * scaleX;
-    const x2 = canvasOffsetX + quarterX * 2 * scaleX; // ※centerXと同じ
-    const x3 = canvasOffsetX + quarterX * 3 * scaleX;
+    const x1 = Math.floor(canvasOffsetX + quarterX * scaleX)+0.5;
+    const x2 = Math.floor(canvasOffsetX + quarterX * 2 * scaleX)+0.5; // ※centerXと同じ
+    const x3 = Math.floor(canvasOffsetX + quarterX * 3 * scaleX)+0.5;
 
-    const y1 = canvasOffsetY + quarterY * scaleY;
-    const y2 = canvasOffsetY + quarterY * 2 * scaleY; // ※centerYと同じ
-    const y3 = canvasOffsetY + quarterY * 3 * scaleY;
+    const y1 = Math.floor(canvasOffsetY + quarterY * scaleY)+0.5;
+    const y2 = Math.floor(canvasOffsetY + quarterY * 2 * scaleY)+0.5; // ※centerYと同じ
+    const y3 = Math.floor(canvasOffsetY + quarterY * 3 * scaleY)+0.5;
 
     selectCtx.beginPath();;
     selectCtx.strokeStyle = '#888888';
@@ -1101,7 +1102,7 @@ if (showGrid && zoom >= 8) {
     selectCtx.lineTo(imageRight, y2);
 
     selectCtx.moveTo(imageLeft, y3);
-    selectCtx.lineTo(imageRight, y3); // ← 途切れていた部分を補完
+    selectCtx.lineTo(imageRight, y3);  
 
     // 線の描画（色や太さを反映）
     selectCtx.stroke(); 
@@ -1383,8 +1384,8 @@ function handleTouchEnd(e) {
         ) {
             if (currentTool !== 'move') {
                 // 描画・選択ツールはタップで処理
-                saveState();
                 drawPixelAt(touch.clientX, touch.clientY);
+                saveState();
             }
         }
     }
@@ -1465,7 +1466,6 @@ if (e.touches.length >= 2) {
                     const moveDeltaY = y - moveStartY;
 
                     if (moveDeltaX !== 0 || moveDeltaY !== 0) {
-                        saveState();
 
                         const layer = layers[currentLayerIndex];
 
@@ -1631,7 +1631,6 @@ function handleMouseMove(e) {
             const moveDeltaY = y - moveStartY;
 
             if (moveDeltaX !== 0 || moveDeltaY !== 0) {
-                saveState();
 
                 const layer = layers[currentLayerIndex];
 
@@ -1721,8 +1720,8 @@ function handleMouseUp(e) {
 
     // ドラッグでもなくロングプレスでもなく移動ツールでもない場合は短クリックとして処理
     if (!isMouseDragging && !isLongPress && currentTool !== 'move') {
-        saveState();
         drawPixelAt(e.clientX, e.clientY);
+        saveState();
     }
 
     isMouseDragging = false;
@@ -1910,7 +1909,6 @@ function floodFill(startX, startY, newColor) {
 
     if (targetColor === newColorValue) return;
 
-    saveState();
     const stack = [[startX, startY]];
     const visited = new Set();
 
@@ -1934,6 +1932,7 @@ function floodFill(startX, startY, newColor) {
         stack.push([x, y - 1]);
     }
 
+    saveState();
     saveCanvasToStorage(); // 塗りつぶし後に自動保存
 }
 
@@ -2647,9 +2646,9 @@ function reorderLayers(fromIndex, toIndex) {
     }
 
     // 5. 状態保存と描画更新
-    saveState();
     updateLayerUI();
     renderCanvas();
+    saveState();
     saveCanvasToStorage();
 }
 
@@ -2705,9 +2704,9 @@ function addLayer() {
     };
     layers.push(newLayer);
     currentLayerIndex = layers.length - 1;
-    saveState();
     updateLayerUI();
     renderCanvas();
+    saveState();
     saveCanvasToStorage();
 }
 
@@ -2725,9 +2724,9 @@ function deleteLayer() {
     if (currentLayerIndex >= layers.length) {
         currentLayerIndex = layers.length - 1;
     }
-    saveState();
     updateLayerUI();
     renderCanvas();
+    saveState();
     saveCanvasToStorage();
 }
 
@@ -2765,9 +2764,9 @@ function duplicateLayer() {
     currentLayerIndex++;
 
     // 状態保存とUI更新
-    saveState();
     updateLayerUI();
     renderCanvas();
+    saveState();
     saveCanvasToStorage();
 }
 
@@ -2813,9 +2812,9 @@ function mergeLayer() {
     });
     currentLayerIndex = mergedIndex;
 
-    saveState();
     updateLayerUI();
     renderCanvas();
+    saveState();
     saveCanvasToStorage();
 }
 
@@ -2902,8 +2901,8 @@ function importLayerPNG() {
                     }
                 }
 
-                saveState();
                 renderCanvas();
+                saveState();
                 saveCanvasToStorage();
             };
             img.src = event.target.result;
@@ -2965,8 +2964,6 @@ function resizeCanvas() {
         return;
     }
 
-    saveState();
-
     // 各Layerのデータをリサイズ
     layers.forEach(layer => {
         const newData = new Array(newWidth * newHeight).fill(null);
@@ -3020,6 +3017,7 @@ function resizeCanvas() {
 
     setupCanvas();
     closeModal('resizeModal');
+    saveState();
     saveCanvasToStorage();
 }
 
@@ -3133,8 +3131,6 @@ function handleMoveTool(clientX, clientY, isEnd = false) {
     const deltaY = y - moveStartY;
 
     if (deltaX === 0 && deltaY === 0) return;
-
-    saveState();
 
     const layer = layers[currentLayerIndex];
 
