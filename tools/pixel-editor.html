@@ -1,937 +1,941 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ドット絵エディタ</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            touch-action: manipulation;
-        }
-
-        body {
-            font-family: sans-serif;
-            background: #1a1a2e;
-            color: #eee;
-            overflow: hidden;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            -webkit-user-select: none; /* Safari, Chrome, Opera */
-            -webkit-touch-callout: none; /* iOS Safariの長押しメニュー */
-            user-select: none; /* 標準プロパティ */
-        }
-
-        .header {
-            padding: 10px;
-            background: #16213e;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 5px;
-        }
-
-        .header h1 {
-            font-size: 16px;
-        }
-
-        .header-controls {
-            display: flex;
-            gap: 5px;
-            flex-wrap: nowrap;
-        }
-/* 右上のコントロールグループ（文字長さに応じて可変・自動配置） */
-.top-controls {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    display: flex;
-    align-items: center;
-    gap: 8px; /* ボタン同士のすき間 */
-    z-index: 100;
-}
-
-        button {
-            padding: 8px 12px;
-            background: #0f3460;
-            color: #eee;
-            border: none;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-        }
-
-        button:active {
-            background: #e94560;
-        }
-
-        button:disabled {
-            opacity: 0.5;
-        }
-
-        .canvas-container {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            position: relative;
-            background: #0f0f23;
-        }
-
-        #pixelCanvas {
-            image-rendering: pixelated;
-            cursor: crosshair;
-            position: relative;
-            z-index: 1;
-        }
-
-        #gridCanvas {
-            position: absolute;
-            pointer-events: none;
-            z-index: 5;
-            image-rendering: pixelated;
-        }
-
-        #selectCanvas {
-            position: absolute;
-            inset: 0;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 6;
-            image-rendering: pixelated;
-        }
-
-        #canvasContainer {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .footer {
-            padding: 10px;
-            background: #16213e;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .palette-section {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-        }
-
-        .current-color {
-            flex-shrink: 0;
-            width: 40px;
-            height: 40px;
-            border: 2px solid #fff;
-            border-radius: 4px;
-        }
-
-        .palette {
-            display: flex !important;
-            gap: 2px;
-            flex-wrap: nowrap;
-            max-height: 60px;
-            width: calc(100% - 150px);
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            touch-action: pan-x;
-        }
-
-        .palette-color {
-            flex-shrink: 0;
-            width: 25px;
-            height: 25px;
-            max-width: 25px;
-            border: 1px solid #444;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .palette-color.selected {
-            border: 2px solid #fff;
-        }
-
-        .tools {
-            display: flex;
-            gap: 5px;
-            flex-wrap: wrap;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: #16213e;
-            padding: 20px;
-            border-radius: 8px;
-            max-width: 90%;
-            max-height: 90%;
-            overflow-y: auto;
-        }
-
-        .modal-content h2 {
-            margin-bottom: 15px;
-        }
-
-        .modal-content input,
-        .modal-content select {
-            width: 100%;
-            padding: 8px;
-            margin: 5px 0;
-            background: #0f3460;
-            color: #eee;
-            border: 1px solid #444;
-            border-radius: 4px;
-        }
-
-        .modal-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .modal-buttons button {
-            flex: 1;
-        }
-
-        #newCanvasModal .input-group {
-            display: flex;
-            gap: 10px;
-            margin: 10px 0;
-        }
-
-        #newCanvasModal .input-group input {
-            flex: 1;
-        }
-
-/* ボタンとインジケーターのスタイル（位置指定は親のFlexboxに任せる） */
-.toggle-grid-btn,
-.bg-toggle-btn,
-.zoom-indicator {
-    position: static !important; /* 絶対位置指定を解除 */
-    top: auto !important;
-    right: auto !important;
-    background: rgba(0, 0, 0, 0.75);
-    color: #eee;
-    padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 12px;
-    user-select: none;
-    white-space: nowrap; /* テキストの改行を防ぐ */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-}
-
-.zoom-indicator {
-    cursor: pointer;
-}
-
-        .tool-buttons {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 100;
-        }
-
-        .tool-buttons button {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: #0f3460;
-            color: #eee;
-            border: 2px solid #444;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        }
-
-        .tool-buttons button.active {
-            background: #e94560;
-            border-color: #fff;
-        }
-
-        .layer-popup {
-            position: fixed;
-            bottom: 300px;
-            right: 20px;
-            background: #16213e;
-            border-radius: 8px;
-            padding: 10px;
-            z-index: 150;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            width: auto;
-            transition: transform 0.3s ease, width 0.3s ease;
-        }
-
-        .layer-popup.collapsed {
-            transform: translateX(calc(100% - 40px));
-        }
-
-        .layer-popup-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            cursor: pointer;
-        }
-
-        .layer-popup-header h3 {
-            font-size: 14px;
-            margin: 0;
-        }
-
-        .layer-popup-toggle {
-            background: none;
-            border: none;
-            color: #eee;
-            font-size: 18px;
-            cursor: pointer;
-            padding: 0;
-        }
-
-        .layer-popup-content {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .layer-popup.collapsed .layer-popup-content {
-            display: none;
-        }
-
-        .color-input-tabs {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 10px;
-        }
-
-        .color-input-tabs button {
-            flex: 1;
-        }
-
-        .color-input-tabs button.active {
-            background: #e94560;
-        }
-
-        .hsla-inputs {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .hsla-input {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .hsla-input label {
-            width: 80px;
-            font-size: 12px;
-        }
-
-        .hsla-input input[type="range"] {
-            flex: 1;
-        }
-
-        .hsla-input input[type="number"] {
-            width: 50px;
-        }
-
-        .argb-inputs {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .argb-input {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .argb-input label {
-            width: 80px;
-            font-size: 12px;
-        }
-
-        .argb-input input[type="range"] {
-            flex: 1;
-        }
-
-        .argb-input input[type="number"] {
-            width: 50px;
-        }
-
-        .color-preview {
-            position: relative;
-            width: 100%;
-            height: 40px;
-            margin-top: 10px;
-            border: 1px solid #444;
-            border-radius: 4px;
-            background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
-            background-size: 10px 10px;
-            background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
-            --overlay-color: rgba(0, 0, 0, 0);
-        }
-
-.color-preview::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: var(--overlay-color);
-  pointer-events: none;
-}
-
-        .layer-controls {
-            display: flex;
-            gap: 5px;
-            flex-wrap: nowrap;
-        }
-
-        .layer-list {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            max-height: 180px;
-            overflow-y: auto;
-        }
-
-        .layer-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px;
-            background: #0f3460;
-            border-radius: 4px;
-            cursor: pointer;
-            user-select: none; /* テキスト選択を防止 */
-            touch-action: manipulation;
-        }
-
-        .layer-item.active {
-            background: #e94560;
-        }
-
-        .layer-item input[type="checkbox"] {
-            margin: 0;
-        }
-
-        .layer-item select {
-            padding: 2px;
-            font-size: 10px;
-        }
-
-        .layer-item button {
-            padding: 2px 5px;
-            font-size: 10px;
-        }
-        .layer-item.dragging {
-            opacity: 0.5;
-            background-color: #1a1a2e;
-        }
-
-        .resize-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 5px;
-            margin: 10px 0;
-        }
-
-        .resize-grid button {
-            padding: 10px;
-            font-size: 10px;
-        }
-
-        .resize-grid button.active {
-            background: #e94560;
-        }
-.toast {
-  position: fixed;
-  bottom: -50px; /* 最初は画面の下に隠しておく */
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: #333;
-  color: #fff;
-  padding: 12px 24px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  font-size: 14px;
-  z-index: 9999;
-  transition: bottom 0.4s ease, opacity 0.4s ease; /* アニメーション効果 */
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* 表示状態のクラス */
-.toast.show {
-  bottom: 20px; /* 画面下部から20pxの位置に浮き上がらせる */
-  opacity: 1;
-  pointer-events: auto;
-}
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ドット絵エディタ</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      touch-action: manipulation;
+    }
+
+    body {
+      font-family: sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-user-select: none;
+      /* Safari, Chrome, Opera */
+      -webkit-touch-callout: none;
+      /* iOS Safariの長押しメニュー */
+      user-select: none;
+      /* 標準プロパティ */
+    }
+
+    .header {
+      padding: 10px;
+      background: #16213e;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .header h1 {
+      font-size: 16px;
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 5px;
+      flex-wrap: nowrap;
+    }
+
+    /* 右上のコントロールグループ（文字長さに応じて可変・自動配置） */
+    .top-controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      /* ボタン同士のすき間 */
+      z-index: 100;
+    }
+
+    button {
+      padding: 8px 12px;
+      background: #0f3460;
+      color: #eee;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    button:active {
+      background: #e94560;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+    }
+
+    .canvas-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+      background: #0f0f23;
+    }
+
+    #pixelCanvas {
+      image-rendering: pixelated;
+      cursor: crosshair;
+      position: relative;
+      z-index: 1;
+    }
+
+    #gridCanvas {
+      position: absolute;
+      pointer-events: none;
+      z-index: 5;
+      image-rendering: pixelated;
+    }
+
+    #selectCanvas {
+      position: absolute;
+      inset: 0;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 6;
+      image-rendering: pixelated;
+    }
+
+    #canvasContainer {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .footer {
+      padding: 10px;
+      background: #16213e;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .palette-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+
+    .current-color {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border: 2px solid #fff;
+      border-radius: 4px;
+    }
+
+    .palette {
+      display: flex !important;
+      gap: 2px;
+      flex-wrap: nowrap;
+      max-height: 60px;
+      width: calc(100% - 150px);
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-x;
+    }
+
+    .palette-color {
+      flex-shrink: 0;
+      width: 25px;
+      height: 25px;
+      max-width: 25px;
+      border: 1px solid #444;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .palette-color.selected {
+      border: 2px solid #fff;
+    }
+
+    .tools {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: #16213e;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 90%;
+      max-height: 90%;
+      overflow-y: auto;
+    }
+
+    .modal-content h2 {
+      margin-bottom: 15px;
+    }
+
+    .modal-content input,
+    .modal-content select {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      background: #0f3460;
+      color: #eee;
+      border: 1px solid #444;
+      border-radius: 4px;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .modal-buttons button {
+      flex: 1;
+    }
+
+    #newCanvasModal .input-group {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+    }
+
+    #newCanvasModal .input-group input {
+      flex: 1;
+    }
+
+    /* ボタンとインジケーターのスタイル（位置指定は親のFlexboxに任せる） */
+    .toggle-grid-btn,
+    .bg-toggle-btn,
+    .zoom-indicator {
+      position: static !important;
+      /* 絶対位置指定を解除 */
+      top: auto !important;
+      right: auto !important;
+      background: rgba(0, 0, 0, 0.75);
+      color: #eee;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      user-select: none;
+      white-space: nowrap;
+      /* テキストの改行を防ぐ */
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .zoom-indicator {
+      cursor: pointer;
+    }
+
+    .tool-buttons {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 100;
+    }
+
+    .tool-buttons button {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: #0f3460;
+      color: #eee;
+      border: 2px solid #444;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .tool-buttons button.active {
+      background: #e94560;
+      border-color: #fff;
+    }
+
+    .layer-popup {
+      position: fixed;
+      bottom: 300px;
+      right: 20px;
+      background: #16213e;
+      border-radius: 8px;
+      padding: 10px;
+      z-index: 150;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      width: auto;
+      transition: transform 0.3s ease, width 0.3s ease;
+    }
+
+    .layer-popup.collapsed {
+      transform: translateX(calc(100% - 40px));
+    }
+
+    .layer-popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+
+    .layer-popup-header h3 {
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .layer-popup-toggle {
+      background: none;
+      border: none;
+      color: #eee;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .layer-popup-content {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .layer-popup.collapsed .layer-popup-content {
+      display: none;
+    }
+
+    .color-input-tabs {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+
+    .color-input-tabs button {
+      flex: 1;
+    }
+
+    .color-input-tabs button.active {
+      background: #e94560;
+    }
+
+    .hsla-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .hsla-input {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hsla-input label {
+      width: 80px;
+      font-size: 12px;
+    }
+
+    .hsla-input input[type="range"] {
+      flex: 1;
+    }
+
+    .hsla-input input[type="number"] {
+      width: 50px;
+    }
+
+    .argb-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .argb-input {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .argb-input label {
+      width: 80px;
+      font-size: 12px;
+    }
+
+    .argb-input input[type="range"] {
+      flex: 1;
+    }
+
+    .argb-input input[type="number"] {
+      width: 50px;
+    }
+
+    .color-preview {
+      position: relative;
+      width: 100%;
+      height: 40px;
+      margin-top: 10px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
+      background-size: 10px 10px;
+      background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+      --overlay-color: rgba(0, 0, 0, 0);
+    }
+
+    .color-preview::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--overlay-color);
+      pointer-events: none;
+    }
+
+    .layer-controls {
+      display: flex;
+      gap: 5px;
+      flex-wrap: nowrap;
+    }
+
+    .layer-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .layer-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px;
+      background: #0f3460;
+      border-radius: 4px;
+      cursor: pointer;
+      user-select: none;
+      /* テキスト選択を防止 */
+      touch-action: manipulation;
+    }
+
+    .layer-item.active {
+      background: #e94560;
+    }
+
+    .layer-item input[type="checkbox"] {
+      margin: 0;
+    }
+
+    .layer-item select {
+      padding: 2px;
+      font-size: 10px;
+    }
+
+    .layer-item button {
+      padding: 2px 5px;
+      font-size: 10px;
+    }
+
+    .layer-item.dragging {
+      opacity: 0.5;
+      background-color: #1a1a2e;
+    }
+
+    .resize-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+      margin: 10px 0;
+    }
+
+    .resize-grid button {
+      padding: 10px;
+      font-size: 10px;
+    }
+
+    .resize-grid button.active {
+      background: #e94560;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: -50px;
+      /* 最初は画面の下に隠しておく */
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #333;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      font-size: 14px;
+      z-index: 9999;
+      transition: bottom 0.4s ease, opacity 0.4s ease;
+      /* アニメーション効果 */
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* 表示状態のクラス */
+    .toast.show {
+      bottom: 20px;
+      /* 画面下部から20pxの位置に浮き上がらせる */
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+  </style>
 </head>
-<body>
-    <div class="header">
-        <h1>ドット絵エディタ</h1>
-        <div class="header-controls">
-            <button onclick="showNewCanvasModal()">新規</button>
-            <button onclick="loadPNG()">PNG読込</button>
-            <button onclick="savePNG()">PNG保存</button>
-            <button onclick="saveCustomFile()">保存</button>
-            <button onclick="loadCustomFile()">読込</button>
-        </div>
-        <div class="header-controls">
-            <button onclick="showResizeModal()">サイズ</button>
-            <button onclick="undo()" id="undoBtn" disabled>戻る</button>
-            <button onclick="redo()" id="redoBtn" disabled>進む</button>
-            <button onclick="selectAll()">全選択</button>
-            <button onclick="clearSelection()">選択解除</button>
-        </div>
-        <div class="header-controls">
-        </div>
-    </div>
 
-<div class="canvas-container" id="canvasContainer">
+<body>
+  <div class="header">
+    <h1>ドット絵エディタ</h1>
+    <div class="header-controls">
+      <button onclick="showNewCanvasModal()">新規</button>
+      <button onclick="loadPNG()">PNG読込</button>
+      <button onclick="savePNG()">PNG保存</button>
+      <button onclick="saveCustomFile()">保存</button>
+      <button onclick="loadCustomFile()">読込</button>
+    </div>
+    <div class="header-controls">
+      <button onclick="showResizeModal()">サイズ</button>
+      <button onclick="undo()" id="undoBtn" disabled>戻る</button>
+      <button onclick="redo()" id="redoBtn" disabled>進む</button>
+      <button onclick="selectAll()">全選択</button>
+      <button onclick="clearSelection()">選択解除</button>
+    </div>
+    <div class="header-controls"></div>
+  </div>
+  <div class="canvas-container" id="canvasContainer">
     <canvas id="pixelCanvas"></canvas>
     <canvas id="gridCanvas"></canvas>
     <canvas id="selectCanvas"></canvas>
-<div class="top-controls">
-    <button class="toggle-grid-btn" onclick="toggleGrid()" id="gridBtn">グリッド</button>
-    <button class="bg-toggle-btn" id="bgToggleBtn" onclick="toggleCanvasBg()">背景: 暗</button>
-    <div class="zoom-indicator" id="zoomIndicator">100%</div>
-</div>
+    <div class="top-controls">
+      <button class="toggle-grid-btn" onclick="toggleGrid()" id="gridBtn">グリッド</button>
+      <button class="bg-toggle-btn" id="bgToggleBtn" onclick="toggleCanvasBg()">背景: 暗</button>
+      <div class="zoom-indicator" id="zoomIndicator">100%</div>
+    </div>
     <div class="tool-buttons">
-        <button onclick="setTool('draw')" id="drawToolBtn" class="active">🖌️</button>
-        <button onclick="setTool('fill')" id="fillToolBtn">🪣</button>
-        <button onclick="setTool('select')" id="selectToolBtn">🫥</button>
-        <button onclick="setTool('move')" id="moveToolBtn">↔️</button>
+      <button onclick="setTool('draw')" id="drawToolBtn" class="active">🖌️</button>
+      <button onclick="setTool('fill')" id="fillToolBtn">🪣</button>
+      <button onclick="setTool('select')" id="selectToolBtn">🫥</button>
+      <button onclick="setTool('move')" id="moveToolBtn">↔️</button>
     </div>
     <div class="layer-popup" id="layerPopup">
-        <div class="layer-popup-header" onclick="toggleLayerPopup()" id="layerPopupToggle">
-            <button class="layer-popup-toggle">◀Layer</button>
+      <div class="layer-popup-header" onclick="toggleLayerPopup()" id="layerPopupToggle">
+        <button class="layer-popup-toggle">◀Layer</button>
+      </div>
+      <div class="layer-popup-content">
+        <div class="layer-controls">
+          <button onclick="addLayer()">＋</button>
+          <button onclick="deleteLayer()">－</button>
+          <button onclick="duplicateLayer()">⧉</button>
+          <button onclick="mergeLayer()">❏</button>
+          <button onclick="importLayerPNG()">P</button>
         </div>
-        <div class="layer-popup-content">
-            <div class="layer-controls">
-                <button onclick="addLayer()">＋</button>
-                <button onclick="deleteLayer()">－</button>
-                <button onclick="duplicateLayer()">⧉</button>
-                <button onclick="mergeLayer()">❏</button>
-                <button onclick="importLayerPNG()">P</button>
-            </div>
-            <div class="layer-list sortable-list" id="layerList"></div>
-        </div>
+        <div class="layer-list sortable-list" id="layerList"></div>
+      </div>
     </div>
-</div>
-
-    <div class="footer">
-        <div class="palette-section">
-            <div class="current-color" id="currentColor"></div>
-            <div class="palette" id="palette"></div>
-        </div>
-<div class="tools">
-    <button onclick="addDetailedColor()">追加</button>
-    <button onclick="editCurrentColor()">編集</button>
-    <button onclick="deleteCurrentColor()">削除</button>
-    <button onclick="duplicateCurrentColor()">コピー</button>
-</div>
-<div class="tools">
-    <button onclick="importPalette()">パレット読込</button>
-    <button onclick="exportPalette()">パレット保存</button>
-</div>
-
+  </div>
+  <div class="footer">
+    <div class="palette-section">
+      <div class="current-color" id="currentColor"></div>
+      <div class="palette" id="palette"></div>
     </div>
-
-    <!-- 新規キャンバスモーダル -->
-    <div class="modal" id="newCanvasModal">
-        <div class="modal-content">
-            <h2>新規キャンバス</h2>
-            <div class="input-group">
-                <input type="number" id="canvasWidth" min="1" max="256" value="16" placeholder="幅">
-                <input type="number" id="canvasHeight" min="1" max="256" value="16" placeholder="高さ">
-            </div>
-            <div class="modal-buttons">
-                <button onclick="createNewCanvas()">作成</button>
-                <button onclick="closeModal('newCanvasModal')">キャンセル</button>
-            </div>
-        </div>
+    <div class="tools">
+      <button onclick="addDetailedColor()">追加</button>
+      <button onclick="editCurrentColor()">編集</button>
+      <button onclick="deleteCurrentColor()">削除</button>
+      <button onclick="duplicateCurrentColor()">コピー</button>
     </div>
-
-    <!-- パレットモーダル -->
-    <div class="modal" id="paletteModal">
-        <div class="modal-content">
-            <h2>パレット編集</h2>
-            <div class="palette" id="paletteEditor"></div>
-            <div class="modal-buttons">
-                <button onclick="addDetailedPaletteColor()">色追加</button>
-                <button onclick="importPaletteFromModal()">インポート</button>
-                <button onclick="exportPaletteFromModal()">エクスポート</button>
-                <button onclick="closeModal('paletteModal')">閉じる</button>
-            </div>
-        </div>
+    <div class="tools">
+      <button onclick="importPalette()">パレット読込</button>
+      <button onclick="exportPalette()">パレット保存</button>
     </div>
-    <!-- サイズ変更モーダル -->
-    <div class="modal" id="resizeModal">
-        <div class="modal-content">
-            <h2>キャンバスサイズ変更</h2>
-            <div class="input-group">
-                <input type="number" id="newWidth" min="1" max="256" value="32" placeholder="幅">
-                <input type="number" id="newHeight" min="1" max="256" value="32" placeholder="高さ">
-            </div>
-            <div class="resize-grid">
-                <button onclick="setResizeAnchor('top-left')" class="resize-anchor" data-anchor="top-left">左上</button>
-                <button onclick="setResizeAnchor('top')" class="resize-anchor" data-anchor="top">上</button>
-                <button onclick="setResizeAnchor('top-right')" class="resize-anchor" data-anchor="top-right">右上</button>
-                <button onclick="setResizeAnchor('left')" class="resize-anchor" data-anchor="left">左</button>
-                <button onclick="setResizeAnchor('center')" class="resize-anchor active" data-anchor="center">真ん中</button>
-                <button onclick="setResizeAnchor('right')" class="resize-anchor" data-anchor="right">右</button>
-                <button onclick="setResizeAnchor('bottom-left')" class="resize-anchor" data-anchor="bottom-left">左下</button>
-                <button onclick="setResizeAnchor('bottom')" class="resize-anchor" data-anchor="bottom">下</button>
-                <button onclick="setResizeAnchor('bottom-right')" class="resize-anchor" data-anchor="bottom-right">右下</button>
-            </div>
-            <div class="modal-buttons">
-                <button onclick="resizeCanvas()">変更</button>
-                <button onclick="closeModal('resizeModal')">キャンセル</button>
-            </div>
-        </div>
+  </div>
+  <!-- 新規キャンバスモーダル -->
+  <div class="modal" id="newCanvasModal">
+    <div class="modal-content">
+      <h2>新規キャンバス</h2>
+      <div class="input-group">
+        <input type="number" id="canvasWidth" min="1" max="256" value="16" placeholder="幅" />
+        <input type="number" id="canvasHeight" min="1" max="256" value="16" placeholder="高さ" />
+      </div>
+      <div class="modal-buttons">
+        <button onclick="createNewCanvas()">作成</button>
+        <button onclick="closeModal('newCanvasModal')">キャンセル</button>
+      </div>
     </div>
-
-    <!-- 色選択モーダル -->
-    <div class="modal" id="colorModal">
-        <div class="modal-content">
-            <h2>色選択</h2>
-            <div class="color-input-tabs">
-                <button id="hslaTab" onclick="switchColorTab('hsla')" class="active">HSLA</button>
-                <button id="argbTab" onclick="switchColorTab('argb')">ARGB</button>
-            </div>
-            
-            <div id="hslaSection" style="display: none;">
-                <div class="hsla-inputs">
-                    <div class="hsla-input">
-                        <label>H:</label>
-                        <input type="range" id="hslaHSlider" min="0" max="360" value="0" oninput="updateHSLAFromSliders()">
-                        <input type="number" id="hslaHInput" min="0" max="360" value="0" oninput="updateHSLAFromInputs()">
-                    </div>
-                    <div class="hsla-input">
-                        <label>S:</label>
-                        <input type="range" id="hslaSSlider" min="0" max="100" value="100" oninput="updateHSLAFromSliders()">
-                        <input type="number" id="hslaSInput" min="0" max="100" value="100" oninput="updateHSLAFromInputs()">
-                    </div>
-                    <div class="hsla-input">
-                        <label>L:</label>
-                        <input type="range" id="hslaLSlider" min="0" max="100" value="100" oninput="updateHSLAFromSliders()">
-                        <input type="number" id="hslaLInput" min="0" max="100" value="100" oninput="updateHSLAFromInputs()">
-                    </div>
-                    <div class="hsla-input">
-                        <label>A:</label>
-                        <input type="range" id="hslaASlider" min="0" max="100" value="100" oninput="updateHSLAFromSliders()">
-                        <input type="number" id="hslaAInput" min="0" max="100" value="100" oninput="updateHSLAFromInputs()">
-                    </div>
-                </div>
-                <div class="color-preview" id="hslaPreview"></div>
-            </div>
-
-            <div id="argbSection" style="display: none;">
-                <div class="argb-inputs">
-                    <div class="argb-input">
-                        <label>A (Alpha):</label>
-                        <input type="range" id="argbASlider" min="0" max="255" value="255" oninput="updateARGBFromSliders()">
-                        <input type="number" id="argbAInput" min="0" max="255" value="255" oninput="updateARGBFromInputs()">
-                    </div>
-                    <div class="argb-input">
-                        <label>R (Red):</label>
-                        <input type="range" id="argbRSlider" min="0" max="255" value="255" oninput="updateARGBFromSliders()">
-                        <input type="number" id="argbRInput" min="0" max="255" value="255" oninput="updateARGBFromInputs()">
-                    </div>
-                    <div class="argb-input">
-                        <label>G (Green):</label>
-                        <input type="range" id="argbGSlider" min="0" max="255" value="255" oninput="updateARGBFromSliders()">
-                        <input type="number" id="argbGInput" min="0" max="255" value="255" oninput="updateARGBFromInputs()">
-                    </div>
-                    <div class="argb-input">
-                        <label>B (Blue):</label>
-                        <input type="range" id="argbBSlider" min="0" max="255" value="255" oninput="updateARGBFromSliders()">
-                        <input type="number" id="argbBInput" min="0" max="255" value="255" oninput="updateARGBFromInputs()">
-                    </div>
-                </div>
-                <div class="color-preview" id="argbPreview"></div>
-            </div>
-            
-            <div class="modal-buttons">
-                <button onclick="confirmColor()">決定</button>
-                <button onclick="closeModal('colorModal')">キャンセル</button>
-            </div>
-        </div>
+  </div>
+  <!-- パレットモーダル -->
+  <div class="modal" id="paletteModal">
+    <div class="modal-content">
+      <h2>パレット編集</h2>
+      <div class="palette" id="paletteEditor"></div>
+      <div class="modal-buttons">
+        <button onclick="addDetailedPaletteColor()">色追加</button>
+        <button onclick="importPaletteFromModal()">インポート</button>
+        <button onclick="exportPaletteFromModal()">エクスポート</button>
+        <button onclick="closeModal('paletteModal')">閉じる</button>
+      </div>
     </div>
-    <div id="toast" class="toast">ここにメッセージが入ります</div>
-    <script>
+  </div>
+  <!-- サイズ変更モーダル -->
+  <div class="modal" id="resizeModal">
+    <div class="modal-content">
+      <h2>キャンバスサイズ変更</h2>
+      <div class="input-group">
+        <input type="number" id="newWidth" min="1" max="256" value="32" placeholder="幅" />
+        <input type="number" id="newHeight" min="1" max="256" value="32" placeholder="高さ" />
+      </div>
+      <div class="resize-grid">
+        <button onclick="setResizeAnchor('top-left')" class="resize-anchor" data-anchor="top-left">左上</button>
+        <button onclick="setResizeAnchor('top')" class="resize-anchor" data-anchor="top">上</button>
+        <button onclick="setResizeAnchor('top-right')" class="resize-anchor" data-anchor="top-right">右上</button>
+        <button onclick="setResizeAnchor('left')" class="resize-anchor" data-anchor="left">左</button>
+        <button onclick="setResizeAnchor('center')" class="resize-anchor active" data-anchor="center">真ん中</button>
+        <button onclick="setResizeAnchor('right')" class="resize-anchor" data-anchor="right">右</button>
+        <button onclick="setResizeAnchor('bottom-left')" class="resize-anchor" data-anchor="bottom-left">左下</button>
+        <button onclick="setResizeAnchor('bottom')" class="resize-anchor" data-anchor="bottom">下</button>
+        <button onclick="setResizeAnchor('bottom-right')" class="resize-anchor" data-anchor="bottom-right">右下 </button>
+      </div>
+      <div class="modal-buttons">
+        <button onclick="resizeCanvas()">変更</button>
+        <button onclick="closeModal('resizeModal')">キャンセル</button>
+      </div>
+    </div>
+  </div>
+  <!-- 色選択モーダル -->
+  <div class="modal" id="colorModal">
+    <div class="modal-content">
+      <h2>色選択</h2>
+      <div class="color-input-tabs">
+        <button id="hslaTab" onclick="switchColorTab('hsla')" class="active">HSLA</button>
+        <button id="argbTab" onclick="switchColorTab('argb')">ARGB</button>
+      </div>
+      <div id="hslaSection" style="display: none;">
+        <div class="hsla-inputs">
+          <div class="hsla-input">
+            <label>H:</label>
+            <input type="range" id="hslaHSlider" min="0" max="360" value="0" oninput="updateHSLAFromSliders()" />
+            <input type="number" id="hslaHInput" min="0" max="360" value="0" oninput="updateHSLAFromInputs()" />
+          </div>
+          <div class="hsla-input">
+            <label>S:</label>
+            <input type="range" id="hslaSSlider" min="0" max="100" value="100" oninput="updateHSLAFromSliders()" />
+            <input type="number" id="hslaSInput" min="0" max="100" value="100" oninput="updateHSLAFromInputs()" />
+          </div>
+          <div class="hsla-input">
+            <label>L:</label>
+            <input type="range" id="hslaLSlider" min="0" max="100" value="100" oninput="updateHSLAFromSliders()" />
+            <input type="number" id="hslaLInput" min="0" max="100" value="100" oninput="updateHSLAFromInputs()" />
+          </div>
+          <div class="hsla-input">
+            <label>A:</label>
+            <input type="range" id="hslaASlider" min="0" max="100" value="100" oninput="updateHSLAFromSliders()" />
+            <input type="number" id="hslaAInput" min="0" max="100" value="100" oninput="updateHSLAFromInputs()" />
+          </div>
+        </div>
+        <div class="color-preview" id="hslaPreview"></div>
+      </div>
+      <div id="argbSection" style="display: none;">
+        <div class="argb-inputs">
+          <div class="argb-input">
+            <label>A (Alpha):</label>
+            <input type="range" id="argbASlider" min="0" max="255" value="255" oninput="updateARGBFromSliders()" />
+            <input type="number" id="argbAInput" min="0" max="255" value="255" oninput="updateARGBFromInputs()" />
+          </div>
+          <div class="argb-input">
+            <label>R (Red):</label>
+            <input type="range" id="argbRSlider" min="0" max="255" value="255" oninput="updateARGBFromSliders()" />
+            <input type="number" id="argbRInput" min="0" max="255" value="255" oninput="updateARGBFromInputs()" />
+          </div>
+          <div class="argb-input">
+            <label>G (Green):</label>
+            <input type="range" id="argbGSlider" min="0" max="255" value="255" oninput="updateARGBFromSliders()" />
+            <input type="number" id="argbGInput" min="0" max="255" value="255" oninput="updateARGBFromInputs()" />
+          </div>
+          <div class="argb-input">
+            <label>B (Blue):</label>
+            <input type="range" id="argbBSlider" min="0" max="255" value="255" oninput="updateARGBFromSliders()" />
+            <input type="number" id="argbBInput" min="0" max="255" value="255" oninput="updateARGBFromInputs()" />
+          </div>
+        </div>
+        <div class="color-preview" id="argbPreview"></div>
+      </div>
+      <div class="modal-buttons">
+        <button onclick="confirmColor()">決定</button>
+        <button onclick="closeModal('colorModal')">キャンセル</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="toast">ここにメッセージが入ります</div>
+  <script>
+    // グローバル変数
+    let canvas, ctx;
+    let gridCanvas, gridCtx;
+    let selectCanvas, selectCtx;
+    let pixelWidth = 32;
+    let pixelHeight = 32;
+    let zoom = 1;
+    let showGrid = true;
+    let currentColor = '#ffffff';
+    let currentPaletteIndex = 1; // 現在選択中のパレットのインデックス
+    let palette = ['#00000000', '#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+    let pixelData = [];
+    let undoStack = [];
+    let redoStack = [];
+    let maxUndo = 10;
+    let zoomMode = 'original';
+    // アニメーション用のオフセット値（初期値は0）
+    let selectionDashOffset = 0;
+
+    // Layer関連
+    const MAX_LAYERS = 4;
+    let layers = [];
+    let currentLayerIndex = 0;
+
+    // 選択ツール関連
+    let selectedPixels = new Set();
+    let selectionStart = null;
+    let selectionEnd = null;
+    let isSelecting = false;
+    let currentTool = 'draw'; // draw, fill, select, move
+
+    // 移動ツール関連
+    let isMoving = false;
+    let moveStartX = 0;
+    let moveStartY = 0;
+
+    // タッチ・ドラッグ関連変数
+    let isLongPress = false;
+    let isDragging = false;
+    let longPressTimer = null;
+    let lastTouchX = 0;
+    let lastTouchY = 0;
+    let initialPinchDistance = 0;
+    let initialZoom = 1;
+    let scrollOffsetX = 0;
+    let scrollOffsetY = 0;
+    let isScrolling = false;
+    let isPinching = false;
+    let inCanvas = false;
+    let inSelected = false;
+    let isTouchDown = false;
 
 
-// グローバル変数
-let canvas, ctx;
-let gridCanvas, gridCtx;
-let selectCanvas, selectCtx;
-let pixelWidth = 32;
-let pixelHeight = 32;
-let zoom = 1;
-let showGrid = true;
-let currentColor = '#ffffff';
-let currentPaletteIndex = 1; // 現在選択中のパレットのインデックス
-let palette = ['#00000000','#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
-let pixelData = [];
-let undoStack = [];
-let redoStack = [];
-let maxUndo = 10;
-let zoomMode = 'original';
-// アニメーション用のオフセット値（初期値は0）
-let selectionDashOffset = 0;
+    // 初期化（復元処理を追加）
+    function init() {
+      canvas = document.getElementById('pixelCanvas');
+      ctx = canvas.getContext('2d');
+      gridCanvas = document.getElementById('gridCanvas');
+      gridCtx = gridCanvas.getContext('2d');
+      selectCanvas = document.getElementById('selectCanvas');
+      selectCtx = selectCanvas.getContext('2d');
 
-// Layer関連
-const MAX_LAYERS = 4;
-let layers = [];
-let currentLayerIndex = 0;
+      loadPaletteFromStorage();
+      loadCanvasFromStorage(); // 保存されたデータがあれば復元
 
-// 選択ツール関連
-let selectedPixels = new Set();
-let selectionStart = null;
-let selectionEnd = null;
-let isSelecting = false;
-let currentTool = 'draw'; // draw, fill, select, move
-
-// 移動ツール関連
-let isMoving = false;
-let moveStartX = 0;
-let moveStartY = 0;
-
-// タッチ・ドラッグ関連変数
-let isLongPress = false;
-let isDragging = false;
-let longPressTimer = null;
-let lastTouchX = 0;
-let lastTouchY = 0;
-let initialPinchDistance = 0;
-let initialZoom = 1;
-let scrollOffsetX = 0;
-let scrollOffsetY = 0;
-let isScrolling = false;
-let isPinching = false;
-let inCanvas = false;
-let inSelected = false;
-let isTouchDown = false;
-
-
-// 初期化（復元処理を追加）
-function init() {
-    canvas = document.getElementById('pixelCanvas');
-    ctx = canvas.getContext('2d');
-    gridCanvas = document.getElementById('gridCanvas');
-    gridCtx = gridCanvas.getContext('2d');
-    selectCanvas = document.getElementById('selectCanvas');
-    selectCtx = selectCanvas.getContext('2d');
-
-    loadPaletteFromStorage();
-    loadCanvasFromStorage(); // 保存されたデータがあれば復元
-
-    // Layerがなければ初期化
-    if (layers.length === 0) {
+      // Layerがなければ初期化
+      if (layers.length === 0) {
         initLayers();
+      }
+      updateLayerUI();
+
+      setupCanvas();
+      setupPalette();
+      setupTouchEvents();
+
+      updateCurrentColor();
+      toggleZoomMode();
+      saveState();
     }
-    updateLayerUI();
 
-    setupCanvas();
-    setupPalette();
-    setupTouchEvents();
-
-    updateCurrentColor();
-    toggleZoomMode();
-    saveState();
-}
-
-// Layer初期化
-function initLayers() {
-    layers = [];
-    for (let i = 0; i < MAX_LAYERS; i++) {
+    // Layer初期化
+    function initLayers() {
+      layers = [];
+      for (let i = 0; i < MAX_LAYERS; i++) {
         layers.push({
-            id: i,
-            name: `Layer ${i + 1}`,
-            visible: i === 0,
-            blendMode: 'normal',
-            data: new Array(pixelWidth * pixelHeight).fill(null)
+          id: i,
+          name: `Layer ${i + 1}`,
+          visible: i === 0,
+          blendMode: 'normal',
+          data: new Array(pixelWidth * pixelHeight).fill(null)
         });
+      }
+      currentLayerIndex = 0;
     }
-    currentLayerIndex = 0;
-}
 
-// パレットをローカルストレージに保存
-function savePaletteToStorage() {
-    try {
+    // パレットをローカルストレージに保存
+    function savePaletteToStorage() {
+      try {
         localStorage.setItem('pixel_palette', JSON.stringify(palette));
-    } catch (e) {
+      } catch (e) {
         console.warn('パレットの保存に失敗しました:', e);
+      }
     }
-}
 
-// ローカルストレージからパレットを復元
-function loadPaletteFromStorage() {
-    try {
+    // ローカルストレージからパレットを復元
+    function loadPaletteFromStorage() {
+      try {
         const saved = localStorage.getItem('pixel_palette');
         if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                palette = parsed;
-                if (currentPaletteIndex >= palette.length) {
-                    currentPaletteIndex = 0;
-                }
-                currentColor = palette[currentPaletteIndex];
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            palette = parsed;
+            if (currentPaletteIndex >= palette.length) {
+              currentPaletteIndex = 0;
             }
+            currentColor = palette[currentPaletteIndex];
+          }
         }
-    } catch (e) {
+      } catch (e) {
         console.warn('パレットの読み込みに失敗しました:', e);
+      }
     }
-}
 
-// キャンバスの状態をローカルストレージに保存
-function saveCanvasToStorage() {
-    try {
+    // キャンバスの状態をローカルストレージに保存
+    function saveCanvasToStorage() {
+      try {
         const canvasData = {
-            width: pixelWidth,
-            height: pixelHeight,
-            layers: layers.map(layer => ({
-                ...layer,
-                data: [...layer.data]
-            })),
-            currentLayerIndex: currentLayerIndex,
-            selectedPixels: Array.from(selectedPixels)
+          width: pixelWidth,
+          height: pixelHeight,
+          layers: layers.map(layer => ({
+            ...layer,
+            data: [...layer.data]
+          })),
+          currentLayerIndex: currentLayerIndex,
+          selectedPixels: Array.from(selectedPixels)
         };
         localStorage.setItem('pixel_canvas_data', JSON.stringify(canvasData));
-    } catch (e) {
+      } catch (e) {
         console.warn('キャンバスの保存に失敗しました:', e);
+      }
     }
-}
 
-// ローカルストレージからキャンバスを復元
-function loadCanvasFromStorage() {
-    try {
+    // ローカルストレージからキャンバスを復元
+    function loadCanvasFromStorage() {
+      try {
         const saved = localStorage.getItem('pixel_canvas_data');
         if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed && parsed.width && parsed.height && Array.isArray(parsed.layers)) {
-                pixelWidth = parsed.width;
-                pixelHeight = parsed.height;
-                layers = parsed.layers;
-                currentLayerIndex = parsed.currentLayerIndex || 0;
-                selectedPixels = new Set(parsed.selectedPixels || []);
-                return true;
-            }
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.width && parsed.height && Array.isArray(parsed.layers)) {
+            pixelWidth = parsed.width;
+            pixelHeight = parsed.height;
+            layers = parsed.layers;
+            currentLayerIndex = parsed.currentLayerIndex || 0;
+            selectedPixels = new Set(parsed.selectedPixels || []);
+            return true;
+          }
         }
-    } catch (e) {
+      } catch (e) {
         console.warn('キャンバスの読み込みに失敗しました:', e);
+      }
+      return false;
     }
-    return false;
-}
 
 
-function getCanvasDisplayInfo() {
-    const container = document.getElementById('canvasContainer');
+    function getCanvasDisplayInfo() {
+      const container = document.getElementById('canvasContainer');
 
-    const canvasRect = canvas.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
 
-    return {
+      return {
         left: canvasRect.left - containerRect.left,
         top: canvasRect.top - containerRect.top,
         width: canvasRect.width,
         height: canvasRect.height,
         pixelSizeX: canvasRect.width / pixelWidth,
         pixelSizeY: canvasRect.height / pixelHeight
-    };
-}
+      };
+    }
 
-// キャンバス設定
-function setupCanvas() {
-    canvas.width = pixelWidth;
-    canvas.height = pixelHeight;
-    gridCanvas.width = pixelWidth;
-    gridCanvas.height = pixelHeight;
+    // キャンバス設定
+    function setupCanvas() {
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
+      gridCanvas.width = pixelWidth;
+      gridCanvas.height = pixelHeight;
 
-    const container = document.getElementById('canvasContainer');
-    selectCanvas.width = container.clientWidth;
-    selectCanvas.height = container.clientHeight;
+      const container = document.getElementById('canvasContainer');
+      selectCanvas.width = container.clientWidth;
+      selectCanvas.height = container.clientHeight;
 
-selectCanvas.style.width = '100%';
-selectCanvas.style.height = '100%';
-selectCanvas.style.left = '0';
-selectCanvas.style.top = '0';
-selectCanvas.style.transform = 'none';
-    //selectCanvas.width = pixelWidth * zoom;
-    //selectCanvas.height = pixelHeight * zoom;
+      selectCanvas.style.width = '100%';
+      selectCanvas.style.height = '100%';
+      selectCanvas.style.left = '0';
+      selectCanvas.style.top = '0';
+      selectCanvas.style.transform = 'none';
+      //selectCanvas.width = pixelWidth * zoom;
+      //selectCanvas.height = pixelHeight * zoom;
 
-    // Layerデータのサイズ調整
-    layers.forEach(layer => {
+      // Layerデータのサイズ調整
+      layers.forEach(layer => {
         if (layer.data.length !== pixelWidth * pixelHeight) {
-            const newData = new Array(pixelWidth * pixelHeight).fill(null);
-            // 既存データをコピー
-            for (let i = 0; i < Math.min(layer.data.length, newData.length); i++) {
-                newData[i] = layer.data[i];
-            }
-            layer.data = newData;
+          const newData = new Array(pixelWidth * pixelHeight).fill(null);
+          // 既存データをコピー
+          for (let i = 0; i < Math.min(layer.data.length, newData.length); i++) {
+            newData[i] = layer.data[i];
+          }
+          layer.data = newData;
         }
-    });
+      });
 
-    renderCanvas();
-}
+      renderCanvas();
+    }
 
-// キャンバス描画
-function renderCanvas() {
-    // 【最重要】描画する前に、まずキャンバスのサイズ（解像度）を確定させる
-    updateCanvasStyle();
+    // キャンバス描画
+    function renderCanvas() {
+      // 【最重要】描画する前に、まずキャンバスのサイズ（解像度）を確定させる
+      updateCanvasStyle();
 
-    // メインキャンバスをクリア
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // メインキャンバスをクリア
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Layerを合成して描画
-    const compositeCanvas = document.createElement('canvas');
-    compositeCanvas.width = pixelWidth;
-    compositeCanvas.height = pixelHeight;
-    const compositeCtx = compositeCanvas.getContext('2d');
+      // Layerを合成して描画
+      const compositeCanvas = document.createElement('canvas');
+      compositeCanvas.width = pixelWidth;
+      compositeCanvas.height = pixelHeight;
+      const compositeCtx = compositeCanvas.getContext('2d');
 
-    // 各Layerを合成
-    layers.forEach((layer, layerIndex) => {
+      // 各Layerを合成
+      layers.forEach((layer, layerIndex) => {
         if (!layer.visible) return;
 
         const layerCanvas = document.createElement('canvas');
@@ -941,484 +945,497 @@ function renderCanvas() {
 
         // Layerデータを描画
         for (let y = 0; y < pixelHeight; y++) {
-            for (let x = 0; x < pixelWidth; x++) {
-                const index = y * pixelWidth + x;
-                if (layer.data[index]) {
-                    layerCtx.fillStyle = layer.data[index];
-                    layerCtx.fillRect(x, y, 1, 1);
-                }
+          for (let x = 0; x < pixelWidth; x++) {
+            const index = y * pixelWidth + x;
+            if (layer.data[index]) {
+              layerCtx.fillStyle = layer.data[index];
+              layerCtx.fillRect(x, y, 1, 1);
             }
+          }
         }
 
         // 合成モードを適用
         compositeCtx.globalCompositeOperation = getBlendMode(layer.blendMode);
         compositeCtx.drawImage(layerCanvas, 0, 0);
-    });
+      });
 
-    // 合成結果をメインキャンバスに描画
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(compositeCanvas, 0, 0);
+      // 合成結果をメインキャンバスに描画
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(compositeCanvas, 0, 0);
 
-    // 選択範囲を描画（内側の塗りつぶし）
-    /*if (selectedPixels.size > 0) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-over';
+      // 選択範囲を描画（内側の塗りつぶし）
+      /*if (selectedPixels.size > 0) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'source-over';
         
-        // 中身の半透明塗りつぶし（既存の処理）
-        ctx.fillStyle = 'rgba(255, 255, 0, 0.15)'; 
-        selectedPixels.forEach(key => {
-            const [x, y] = key.split(',').map(Number);
-            ctx.fillRect(x, y, 1, 1);
-        });
-        ctx.restore(); // 閉じ忘れを修正
-    }*/
+                // 中身の半透明塗りつぶし（既存の処理）
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.15)';
+                selectedPixels.forEach(key => {
+                    const [x, y] = key.split(',').map(Number);
+                    ctx.fillRect(x, y, 1, 1);
+                });
+                ctx.restore(); // 閉じ忘れを修正
+            }*/
 
-    // 選択ツールの始点を描画
-    if (currentTool === 'select' && selectionStart !== null) {
+      // 選択ツールの始点を描画
+      if (currentTool === 'select' && selectionStart !== null) {
         ctx.globalCompositeOperation = 'source-over';
         ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
         ctx.fillRect(selectionStart.x, selectionStart.y, 1, 1);
-    }
+      }
 
-    // 【重要】サイズ更新が先に終わっているので、ここでのクリアと描画が正しく残ります
-    selectCtx.clearRect(0, 0, selectCanvas.width, selectCanvas.height);
+      // 【重要】サイズ更新が先に終わっているので、ここでのクリアと描画が正しく残ります
+      selectCtx.clearRect(0, 0, selectCanvas.width, selectCanvas.height);
 
-    // 選択範囲の境界線を描画
-if (selectedPixels.size > 0) {
-    const container = document.getElementById('canvasContainer');
+      // 選択範囲の境界線を描画
+      if (selectedPixels.size > 0) {
+        const container = document.getElementById('canvasContainer');
 
-    const containerRect = container.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
 
-    // pixelCanvas の左上が、selectCanvas から何px離れているか
-    const canvasOffsetX = canvasRect.left - containerRect.left;
-    const canvasOffsetY = canvasRect.top - containerRect.top;
+        // pixelCanvas の左上が、selectCanvas から何px離れているか
+        const canvasOffsetX = canvasRect.left - containerRect.left;
+        const canvasOffsetY = canvasRect.top - containerRect.top;
 
-    // 1ピクセルが画面上で何pxになるか
-    const scaleX = canvasRect.width / pixelWidth;
-    const scaleY = canvasRect.height / pixelHeight;
+        // 1ピクセルが画面上で何pxになるか
+        const scaleX = canvasRect.width / pixelWidth;
+        const scaleY = canvasRect.height / pixelHeight;
 
-    selectCtx.save();
+        selectCtx.save();
 
-    selectCtx.lineWidth = 1;
-    selectCtx.setLineDash([4, 4]);
-    selectCtx.beginPath();
+        selectCtx.lineWidth = 1;
+        selectCtx.setLineDash([4, 4]);
+        selectCtx.beginPath();
 
-    selectedPixels.forEach(key => {
-        const [x, y] = key.split(',').map(Number);
+        selectedPixels.forEach(key => {
+          const [x, y] = key.split(',').map(Number);
 
-        const sx = canvasOffsetX + x * scaleX;
-        const sy = canvasOffsetY + y * scaleY;
-        const szX = scaleX;
-        const szY = scaleY;
+          const sx = canvasOffsetX + x * scaleX;
+          const sy = canvasOffsetY + y * scaleY;
+          const szX = scaleX;
+          const szY = scaleY;
 
-        const up = `${x},${y - 1}`;
-        const down = `${x},${y + 1}`;
-        const left = `${x - 1},${y}`;
-        const right = `${x + 1},${y}`;
+          const up = `${x},${y - 1}`;
+          const down = `${x},${y + 1}`;
+          const left = `${x - 1},${y}`;
+          const right = `${x + 1},${y}`;
 
-        if (!selectedPixels.has(up)) {
+          if (!selectedPixels.has(up)) {
             selectCtx.moveTo(sx, sy);
             selectCtx.lineTo(sx + szX, sy);
-        }
+          }
 
-        if (!selectedPixels.has(down)) {
+          if (!selectedPixels.has(down)) {
             selectCtx.moveTo(sx, sy + szY);
             selectCtx.lineTo(sx + szX, sy + szY);
-        }
+          }
 
-        if (!selectedPixels.has(left)) {
+          if (!selectedPixels.has(left)) {
             selectCtx.moveTo(sx, sy);
             selectCtx.lineTo(sx, sy + szY);
-        }
+          }
 
-        if (!selectedPixels.has(right)) {
+          if (!selectedPixels.has(right)) {
             selectCtx.moveTo(sx + szX, sy);
             selectCtx.lineTo(sx + szX, sy + szY);
-        }
-    });
+          }
+        });
 
-    // 黒い点線
-    selectCtx.lineDashOffset = selectionDashOffset;
-    selectCtx.strokeStyle = '#000000';
-    selectCtx.stroke();
+        // 黒い点線
+        selectCtx.lineDashOffset = selectionDashOffset;
+        selectCtx.strokeStyle = '#000000';
+        selectCtx.stroke();
 
-    // 白い点線
-    selectCtx.lineDashOffset = selectionDashOffset + 4;
-    selectCtx.strokeStyle = '#ffffff';
-    selectCtx.stroke();
+        // 白い点線
+        selectCtx.lineDashOffset = selectionDashOffset + 4;
+        selectCtx.strokeStyle = '#ffffff';
+        selectCtx.stroke();
 
-    selectCtx.restore();
-}
+        selectCtx.restore();
+      }
 
-// 2. 元々あったグリッド線（中央線などの強調線）の描画
-if (showGrid && zoom >= 6) {
-    const container = document.getElementById('canvasContainer');
+      // 2. 元々あったグリッド線（中央線などの強調線）の描画
+      if (showGrid && zoom >= 6) {
+        const container = document.getElementById('canvasContainer');
 
-    const containerRect = container.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
 
-    // canvas の左上位置
-    const canvasOffsetX = canvasRect.left - containerRect.left;
-    const canvasOffsetY = canvasRect.top - containerRect.top;
+        // canvas の左上位置
+        const canvasOffsetX = canvasRect.left - containerRect.left;
+        const canvasOffsetY = canvasRect.top - containerRect.top;
 
-    // 画像1ドットの表示サイズ
-    const scaleX = canvasRect.width / pixelWidth;
-    const scaleY = canvasRect.height / pixelHeight;
+        // 画像1ドットの表示サイズ
+        const scaleX = canvasRect.width / pixelWidth;
+        const scaleY = canvasRect.height / pixelHeight;
 
-    // 画像の表示範囲
-    const imageLeft = canvasOffsetX;
-    const imageTop = canvasOffsetY;
-    const imageRight = canvasOffsetX + canvasRect.width;
-    const imageBottom = canvasOffsetY + canvasRect.height;
+        // 画像の表示範囲
+        const imageLeft = canvasOffsetX;
+        const imageTop = canvasOffsetY;
+        const imageRight = canvasOffsetX + canvasRect.width;
+        const imageBottom = canvasOffsetY + canvasRect.height;
 
-    // 4分割用の座標計算
-    const quarterX = pixelWidth / 4;
-    const quarterY = pixelHeight / 4;
+        // 4分割用の座標計算
+        const quarterX = pixelWidth / 4;
+        const quarterY = pixelHeight / 4;
 
-    const x1 = Math.floor(canvasOffsetX + quarterX * scaleX)+0.5;
-    const x2 = Math.floor(canvasOffsetX + quarterX * 2 * scaleX)+0.5; // ※centerXと同じ
-    const x3 = Math.floor(canvasOffsetX + quarterX * 3 * scaleX)+0.5;
+        const x1 = Math.floor(canvasOffsetX + quarterX * scaleX) + 0.5;
+        const x2 = Math.floor(canvasOffsetX + quarterX * 2 * scaleX) + 0.5; // ※centerXと同じ
+        const x3 = Math.floor(canvasOffsetX + quarterX * 3 * scaleX) + 0.5;
 
-    const y1 = Math.floor(canvasOffsetY + quarterY * scaleY)+0.5;
-    const y2 = Math.floor(canvasOffsetY + quarterY * 2 * scaleY)+0.5; // ※centerYと同じ
-    const y3 = Math.floor(canvasOffsetY + quarterY * 3 * scaleY)+0.5;
+        const y1 = Math.floor(canvasOffsetY + quarterY * scaleY) + 0.5;
+        const y2 = Math.floor(canvasOffsetY + quarterY * 2 * scaleY) + 0.5; // ※centerYと同じ
+        const y3 = Math.floor(canvasOffsetY + quarterY * 3 * scaleY) + 0.5;
 
-    selectCtx.beginPath();;
-    selectCtx.strokeStyle = '#888888';
-    selectCtx.lineWidth = 1;
+        selectCtx.beginPath();;
+        selectCtx.strokeStyle = '#888888';
+        selectCtx.lineWidth = 1;
 
-    // 縦の4分割線（中央線を含む）
-    selectCtx.moveTo(x1, imageTop);
-    selectCtx.lineTo(x1, imageBottom);
+        // 縦の4分割線（中央線を含む）
+        selectCtx.moveTo(x1, imageTop);
+        selectCtx.lineTo(x1, imageBottom);
 
-    selectCtx.moveTo(x2, imageTop);
-    selectCtx.lineTo(x2, imageBottom);
+        selectCtx.moveTo(x2, imageTop);
+        selectCtx.lineTo(x2, imageBottom);
 
-    selectCtx.moveTo(x3, imageTop);
-    selectCtx.lineTo(x3, imageBottom);
+        selectCtx.moveTo(x3, imageTop);
+        selectCtx.lineTo(x3, imageBottom);
 
-    // 横の4分割線（中央線を含む）
-    selectCtx.moveTo(imageLeft, y1);
-    selectCtx.lineTo(imageRight, y1);
+        // 横の4分割線（中央線を含む）
+        selectCtx.moveTo(imageLeft, y1);
+        selectCtx.lineTo(imageRight, y1);
 
-    selectCtx.moveTo(imageLeft, y2);
-    selectCtx.lineTo(imageRight, y2);
+        selectCtx.moveTo(imageLeft, y2);
+        selectCtx.lineTo(imageRight, y2);
 
-    selectCtx.moveTo(imageLeft, y3);
-    selectCtx.lineTo(imageRight, y3);  
+        selectCtx.moveTo(imageLeft, y3);
+        selectCtx.lineTo(imageRight, y3);
 
-    // 線の描画（色や太さを反映）
-    selectCtx.stroke(); 
-}
+        // 線の描画（色や太さを反映）
+        selectCtx.stroke();
+      }
 
-/*    
-    gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
-    // 2. 1ドットずつのグリッド表示を追加（元のCSSグリッドの代わり）
-    if (showGrid && zoom >= 4) { // ズームが4倍以上のときに表示
-        gridCtx.save();
-        
-        // 1px幅の非常に薄い白線（背景に合わせて色や透明度は調整してください）
-        gridCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; 
-        gridCtx.lineWidth = 1;
-        gridCtx.beginPath();
+      /*
+          gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+          // 2. 1ドットずつのグリッド表示を追加（元のCSSグリッドの代わり）
+          if (showGrid && zoom >= 4) { // ズームが4倍以上のときに表示
+              gridCtx.save();
+      
+              // 1px幅の非常に薄い白線（背景に合わせて色や透明度は調整してください）
+              gridCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+              gridCtx.lineWidth = 1;
+              gridCtx.beginPath();
+      
+              // 縦線を引く
+              for (let x = 1; x < pixelWidth; x++) {
+                  const spos = Math.floor(x * zoom);
+                  // -0.5 することでブラウザの仕様による線のぼやけを防ぎ、クッキリ1pxにします
+                  gridCtx.moveTo(spos - 0.5, 0);
+                  gridCtx.lineTo(spos - 0.5, pixelHeight * zoom);
+              }
+      
+              // 横線を引く
+              for (let y = 1; y < pixelHeight; y++) {
+                  const spos = Math.floor(y * zoom);
+                  gridCtx.moveTo(0, spos - 0.5);
+                  gridCtx.lineTo(pixelWidth * zoom, spos - 0.5);
+              }
+      
+              gridCtx.stroke();
+              gridCtx.restore();
+          }
+      */
 
-        // 縦線を引く
-        for (let x = 1; x < pixelWidth; x++) {
-            const spos = Math.floor(x * zoom);
-            // -0.5 することでブラウザの仕様による線のぼやけを防ぎ、クッキリ1pxにします
-            gridCtx.moveTo(spos - 0.5, 0);
-            gridCtx.lineTo(spos - 0.5, pixelHeight * zoom);
-        }
-
-        // 横線を引く
-        for (let y = 1; y < pixelHeight; y++) {
-            const spos = Math.floor(y * zoom);
-            gridCtx.moveTo(0, spos - 0.5);
-            gridCtx.lineTo(pixelWidth * zoom, spos - 0.5);
-        }
-
-        gridCtx.stroke();
-        gridCtx.restore();
+      // ※一番最後にあった updateCanvasStyle() は先頭に移したため、ここでは呼び出しません。
     }
-*/
 
-    // ※一番最後にあった updateCanvasStyle() は先頭に移したため、ここでは呼び出しません。
-}
-
-function animateSelection() {
-        if (selectedPixels.size > 0) {
-            selectionDashOffset -= 4;
-            if (selectionDashOffset <= -8) {
-                selectionDashOffset = 0;
-            }
-            renderCanvas();
+    function animateSelection() {
+      if (selectedPixels.size > 0) {
+        selectionDashOffset -= 4;
+        if (selectionDashOffset <= -8) {
+          selectionDashOffset = 0;
         }
+        renderCanvas();
+      }
 
-    setTimeout(animateSelection,500);
-}
-animateSelection();
+      setTimeout(animateSelection, 500);
+    }
+    animateSelection();
 
-// キャンバススタイル更新
-function updateCanvasStyle() {
-    const displayWidth = pixelWidth * zoom;
-    const displayHeight = pixelHeight * zoom;
+    // キャンバススタイル更新
+    function updateCanvasStyle() {
+      const displayWidth = pixelWidth * zoom;
+      const displayHeight = pixelHeight * zoom;
 
-    // メインキャンバスは等倍（1ドット1px）をCSSで拡大（ボケ防止に pixelated を追加）
-    canvas.style.imageRendering = 'pixelated';
-    canvas.style.width = displayWidth + 'px';
-    canvas.style.height = displayHeight + 'px';
-    canvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+      // メインキャンバスは等倍（1ドット1px）をCSSで拡大（ボケ防止に pixelated を追加）
+      canvas.style.imageRendering = 'pixelated';
+      canvas.style.width = displayWidth + 'px';
+      canvas.style.height = displayHeight + 'px';
+      canvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
 
-    // 【重要】gridCanvasの解像度（内部サイズ）をズーム後の実サイズに更新する
-    //selectCanvas.width = displayWidth;
-    //selectCanvas.height = displayHeight;
+      // 【重要】gridCanvasの解像度（内部サイズ）をズーム後の実サイズに更新する
+      //selectCanvas.width = displayWidth;
+      //selectCanvas.height = displayHeight;
 
-    // gridCanvasのスタイル（表示サイズはそのまま、transformだけ適用）
-    //selectCanvas.style.width = displayWidth + 'px';
-    //selectCanvas.style.height = displayHeight + 'px';
-    //selectCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+      // gridCanvasのスタイル（表示サイズはそのまま、transformだけ適用）
+      //selectCanvas.style.width = displayWidth + 'px';
+      //selectCanvas.style.height = displayHeight + 'px';
+      //selectCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
 
-    gridCanvas.width = displayWidth;
-    gridCanvas.height = displayHeight;
-    gridCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
-    if (showGrid && zoom >= 2) {
+      gridCanvas.width = displayWidth;
+      gridCanvas.height = displayHeight;
+      gridCanvas.style.transform = `translate(${scrollOffsetX}px, ${scrollOffsetY}px)`;
+      if (showGrid && zoom >= 2) {
         gridCanvas.style.backgroundImage = `
-            linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px)
-        `;
+                    linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px)
+                `;
         gridCanvas.style.backgroundSize = `${zoom}px ${zoom}px`;
-    } else {
+      } else {
         gridCanvas.style.backgroundImage = 'none';
+      }
+
+      const modeText = zoomMode === 'fit' ? ' (画面合わせ)' : '';
+      document.getElementById('zoomIndicator').textContent = Math.round(zoom * 100) + '%' + modeText;
     }
 
-    const modeText = zoomMode === 'fit' ? ' (画面合わせ)' : '';
-    document.getElementById('zoomIndicator').textContent = Math.round(zoom * 100) + '%' + modeText;
-}
-
-// 合成モードをCanvas APIの値に変換
-function getBlendMode(mode) {
-    switch (mode) {
-        case 'add': return 'lighter';
-        case 'multiply': return 'multiply';
-        default: return 'source-over';
+    // 合成モードをCanvas APIの値に変換
+    function getBlendMode(mode) {
+      switch (mode) {
+        case 'add':
+          return 'lighter';
+        case 'multiply':
+          return 'multiply';
+        default:
+          return 'source-over';
+      }
     }
-}
 
 
-// パレット設定
-function setupPalette() {
-    const paletteEl = document.getElementById('palette');
-    paletteEl.innerHTML = '';
-    
-    palette.forEach((color, index) => {
+    // パレット設定
+    function setupPalette() {
+      const paletteEl = document.getElementById('palette');
+      paletteEl.innerHTML = '';
+
+      palette.forEach((color, index) => {
         const colorEl = document.createElement('div');
         colorEl.className = 'palette-color' + (index === currentPaletteIndex ? ' selected' : '');
         if (color === '#00000000' || color === 'transparent') {
-            colorEl.style.backgroundColor = 'transparent';
-            colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
-            colorEl.style.backgroundSize = '10px 10px';
-            colorEl.style.backgroundPosition = '0 0, 0 5px, 5px -5px, -5px 0px';
+          colorEl.style.backgroundColor = 'transparent';
+          colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
+          colorEl.style.backgroundSize = '10px 10px';
+          colorEl.style.backgroundPosition = '0 0, 0 5px, 5px -5px, -5px 0px';
         } else {
-            colorEl.style.backgroundColor = color;
+          colorEl.style.backgroundColor = color;
         }
         colorEl.onclick = () => selectPaletteIndex(index);
         paletteEl.appendChild(colorEl);
-    });
-}
+      });
+    }
 
-// パレットをインデックス指定で選択
-function selectPaletteIndex(index) {
-    if (index >= 0 && index < palette.length) {
+    // パレットをインデックス指定で選択
+    function selectPaletteIndex(index) {
+      if (index >= 0 && index < palette.length) {
         currentPaletteIndex = index;
         currentColor = palette[index];
         updateCurrentColor();
         setupPalette();
+      }
     }
-}
 
-// スポイト等で色から選択
-function selectColor(color) {
-    let index = palette.indexOf(color);
-    if (index === -1) {
+    // スポイト等で色から選択
+    function selectColor(color) {
+      let index = palette.indexOf(color);
+      if (index === -1) {
         palette.push(color);
         index = palette.length - 1;
         savePaletteToStorage();
+      }
+      selectPaletteIndex(index);
     }
-    selectPaletteIndex(index);
-}
 
-// 現在の色更新
-function updateCurrentColor() {
-    const colorEl = document.getElementById('currentColor');
-    if (currentColor === '#00000000' || currentColor === 'transparent') {
+    // 現在の色更新
+    function updateCurrentColor() {
+      const colorEl = document.getElementById('currentColor');
+      if (currentColor === '#00000000' || currentColor === 'transparent') {
         colorEl.style.backgroundColor = 'transparent';
         colorEl.style.backgroundImage = 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)';
         colorEl.style.backgroundSize = '10px 10px';
         colorEl.style.backgroundPosition = '0 0, 0 5px, 5px -5px, -5px 0px';
-    } else {
+      } else {
         colorEl.style.backgroundColor = currentColor;
         colorEl.style.backgroundImage = 'none';
+      }
     }
-}
 
-// イベントリスナーの一括設定
-function setupTouchEvents() {
-    const container = document.getElementById('canvasContainer');
+    // イベントリスナーの一括設定
+    function setupTouchEvents() {
+      const container = document.getElementById('canvasContainer');
 
-    // --- UIボタン類の操作でキャンバス描画が誤作動しないよう伝播を防止 ---
-    const ignoreElements = document.querySelectorAll('button, .top-controls, #zoomIndicator, .layer-popup, .tool-buttons, .layer-popup');
-    ignoreElements.forEach(el => {
+      // --- UIボタン類の操作でキャンバス描画が誤作動しないよう伝播を防止 ---
+      const ignoreElements = document.querySelectorAll('button, .top-controls, #zoomIndicator, .layer-popup, .tool-buttons, .layer-popup');
+      ignoreElements.forEach(el => {
         const stopPropagation = (e) => e.stopPropagation();
-        el.addEventListener('touchstart', stopPropagation, { passive: false });
+        el.addEventListener('touchstart', stopPropagation, {
+          passive: false
+        });
         el.addEventListener('mousedown', stopPropagation);
-    });
+      });
 
-    // タッチイベント
-    container.addEventListener('touchstart', handleTouchStart, { passive: false });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd);
+      // タッチイベント
+      container.addEventListener('touchstart', handleTouchStart, {
+        passive: false
+      });
+      container.addEventListener('touchmove', handleTouchMove, {
+        passive: false
+      });
+      container.addEventListener('touchend', handleTouchEnd);
 
-    // マウスイベント（PC対応）
-    window.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    container.addEventListener('wheel', handleWheel, { passive: false });
+      // マウスイベント（PC対応）
+      window.addEventListener('mousedown', handleMouseDown);
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      container.addEventListener('wheel', handleWheel, {
+        passive: false
+      });
 
-    document.getElementById('zoomIndicator').addEventListener('click', toggleZoomMode);
-}
-
-// タッチ開始
-function handleTouchStart(e) {
-    // 画面上のボタン、パレット、モーダル、右上コントロール（ズーム表示含む）の直接タップを弾く
-    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .layer-popup, .tool-buttons, .palette, .layer-popup');
-    if (isUIElement) {
-        return;
+      document.getElementById('zoomIndicator').addEventListener('click', toggleZoomMode);
     }
 
-    if (longPressTimer) {
+    // タッチ開始
+    function handleTouchStart(e) {
+      // 画面上のボタン、パレット、モーダル、右上コントロール（ズーム表示含む）の直接タップを弾く
+      const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .layer-popup, .tool-buttons, .palette, .layer-popup');
+      if (isUIElement) {
+        return;
+      }
+
+      if (longPressTimer) {
         clearTimeout(longPressTimer);
         longPressTimer = null;
-    }
-    isLongPress = false;
-    isScrolling = false;
+      }
+      isLongPress = false;
+      isScrolling = false;
 
-    // 2本指以上の場合はピンチモードへ
-    if (e.touches.length >= 2) {
+      // 2本指以上の場合はピンチモードへ
+      if (e.touches.length >= 2) {
         isPinching = true;
         initialPinchDistance = getPinchDistance(e.touches);
         initialZoom = zoom;
         return;
-    }
+      }
 
-    if (e.touches.length === 1 && !isPinching) {
+      if (e.touches.length === 1 && !isPinching) {
         const touch = e.touches[0];
         lastTouchX = touch.clientX;
         lastTouchY = touch.clientY;
         isDragging = false;
 
         longPressTimer = setTimeout(() => {
-            isLongPress = true;
-            if (navigator.vibrate) navigator.vibrate(40);
-            handleLongPress(touch);
+          isLongPress = true;
+          if (navigator.vibrate) navigator.vibrate(40);
+          handleLongPress(touch);
         }, 500);
 
-    //キャンバス内外判定
-    inCanvas = false;
-    inSelected = false;
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((touch.clientX - rect.left) / zoom);
-    const y = Math.floor((touch.clientY - rect.top) / zoom);
+        //キャンバス内外判定
+        inCanvas = false;
+        inSelected = false;
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.floor((touch.clientX - rect.left) / zoom);
+        const y = Math.floor((touch.clientY - rect.top) / zoom);
 
-    // キャンバス内
-    if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
-        inCanvas = true;
-        // 選択範囲内（文字列のキーを作成して直接チェック）
-        if (selectedPixels.size > 0) {
+        // キャンバス内
+        if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+          inCanvas = true;
+          // 選択範囲内（文字列のキーを作成して直接チェック）
+          if (selectedPixels.size > 0) {
             const coordKey = `${x},${y}`;
             if (selectedPixels.has(coordKey)) {
-                inSelected = true;
+              inSelected = true;
             }
+          }
         }
-    }
+
+      }
+      e.preventDefault();
 
     }
 
-}
-
-// タッチ終了
-function handleTouchEnd(e) {
-    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .palette, .layer-popup');
-    if (isUIElement) {
+    // タッチ終了
+    function handleTouchEnd(e) {
+      const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .palette, .layer-popup');
+      if (isUIElement) {
         return;
-    }
+      }
 
-    if (longPressTimer) {
+      if (longPressTimer) {
         clearTimeout(longPressTimer);
         longPressTimer = null;
-    }
+      }
 
-    // すべての指が離れたらピンチ状態を解除
-    if (e.touches.length === 0) {
+      // すべての指が離れたらピンチ状態を解除
+      if (e.touches.length === 0) {
         if (isPinching) {
-            isPinching = false;
-            isScrolling = false;
-            isLongPress = false;
-            isMoving = false;
-            isDragging = false;
-            inCanvas = false;
-            inSelected = false;
-            return;
+          isPinching = false;
+          isScrolling = false;
+          isLongPress = false;
+          isMoving = false;
+          isDragging = false;
+          inCanvas = false;
+          inSelected = false;
+          return;
         }
-    }
+      }
 
-    // 移動状態をリセット
-    isMoving = false;
+      // 移動状態をリセット
+      isMoving = false;
 
-    // 1本指でのタップ描画判定（ドラッグでもロングプレスでもない場合）
-    if (e.changedTouches.length === 1 && !isDragging && !isLongPress && !isPinching) {
+      // 1本指でのタップ描画判定（ドラッグでもロングプレスでもない場合）
+      if (e.changedTouches.length === 1 && !isDragging && !isLongPress && !isPinching) {
         const touch = e.changedTouches[0];
         const rect = canvas.getBoundingClientRect();
 
         if (
-            touch.clientX >= rect.left &&
-            touch.clientX <= rect.right &&
-            touch.clientY >= rect.top &&
-            touch.clientY <= rect.bottom
+          touch.clientX >= rect.left &&
+          touch.clientX <= rect.right &&
+          touch.clientY >= rect.top &&
+          touch.clientY <= rect.bottom
         ) {
-            if (currentTool !== 'move') {
-                // 描画・選択ツールはタップで処理
-                drawPixelAt(touch.clientX, touch.clientY);
-                saveState();
-            }
+          if (currentTool !== 'move') {
+            // 描画・選択ツールはタップで処理
+            drawPixelAt(touch.clientX, touch.clientY);
+            saveState();
+          }
         }
+      }
+
+      isScrolling = false;
+      isLongPress = false;
+      isDragging = false;
+      inCanvas = false;
+      inSelected = false;
+      e.preventDefault();
     }
 
-    isScrolling = false;
-    isLongPress = false;
-    isDragging = false;
-    inCanvas = false;
-    inSelected = false;
-}
-
-function handleTouchMove(e) {
-    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .palette, .layer-popup');
-    if (isUIElement) {
+    function handleTouchMove(e) {
+      const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator, .palette, .layer-popup');
+      if (isUIElement) {
         return;
-    }
-    if (inSelected==2) return;
+      }
+      if (inSelected == 2) return;
 
-    // 2本指ズーム処理
-if (e.touches.length >= 2) {
-    isPinching = true;
-    if (longPressTimer) clearTimeout(longPressTimer);
+      // 2本指ズーム処理
+      if (e.touches.length >= 2) {
+        isPinching = true;
+        if (longPressTimer) clearTimeout(longPressTimer);
 
-    const currentDistance = getPinchDistance(e.touches);
-    if (initialPinchDistance > 0) {
-        const scale = currentDistance / initialPinchDistance;
-        const newZoom = Math.max(1, Math.min(50, initialZoom * scale));
+        const currentDistance = getPinchDistance(e.touches);
+        if (initialPinchDistance > 0) {
+          const scale = currentDistance / initialPinchDistance;
+          const newZoom = Math.max(1, Math.min(50, initialZoom * scale));
 
-        if (newZoom !== zoom) {
+          if (newZoom !== zoom) {
             const oldZoom = zoom;
             zoom = newZoom;
 
@@ -1430,14 +1447,14 @@ if (e.touches.length >= 2) {
             zoomMode = 'manual';
             if (typeof updateCanvasStyle === 'function') updateCanvasStyle();
             renderCanvas();
+          }
         }
-    }
-    e.preventDefault();
-    return;
-}
+        e.preventDefault();
+        return;
+      }
 
-    // 1本指処理
-    if (e.touches.length === 1 && !isPinching) {
+      // 1本指処理
+      if (e.touches.length === 1 && !isPinching) {
         if (e.target.closest('button, .palette-color, .modal, input, select')) return;
 
         const touch = e.touches[0];
@@ -1446,134 +1463,135 @@ if (e.touches.length >= 2) {
 
         // ドラッグ判定
         if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
-            isDragging = true;
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
+          isDragging = true;
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
         }
 
         // 移動ツールの場合
         if (currentTool === 'move') {
-            const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((touch.clientX - rect.left) / zoom);
-            const y = Math.floor((touch.clientY - rect.top) / zoom);
+          const rect = canvas.getBoundingClientRect();
+          const x = Math.floor((touch.clientX - rect.left) / zoom);
+          const y = Math.floor((touch.clientY - rect.top) / zoom);
 
-            // キャンバス内の場合は移動処理
-            if ((inCanvas && selectedPixels.size==0) || (inCanvas && inSelected)) {
-                if (!isMoving) {
-                    isMoving = true;
-                    moveStartX = x;
-                    moveStartY = y;
-                } else {
-                    const moveDeltaX = x - moveStartX;
-                    const moveDeltaY = y - moveStartY;
+          // キャンバス内の場合は移動処理
+          if ((inCanvas && selectedPixels.size == 0) || (inCanvas && inSelected)) {
+            if (!isMoving) {
+              isMoving = true;
+              moveStartX = x;
+              moveStartY = y;
+            } else {
+              const moveDeltaX = x - moveStartX;
+              const moveDeltaY = y - moveStartY;
 
-                    if (moveDeltaX !== 0 || moveDeltaY !== 0) {
+              if (moveDeltaX !== 0 || moveDeltaY !== 0) {
 
-                        const layer = layers[currentLayerIndex];
+                const layer = layers[currentLayerIndex];
 
-                        if (selectedPixels.size > 0) {
-                            // 選択範囲の移動
-                            const newSelectedPixels = new Set();
-                            const movedData = {};
+                if (selectedPixels.size > 0) {
+                  // 選択範囲の移動
+                  const newSelectedPixels = new Set();
+                  const movedData = {};
 
-                            selectedPixels.forEach(key => {
-                                const [sx, sy] = key.split(',').map(Number);
-                                const newX = sx + moveDeltaX;
-                                const newY = sy + moveDeltaY;
+                  selectedPixels.forEach(key => {
+                    const [sx, sy] = key.split(',').map(Number);
+                    const newX = sx + moveDeltaX;
+                    const newY = sy + moveDeltaY;
 
-                                if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
-                                    const oldIndex = sy * pixelWidth + sx;
-                                    const newIndex = newY * pixelWidth + newX;
-                                    movedData[newIndex] = layer.data[oldIndex];
-                                    newSelectedPixels.add(`${newX},${newY}`);
-                                }
-                            });
-
-                            // 移動元をクリア
-                            selectedPixels.forEach(key => {
-                                const [sx, sy] = key.split(',').map(Number);
-                                const oldIndex = sy * pixelWidth + sx;
-                                layer.data[oldIndex] = null;
-                            });
-
-                            // 移動先に設定
-                            Object.entries(movedData).forEach(([index, color]) => {
-                                layer.data[parseInt(index)] = color;
-                            });
-
-                            selectedPixels = newSelectedPixels;
-                            if (selectedPixels.size==0) {
-                                inSelected = 2;
-                            }
-                        } else {
-                            // Layer全体の移動
-                            const newData = new Array(pixelWidth * pixelHeight).fill(null);
-
-                            for (let cy = 0; cy < pixelHeight; cy++) {
-                                for (let cx = 0; cx < pixelWidth; cx++) {
-                                    const oldIndex = cy * pixelWidth + cx;
-                                    const newX = cx + moveDeltaX;
-                                    const newY = cy + moveDeltaY;
-
-                                    if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
-                                        const newIndex = newY * pixelWidth + newX;
-                                        newData[newIndex] = layer.data[oldIndex];
-                                    }
-                                }
-                            }
-
-                            layer.data = newData;
-                        }
-
-                        moveStartX = x;
-                        moveStartY = y;
-                        renderCanvas();
-                        saveCanvasToStorage();
+                    if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
+                      const oldIndex = sy * pixelWidth + sx;
+                      const newIndex = newY * pixelWidth + newX;
+                      movedData[newIndex] = layer.data[oldIndex];
+                      newSelectedPixels.add(`${newX},${newY}`);
                     }
+                  });
+
+                  // 移動元をクリア
+                  selectedPixels.forEach(key => {
+                    const [sx, sy] = key.split(',').map(Number);
+                    const oldIndex = sy * pixelWidth + sx;
+                    layer.data[oldIndex] = null;
+                  });
+
+                  // 移動先に設定
+                  Object.entries(movedData).forEach(([index, color]) => {
+                    layer.data[parseInt(index)] = color;
+                  });
+
+                  selectedPixels = newSelectedPixels;
+                  if (selectedPixels.size == 0) {
+                    inSelected = 2;
+                  }
+                } else {
+                  // Layer全体の移動
+                  const newData = new Array(pixelWidth * pixelHeight).fill(null);
+
+                  for (let cy = 0; cy < pixelHeight; cy++) {
+                    for (let cx = 0; cx < pixelWidth; cx++) {
+                      const oldIndex = cy * pixelWidth + cx;
+                      const newX = cx + moveDeltaX;
+                      const newY = cy + moveDeltaY;
+
+                      if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
+                        const newIndex = newY * pixelWidth + newX;
+                        newData[newIndex] = layer.data[oldIndex];
+                      }
+                    }
+                  }
+
+                  layer.data = newData;
                 }
-                e.preventDefault();
-                return;
+
+                moveStartX = x;
+                moveStartY = y;
+                renderCanvas();
+                saveCanvasToStorage();
+              }
             }
-            // キャンバス外はスクロール
+            e.preventDefault();
+            return;
+          }
+          // キャンバス外はスクロール
         }
 
         // 通常のスクロール処理
         if (isDragging || isScrolling) {
-            isScrolling = true;
-            scrollOffsetX += deltaX;
-            scrollOffsetY += deltaY;
-            updateCanvasStyle();
-            renderCanvas();
+          isScrolling = true;
+          scrollOffsetX += deltaX;
+          scrollOffsetY += deltaY;
+          updateCanvasStyle();
+          renderCanvas();
         }
 
         lastTouchX = touch.clientX;
         lastTouchY = touch.clientY;
+      }
+      e.preventDefault();
     }
-}
 
-// PC用マウス操作（タッチ操作と統一）
-let isMouseDown = false;
-let mouseDownX = 0;
-let mouseDownY = 0;
-let isMouseDragging = false;
-let mouseLongPressTimer = null;
+    // PC用マウス操作（タッチ操作と統一）
+    let isMouseDown = false;
+    let mouseDownX = 0;
+    let mouseDownY = 0;
+    let isMouseDragging = false;
+    let mouseLongPressTimer = null;
 
-function handleMouseDown(e) {
-    if (e.button !== 0) return; // 左クリックのみ
+    function handleMouseDown(e) {
+      if (e.button !== 0) return; // 左クリックのみ
 
-    const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator');
-    if (isUIElement) return;
+      const isUIElement = e.target.closest('button, .palette-color, .modal, input, select, .top-controls, #zoomIndicator');
+      if (isUIElement) return;
 
-    e.preventDefault();
-    isMouseDown = true;
-    mouseDownX = e.clientX;
-    mouseDownY = e.clientY;
-    isMouseDragging = false;
-    isLongPress = false;
+      e.preventDefault();
+      isMouseDown = true;
+      mouseDownX = e.clientX;
+      mouseDownY = e.clientY;
+      isMouseDragging = false;
+      isLongPress = false;
 
-    if (currentTool === 'move') {
+      if (currentTool === 'move') {
         const rect = canvas.getBoundingClientRect();
         const x = Math.floor((e.clientX - rect.left) / zoom);
         const y = Math.floor((e.clientY - rect.top) / zoom);
@@ -1584,123 +1602,126 @@ function handleMouseDown(e) {
 
         // キャンバス内
         if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
-            inCanvas = true;
-            // 選択範囲内（文字列のキーを作成して直接チェック）
-            if (selectedPixels.size > 0) {
-                const coordKey = `${x},${y}`;
-                if (selectedPixels.has(coordKey)) {
-                    inSelected = true;
-                }
+          inCanvas = true;
+          // 選択範囲内（文字列のキーを作成して直接チェック）
+          if (selectedPixels.size > 0) {
+            const coordKey = `${x},${y}`;
+            if (selectedPixels.has(coordKey)) {
+              inSelected = true;
             }
-            isMoving = true;
-            moveStartX = x;
-            moveStartY = y;
+          }
+          isMoving = true;
+          moveStartX = x;
+          moveStartY = y;
         }
 
         return;
+      }
+
+      // ロングプレス判定
+      mouseLongPressTimer = setTimeout(() => {
+        if (isMouseDown && !isMouseDragging) {
+          isLongPress = true;
+          if (navigator.vibrate) navigator.vibrate(40);
+          handleLongPress({
+            clientX: e.clientX,
+            clientY: e.clientY
+          });
+        }
+      }, 500);
     }
 
-    // ロングプレス判定
-    mouseLongPressTimer = setTimeout(() => {
-        if (isMouseDown && !isMouseDragging) {
-            isLongPress = true;
-            if (navigator.vibrate) navigator.vibrate(40);
-            handleLongPress({ clientX: e.clientX, clientY: e.clientY });
-        }
-    }, 500);
-}
+    function handleMouseMove(e) {
+      if (!isMouseDown) return;
 
-function handleMouseMove(e) {
-    if (!isMouseDown) return;
+      const deltaX = e.clientX - mouseDownX;
+      const deltaY = e.clientY - mouseDownY;
 
-    const deltaX = e.clientX - mouseDownX;
-    const deltaY = e.clientY - mouseDownY;
-
-    // ドラッグ判定
-    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+      // ドラッグ判定
+      if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
         isMouseDragging = true;
         if (mouseLongPressTimer) {
-            clearTimeout(mouseLongPressTimer);
-            mouseLongPressTimer = null;
+          clearTimeout(mouseLongPressTimer);
+          mouseLongPressTimer = null;
         }
-    }
+      }
 
-    if (isMoving && currentTool === 'move') {
+      if (isMoving && currentTool === 'move') {
         const rect = canvas.getBoundingClientRect();
         const x = Math.floor((e.clientX - rect.left) / zoom);
         const y = Math.floor((e.clientY - rect.top) / zoom);
 
-        if ((inCanvas && selectedPixels.size==0) || (inCanvas && inSelected)) {
-            const moveDeltaX = x - moveStartX;
-            const moveDeltaY = y - moveStartY;
+        if ((inCanvas && selectedPixels.size == 0) || (inCanvas && inSelected)) {
+          const moveDeltaX = x - moveStartX;
+          const moveDeltaY = y - moveStartY;
 
-            if (moveDeltaX !== 0 || moveDeltaY !== 0) {
+          if (moveDeltaX !== 0 || moveDeltaY !== 0) {
 
-                const layer = layers[currentLayerIndex];
+            const layer = layers[currentLayerIndex];
 
-                if (selectedPixels.size > 0) {
-                    // 選択範囲の移動
-                    const newSelectedPixels = new Set();
-                    const movedData = {};
+            if (selectedPixels.size > 0) {
+              // 選択範囲の移動
+              const newSelectedPixels = new Set();
+              const movedData = {};
 
-                    selectedPixels.forEach(key => {
-                        const [sx, sy] = key.split(',').map(Number);
-                        const newX = sx + moveDeltaX;
-                        const newY = sy + moveDeltaY;
+              selectedPixels.forEach(key => {
+                const [sx, sy] = key.split(',').map(Number);
+                const newX = sx + moveDeltaX;
+                const newY = sy + moveDeltaY;
 
-                        if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
-                            const oldIndex = sy * pixelWidth + sx;
-                            const newIndex = newY * pixelWidth + newX;
-                            movedData[newIndex] = layer.data[oldIndex];
-                            newSelectedPixels.add(`${newX},${newY}`);
-                        }
-                    });
-
-                    // 移動元をクリア
-                    selectedPixels.forEach(key => {
-                        const [sx, sy] = key.split(',').map(Number);
-                        const oldIndex = sy * pixelWidth + sx;
-                        layer.data[oldIndex] = null;
-                    });
-
-                    // 移動先に設定
-                    Object.entries(movedData).forEach(([index, color]) => {
-                        layer.data[parseInt(index)] = color;
-                    });
-
-                    selectedPixels = newSelectedPixels;
-                    if (selectedPixels.size==0) {
-                      isMouseDown = false;
-                    }
-                } else {
-                    // Layer全体の移動
-                    const newData = new Array(pixelWidth * pixelHeight).fill(null);
-
-                    for (let cy = 0; cy < pixelHeight; cy++) {
-                        for (let cx = 0; cx < pixelWidth; cx++) {
-                            const oldIndex = cy * pixelWidth + cx;
-                            const newX = cx + moveDeltaX;
-                            const newY = cy + moveDeltaY;
-
-                            if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
-                                const newIndex = newY * pixelWidth + newX;
-                                newData[newIndex] = layer.data[oldIndex];
-                            }
-                        }
-                    }
-
-                    layer.data = newData;
+                if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
+                  const oldIndex = sy * pixelWidth + sx;
+                  const newIndex = newY * pixelWidth + newX;
+                  movedData[newIndex] = layer.data[oldIndex];
+                  newSelectedPixels.add(`${newX},${newY}`);
                 }
+              });
 
-                moveStartX = x;
-                moveStartY = y;
-                renderCanvas();
-                saveCanvasToStorage();
+              // 移動元をクリア
+              selectedPixels.forEach(key => {
+                const [sx, sy] = key.split(',').map(Number);
+                const oldIndex = sy * pixelWidth + sx;
+                layer.data[oldIndex] = null;
+              });
+
+              // 移動先に設定
+              Object.entries(movedData).forEach(([index, color]) => {
+                layer.data[parseInt(index)] = color;
+              });
+
+              selectedPixels = newSelectedPixels;
+              if (selectedPixels.size == 0) {
+                isMouseDown = false;
+              }
+            } else {
+              // Layer全体の移動
+              const newData = new Array(pixelWidth * pixelHeight).fill(null);
+
+              for (let cy = 0; cy < pixelHeight; cy++) {
+                for (let cx = 0; cx < pixelWidth; cx++) {
+                  const oldIndex = cy * pixelWidth + cx;
+                  const newX = cx + moveDeltaX;
+                  const newY = cy + moveDeltaY;
+
+                  if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
+                    const newIndex = newY * pixelWidth + newX;
+                    newData[newIndex] = layer.data[oldIndex];
+                  }
+                }
+              }
+
+              layer.data = newData;
             }
-            return;
+
+            moveStartX = x;
+            moveStartY = y;
+            renderCanvas();
+            saveCanvasToStorage();
+          }
+          return;
         }
-    }
-    if (isMouseDragging) {
+      }
+      if (isMouseDragging) {
         // ドラッグスクロール
         scrollOffsetX += e.clientX - mouseDownX;
         scrollOffsetY += e.clientY - mouseDownY;
@@ -1708,39 +1729,39 @@ function handleMouseMove(e) {
         mouseDownY = e.clientY;
         updateCanvasStyle();
         renderCanvas();
+      }
     }
-}
 
-function handleMouseUp(e) {
-    if (!isMouseDown) return;
+    function handleMouseUp(e) {
+      if (!isMouseDown) return;
 
-    if (mouseLongPressTimer) {
+      if (mouseLongPressTimer) {
         clearTimeout(mouseLongPressTimer);
         mouseLongPressTimer = null;
-    }
+      }
 
-    isMouseDown = false;
-    isMoving = false;
+      isMouseDown = false;
+      isMoving = false;
 
-    // ドラッグでもなくロングプレスでもなく移動ツールでもない場合は短クリックとして処理
-    if (!isMouseDragging && !isLongPress && currentTool !== 'move') {
+      // ドラッグでもなくロングプレスでもなく移動ツールでもない場合は短クリックとして処理
+      if (!isMouseDragging && !isLongPress && currentTool !== 'move') {
         drawPixelAt(e.clientX, e.clientY);
         saveState();
+      }
+
+      isMouseDragging = false;
+      isLongPress = false;
+      inCanvas = false;
+      inSelected = false;
     }
 
-    isMouseDragging = false;
-    isLongPress = false;
-    inCanvas = false;
-    inSelected = false;
-}
+    // ホイールズーム
+    function handleWheel(e) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const newZoom = Math.max(1, Math.min(50, zoom * delta));
 
-// ホイールズーム
-function handleWheel(e) {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(1, Math.min(50, zoom * delta));
-
-    if (newZoom !== zoom) {
+      if (newZoom !== zoom) {
         const oldZoom = zoom;
         zoom = newZoom;
 
@@ -1752,171 +1773,178 @@ function handleWheel(e) {
         zoomMode = 'manual';
         if (typeof updateCanvasStyle === 'function') updateCanvasStyle();
         renderCanvas();
+      }
     }
-}
 
 // スポイト/選択ツールの塗りつぶし選択
 function handleLongPress(touch) {
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((touch.clientX - rect.left) / zoom);
-    const y = Math.floor((touch.clientY - rect.top) / zoom);
+  // 正確なピクセル座標を取得
+  const { x, y } = getPixelCoordinates(touch.clientX, touch.clientY);
 
-    if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
-        if (currentTool === 'select') {
-            // 選択ツール：塗りつぶし選択
-            const layer = layers[currentLayerIndex];
-            const startIndex = y * pixelWidth + x;
-            const targetColor = layer.data[startIndex];
-            const stack = [[x, y]];
-            const visited = new Set();
+  if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+    if (currentTool === 'select') {
+      // 選択ツール：塗りつぶし選択（隣接する同色ピクセルを全選択）
+      const layer = layers[currentLayerIndex];
+      const startIndex = y * pixelWidth + x;
+      const targetColor = layer.data[startIndex];
+      const stack = [[x, y]];
+      const visited = new Set();
 
-            while (stack.length > 0) {
-                const [cx, cy] = stack.pop();
+      while (stack.length > 0) {
+        const [cx, cy] = stack.pop();
 
-                if (cx < 0 || cx >= pixelWidth || cy < 0 || cy >= pixelHeight) continue;
+        if (cx < 0 || cx >= pixelWidth || cy < 0 || cy >= pixelHeight) continue;
 
-                const key = `${cx},${cy}`;
-                if (visited.has(key)) continue;
+        const key = `${cx},${cy}`;
+        if (visited.has(key)) continue;
 
-                const index = cy * pixelWidth + cx;
-                if (layer.data[index] !== targetColor) continue;
+        const index = cy * pixelWidth + cx;
+        if (layer.data[index] !== targetColor) continue;
 
-                visited.add(key);
-                selectedPixels.add(key);
+        visited.add(key);
+        selectedPixels.add(key);
 
-                stack.push([cx + 1, cy]);
-                stack.push([cx - 1, cy]);
-                stack.push([cx, cy + 1]);
-                stack.push([cx, cy - 1]);
-            }
-            renderCanvas();
-        } else {
-            // スポイト機能
-            const layer = layers[currentLayerIndex];
-            const index = y * pixelWidth + x;
-            const pickedColor = layer.data[index];
-            selectColor(pickedColor ? pickedColor : '#00000000');
-        }
-    }
-}
-
-// 選択解除時に始点もリセット
-function clearSelection() {
-    selectedPixels.clear();
-    selectionStart = null;
-    selectionEnd = null;
-    renderCanvas();
-}
-
-// ピンチ距離計算
-function getPinchDistance(touches) {
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-}
-
-// 画面サイズにフィット拡大
-function fitToScreen() {
-    const container = document.getElementById('canvasContainer');
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
-    
-    const zoomX = (containerWidth - 40) / pixelWidth;
-    const zoomY = (containerHeight - 40) / pixelHeight;
-    zoom = Math.max(1, Math.floor(Math.min(zoomX, zoomY)));
-    zoomMode = 'fit';
-    scrollOffsetX = 0;
-    scrollOffsetY = 0;
-    renderCanvas();
-}
-
-// ズームモード切り替え
-function toggleZoomMode() {
-    if (zoomMode === 'original') {
-        fitToScreen();
+        stack.push([cx + 1, cy]);
+        stack.push([cx - 1, cy]);
+        stack.push([cx, cy + 1]);
+        stack.push([cx, cy - 1]);
+      }
+      renderCanvas();
     } else {
+      // スポイト機能
+      const layer = layers[currentLayerIndex];
+      const index = y * pixelWidth + x;
+      const pickedColor = layer.data[index];
+      selectColor(pickedColor ? pickedColor : '#00000000');
+    }
+  }
+}
+
+    // 選択解除時に始点もリセット
+    function clearSelection() {
+      selectedPixels.clear();
+      selectionStart = null;
+      selectionEnd = null;
+      renderCanvas();
+    }
+
+    // ピンチ距離計算
+    function getPinchDistance(touches) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // 画面サイズにフィット拡大
+    function fitToScreen() {
+      const container = document.getElementById('canvasContainer');
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+
+      const zoomX = (containerWidth - 40) / pixelWidth;
+      const zoomY = (containerHeight - 40) / pixelHeight;
+      zoom = Math.max(1, Math.floor(Math.min(zoomX, zoomY)));
+      zoomMode = 'fit';
+      scrollOffsetX = 0;
+      scrollOffsetY = 0;
+      renderCanvas();
+    }
+
+    // ズームモード切り替え
+    function toggleZoomMode() {
+      if (zoomMode === 'original') {
+        fitToScreen();
+      } else {
         zoom = 1;
         zoomMode = 'original';
         scrollOffsetX = 0;
         scrollOffsetY = 0;
         renderCanvas();
+      }
     }
-}
 
-// ピクセル描画（保存呼び出しを追加）
-function drawPixelAt(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((clientX - rect.left) / zoom);
-    const y = Math.floor((clientY - rect.top) / zoom);
+    // ピクセル描画（保存呼び出しを追加）
+    function drawPixelAt(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((clientX - rect.left) / zoom);
+      const y = Math.floor((clientY - rect.top) / zoom);
 
-    if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
+      if (x >= 0 && x < pixelWidth && y >= 0 && y < pixelHeight) {
         // 選択ツール
         if (currentTool === 'select') {
-            if (selectionStart === null) {
-                // 始点を設定
-                selectionStart = { x, y };
-            } else {
-                // 終点を設定して四角形を選択
-                selectionEnd = { x, y };
-                selectRectangle(selectionStart.x, selectionStart.y, selectionEnd.x, selectionEnd.y);
-                selectionStart = null;
-                selectionEnd = null;
-            }
-            renderCanvas();
-            return;
+          if (selectionStart === null) {
+            // 始点を設定
+            selectionStart = {
+              x,
+              y
+            };
+          } else {
+            // 終点を設定して四角形を選択
+            selectionEnd = {
+              x,
+              y
+            };
+            selectRectangle(selectionStart.x, selectionStart.y, selectionEnd.x, selectionEnd.y);
+            selectionStart = null;
+            selectionEnd = null;
+          }
+          renderCanvas();
+          return;
         }
 
         // 選択状態がある場合は選択範囲外は編集不可
         if (selectedPixels.size > 0 && !selectedPixels.has(`${x},${y}`)) {
-            return;
+          return;
         }
 
         if (currentTool === 'fill') {
-            floodFill(x, y, currentColor);
+          floodFill(x, y, currentColor);
         } else {
-            const index = y * pixelWidth + x;
-            const layer = layers[currentLayerIndex];
-            if (currentColor === '#00000000' || currentColor === 'transparent') {
-                layer.data[index] = null;
-            } else {
-                layer.data[index] = currentColor;
-            }
-            saveCanvasToStorage(); // 描画後に自動保存
+          const index = y * pixelWidth + x;
+          const layer = layers[currentLayerIndex];
+          if (currentColor === '#00000000' || currentColor === 'transparent') {
+            layer.data[index] = null;
+          } else {
+            layer.data[index] = currentColor;
+          }
+          saveCanvasToStorage(); // 描画後に自動保存
         }
         renderCanvas();
+      }
     }
-}
 
-// 四角形選択
-function selectRectangle(x1, y1, x2, y2) {
-    selectedPixels.clear();
-    const minX = Math.min(x1, x2);
-    const maxX = Math.max(x1, x2);
-    const minY = Math.min(y1, y2);
-    const maxY = Math.max(y1, y2);
+    // 四角形選択
+    function selectRectangle(x1, y1, x2, y2) {
+      selectedPixels.clear();
+      const minX = Math.min(x1, x2);
+      const maxX = Math.max(x1, x2);
+      const minY = Math.min(y1, y2);
+      const maxY = Math.max(y1, y2);
 
-    for (let cy = minY; cy <= maxY; cy++) {
+      for (let cy = minY; cy <= maxY; cy++) {
         for (let cx = minX; cx <= maxX; cx++) {
-            if (cx >= 0 && cx < pixelWidth && cy >= 0 && cy < pixelHeight) {
-                selectedPixels.add(`${cx},${cy}`);
-            }
+          if (cx >= 0 && cx < pixelWidth && cy >= 0 && cy < pixelHeight) {
+            selectedPixels.add(`${cx},${cy}`);
+          }
         }
+      }
     }
-}
 
-// 塗りつぶし（保存呼び出しを追加）
-function floodFill(startX, startY, newColor) {
-    const layer = layers[currentLayerIndex];
-    const startIndex = startY * pixelWidth + startX;
-    const targetColor = layer.data[startIndex];
-    const newColorValue = (newColor === '#00000000' || newColor === 'transparent') ? null : newColor;
+    // 塗りつぶし（保存呼び出しを追加）
+    function floodFill(startX, startY, newColor) {
+      const layer = layers[currentLayerIndex];
+      const startIndex = startY * pixelWidth + startX;
+      const targetColor = layer.data[startIndex];
+      const newColorValue = (newColor === '#00000000' || newColor === 'transparent') ? null : newColor;
 
-    if (targetColor === newColorValue) return;
+      if (targetColor === newColorValue) return;
 
-    const stack = [[startX, startY]];
-    const visited = new Set();
+      const stack = [
+        [startX, startY]
+      ];
+      const visited = new Set();
 
-    while (stack.length > 0) {
+      while (stack.length > 0) {
         const [x, y] = stack.pop();
 
         if (x < 0 || x >= pixelWidth || y < 0 || y >= pixelHeight) continue;
@@ -1934,37 +1962,37 @@ function floodFill(startX, startY, newColor) {
         stack.push([x - 1, y]);
         stack.push([x, y + 1]);
         stack.push([x, y - 1]);
+      }
+
+      saveState();
+      saveCanvasToStorage(); // 塗りつぶし後に自動保存
     }
 
-    saveState();
-    saveCanvasToStorage(); // 塗りつぶし後に自動保存
-}
+    // 塗りつぶしモード切り替え（ツール統合）
+    function toggleFillMode() {
+      setTool('fill');
+    }
 
-// 塗りつぶしモード切り替え（ツール統合）
-function toggleFillMode() {
-    setTool('fill');
-}
-
-// アンドゥ
-function saveState() {
-    // Layer全体の状態を保存
-    const state = layers.map(layer => ({
+    // アンドゥ
+    function saveState() {
+      // Layer全体の状態を保存
+      const state = layers.map(layer => ({
         ...layer,
         data: [...layer.data]
-    }));
-    undoStack.push(state);
-    if (undoStack.length > maxUndo) undoStack.shift();
-    redoStack = []; // Redoスタックをクリア
-    document.getElementById('undoBtn').disabled = false;
-    document.getElementById('redoBtn').disabled = true;
-}
+      }));
+      undoStack.push(state);
+      if (undoStack.length > maxUndo) undoStack.shift();
+      redoStack = []; // Redoスタックをクリア
+      document.getElementById('undoBtn').disabled = false;
+      document.getElementById('redoBtn').disabled = true;
+    }
 
-function undo() {
-    if (undoStack.length > 0) {
+    function undo() {
+      if (undoStack.length > 0) {
         // 現在の状態をRedoスタックに保存
         const currentState = layers.map(layer => ({
-            ...layer,
-            data: [...layer.data]
+          ...layer,
+          data: [...layer.data]
         }));
         redoStack.push(currentState);
 
@@ -1974,15 +2002,15 @@ function undo() {
         renderCanvas();
         document.getElementById('undoBtn').disabled = undoStack.length === 0;
         document.getElementById('redoBtn').disabled = false;
+      }
     }
-}
 
-function redo() {
-    if (redoStack.length > 0) {
+    function redo() {
+      if (redoStack.length > 0) {
         // 現在の状態をUndoスタックに保存
         const currentState = layers.map(layer => ({
-            ...layer,
-            data: [...layer.data]
+          ...layer,
+          data: [...layer.data]
         }));
         undoStack.push(currentState);
 
@@ -1992,32 +2020,32 @@ function redo() {
         renderCanvas();
         document.getElementById('undoBtn').disabled = false;
         document.getElementById('redoBtn').disabled = redoStack.length === 0;
+      }
     }
-}
 
-// グリッド切り替え
-function toggleGrid() {
-    showGrid = !showGrid;
-    document.getElementById('gridBtn').textContent = showGrid ? 'グリッド' : 'グリッドOFF';
-    renderCanvas();
-}
+    // グリッド切り替え
+    function toggleGrid() {
+      showGrid = !showGrid;
+      document.getElementById('gridBtn').textContent = showGrid ? 'グリッド' : 'グリッドOFF';
+      renderCanvas();
+    }
 
-// PNG保存・読込
-function savePNG() {
-    const exportCanvas = document.createElement('canvas');
-    exportCanvas.width = pixelWidth;
-    exportCanvas.height = pixelHeight;
-    const exportCtx = exportCanvas.getContext('2d');
+    // PNG保存・読込
+    function savePNG() {
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = pixelWidth;
+      exportCanvas.height = pixelHeight;
+      const exportCtx = exportCanvas.getContext('2d');
 
-    exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
+      exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
 
-    // レイヤーを合成して保存
-    const compositeCanvas = document.createElement('canvas');
-    compositeCanvas.width = pixelWidth;
-    compositeCanvas.height = pixelHeight;
-    const compositeCtx = compositeCanvas.getContext('2d');
+      // レイヤーを合成して保存
+      const compositeCanvas = document.createElement('canvas');
+      compositeCanvas.width = pixelWidth;
+      compositeCanvas.height = pixelHeight;
+      const compositeCtx = compositeCanvas.getContext('2d');
 
-    layers.forEach((layer) => {
+      layers.forEach((layer) => {
         if (!layer.visible) return;
 
         const layerCanvas = document.createElement('canvas');
@@ -2026,102 +2054,102 @@ function savePNG() {
         const layerCtx = layerCanvas.getContext('2d');
 
         for (let y = 0; y < pixelHeight; y++) {
-            for (let x = 0; x < pixelWidth; x++) {
-                const index = y * pixelWidth + x;
-                if (layer.data[index]) {
-                    layerCtx.fillStyle = layer.data[index];
-                    layerCtx.fillRect(x, y, 1, 1);
-                }
+          for (let x = 0; x < pixelWidth; x++) {
+            const index = y * pixelWidth + x;
+            if (layer.data[index]) {
+              layerCtx.fillStyle = layer.data[index];
+              layerCtx.fillRect(x, y, 1, 1);
             }
+          }
         }
 
         compositeCtx.globalCompositeOperation = getBlendMode(layer.blendMode);
         compositeCtx.drawImage(layerCanvas, 0, 0);
-    });
+      });
 
-    exportCtx.drawImage(compositeCanvas, 0, 0);
+      exportCtx.drawImage(compositeCanvas, 0, 0);
 
-    const link = document.createElement('a');
-    link.download = 'pixel-art.png';
-    link.href = exportCanvas.toDataURL('image/png');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
+      const link = document.createElement('a');
+      link.download = 'pixel-art.png';
+      link.href = exportCanvas.toDataURL('image/png');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
 
-// PNG読み込み（保存更新を追加）
-function loadPNG() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/png';
-    input.onchange = (e) => {
+    // PNG読み込み（保存更新を追加）
+    function loadPNG() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/png';
+      input.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                const width = Math.min(img.width, 256);
-                const height = Math.min(img.height, 256);
+          const img = new Image();
+          img.onload = () => {
+            const width = Math.min(img.width, 256);
+            const height = Math.min(img.height, 256);
 
-                pixelWidth = width;
-                pixelHeight = height;
+            pixelWidth = width;
+            pixelHeight = height;
 
-                // Layerを再初期化
-                initLayers();
+            // Layerを再初期化
+            initLayers();
 
-                const tempCanvas = document.createElement('canvas');
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCanvas.width = width;
-                tempCanvas.height = height;
-                tempCtx.drawImage(img, 0, 0, width, height);
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            tempCtx.drawImage(img, 0, 0, width, height);
 
-                const imageData = tempCtx.getImageData(0, 0, width, height);
-                const data = imageData.data;
+            const imageData = tempCtx.getImageData(0, 0, width, height);
+            const data = imageData.data;
 
-                for (let y = 0; y < height; y++) {
-                    for (let x = 0; x < width; x++) {
-                        const index = (y * width + x) * 4;
-                        const r = data[index];
-                        const g = data[index + 1];
-                        const b = data[index + 2];
-                        const a = data[index + 3];
+            for (let y = 0; y < height; y++) {
+              for (let x = 0; x < width; x++) {
+                const index = (y * width + x) * 4;
+                const r = data[index];
+                const g = data[index + 1];
+                const b = data[index + 2];
+                const a = data[index + 3];
 
-                        if (a > 0) {
-                            const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-                            layers[0].data[y * width + x] = hex;
-                        }
-                    }
+                if (a > 0) {
+                  const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+                  layers[0].data[y * width + x] = hex;
                 }
+              }
+            }
 
-                undoStack = [];
-                redoStack = [];
-                saveCanvasToStorage(); // 読み込んだ画像を保存
-                setupCanvas();
-                fitToScreen();
-                document.getElementById('undoBtn').disabled = true;
-                document.getElementById('redoBtn').disabled = true;
-                updateLayerUI();
-            };
-            img.src = event.target.result;
+            undoStack = [];
+            redoStack = [];
+            saveCanvasToStorage(); // 読み込んだ画像を保存
+            setupCanvas();
+            fitToScreen();
+            document.getElementById('undoBtn').disabled = true;
+            document.getElementById('redoBtn').disabled = true;
+            updateLayerUI();
+          };
+          img.src = event.target.result;
         };
         reader.readAsDataURL(file);
-    };
-    input.click();
-}
+      };
+      input.click();
+    }
 
-// モーダル管理
-function showNewCanvasModal() {
-    document.getElementById('newCanvasModal').classList.add('active');
-}
+    // モーダル管理
+    function showNewCanvasModal() {
+      document.getElementById('newCanvasModal').classList.add('active');
+    }
 
-// 新規作成（保存更新を追加）
-function createNewCanvas() {
-    const width = parseInt(document.getElementById('canvasWidth').value);
-    const height = parseInt(document.getElementById('canvasHeight').value);
+    // 新規作成（保存更新を追加）
+    function createNewCanvas() {
+      const width = parseInt(document.getElementById('canvasWidth').value);
+      const height = parseInt(document.getElementById('canvasHeight').value);
 
-    if (width >= 1 && width <= 256 && height >= 1 && height <= 256) {
+      if (width >= 1 && width <= 256 && height >= 1 && height <= 256) {
         pixelWidth = width;
         pixelHeight = height;
         initLayers();
@@ -2135,452 +2163,493 @@ function createNewCanvas() {
         document.getElementById('undoBtn').disabled = true;
         document.getElementById('redoBtn').disabled = true;
         updateLayerUI();
+      }
     }
-}
 
-// 現在選択中の色を複製
-function duplicateCurrentColor() {
-    const insertIndex = currentPaletteIndex + 1;
-    palette.splice(insertIndex, 0, currentColor);
-    
-    savePaletteToStorage();
-    selectPaletteIndex(insertIndex);
-}
+    // 現在選択中の色を複製
+    function duplicateCurrentColor() {
+      const insertIndex = currentPaletteIndex + 1;
+      palette.splice(insertIndex, 0, currentColor);
 
-function addDetailedColor() {
-    showColorModal((color) => {
+      savePaletteToStorage();
+      selectPaletteIndex(insertIndex);
+    }
+
+    function addDetailedColor() {
+      showColorModal((color) => {
         palette.push(color);
         savePaletteToStorage();
         selectPaletteIndex(palette.length - 1);
-    }, '#ffffff', 'argb');
-}
+      }, '#ffffff', 'argb');
+    }
 
-function editCurrentColor() {
-    showColorModal((newColor) => {
+    function editCurrentColor() {
+      showColorModal((newColor) => {
         palette[currentPaletteIndex] = newColor;
         savePaletteToStorage();
         selectPaletteIndex(currentPaletteIndex);
-    }, palette[currentPaletteIndex], 'argb');
-}
+      }, palette[currentPaletteIndex], 'argb');
+    }
 
-function deleteCurrentColor() {
-    if (palette.length <= 1) {
+    function deleteCurrentColor() {
+      if (palette.length <= 1) {
         alert('パレットの色をすべて削除することはできません。');
         return;
-    }
-    palette.splice(currentPaletteIndex, 1);
-    savePaletteToStorage();
-    
-    if (currentPaletteIndex >= palette.length) {
+      }
+      palette.splice(currentPaletteIndex, 1);
+      savePaletteToStorage();
+
+      if (currentPaletteIndex >= palette.length) {
         currentPaletteIndex = palette.length - 1;
+      }
+      selectPaletteIndex(currentPaletteIndex);
     }
-    selectPaletteIndex(currentPaletteIndex);
-}
 
-function showColorModal(callback, defaultColor = '#ffffff', forceTab = null) {
-    document.getElementById('colorModal').classList.add('active');
-    document.getElementById('colorModal').callback = callback;
-    
-    if (forceTab) {
+    function showColorModal(callback, defaultColor = '#ffffff', forceTab = null) {
+      document.getElementById('colorModal').classList.add('active');
+      document.getElementById('colorModal').callback = callback;
+
+      if (forceTab) {
         switchColorTab(forceTab);
-    } else {
+      } else {
         switchColorTab('hsla');
+      }
+
+      initHSLAValues(defaultColor);
+      initARGBValues(defaultColor);
     }
-    
-    initHSLAValues(defaultColor);
-    initARGBValues(defaultColor);
-}
 
-function rgbToHsl(r, g, b) {
-    r /= 255; g /= 255; b /= 255;
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    let h, s, l = (max + min) / 2;
+    function rgbToHsl(r, g, b) {
+      r /= 255;
+      g /= 255;
+      b /= 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
 
-    if (max === min) {
+      if (max === min) {
         h = s = 0;
-    } else {
+      } else {
         const d = max - min;
         s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
         switch (max) {
-            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-            case g: h = (b - r) / d + 2; break;
-            case b: h = (r - g) / d + 4; break;
+          case r:
+            h = (g - b) / d + (g < b ? 6 : 0);
+            break;
+          case g:
+            h = (b - r) / d + 2;
+            break;
+          case b:
+            h = (r - g) / d + 4;
+            break;
         }
         h /= 6;
+      }
+      return {
+        h: Math.round(h * 360),
+        s,
+        l
+      };
     }
-    return { h: Math.round(h * 360), s, l };
-}
 
-function initHSLAValues(hexColor, alpha100 = 100) {
-    if (!hexColor || !hexColor.startsWith('#') || (hexColor.length !== 7 && hexColor.length !== 9)) {
+    function initHSLAValues(hexColor, alpha100 = 100) {
+      if (!hexColor || !hexColor.startsWith('#') || (hexColor.length !== 7 && hexColor.length !== 9)) {
         hexColor = '#ffffff';
-    }
+      }
 
-    const r = parseInt(hexColor.slice(1, 3), 16);
-    const g = parseInt(hexColor.slice(3, 5), 16);
-    const b = parseInt(hexColor.slice(5, 7), 16);
-    
-    if (hexColor.length === 9) {
+      const r = parseInt(hexColor.slice(1, 3), 16);
+      const g = parseInt(hexColor.slice(3, 5), 16);
+      const b = parseInt(hexColor.slice(5, 7), 16);
+
+      if (hexColor.length === 9) {
         alpha100 = Math.round((parseInt(hexColor.slice(7, 9), 16) / 255) * 100);
+      }
+
+      const hsl = rgbToHsl(r, g, b);
+      const h = hsl.h;
+      const s = Math.round(hsl.s * 100);
+      const l = Math.round(hsl.l * 100);
+
+      document.getElementById('hslaHSlider').value = h;
+      document.getElementById('hslaHInput').value = h;
+      document.getElementById('hslaSSlider').value = s;
+      document.getElementById('hslaSInput').value = s;
+      document.getElementById('hslaLSlider').value = l;
+      document.getElementById('hslaLInput').value = l;
+      document.getElementById('hslaASlider').value = alpha100;
+      document.getElementById('hslaAInput').value = alpha100;
+
+      updateHSLAPreview();
     }
 
-    const hsl = rgbToHsl(r, g, b);
-    const h = hsl.h;
-    const s = Math.round(hsl.s * 100);
-    const l = Math.round(hsl.l * 100);
-    
-    document.getElementById('hslaHSlider').value = h;
-    document.getElementById('hslaHInput').value = h;
-    document.getElementById('hslaSSlider').value = s;
-    document.getElementById('hslaSInput').value = s;
-    document.getElementById('hslaLSlider').value = l;
-    document.getElementById('hslaLInput').value = l;
-    document.getElementById('hslaASlider').value = alpha100;
-    document.getElementById('hslaAInput').value = alpha100;
-    
-    updateHSLAPreview();
-}
-
-function initARGBValues(hexColor, alpha255 = 255) {
-    if (!hexColor || !hexColor.startsWith('#') || (hexColor.length !== 7 && hexColor.length !== 9)) {
+    function initARGBValues(hexColor, alpha255 = 255) {
+      if (!hexColor || !hexColor.startsWith('#') || (hexColor.length !== 7 && hexColor.length !== 9)) {
         hexColor = '#ffffff';
-    }
+      }
 
-    const r = parseInt(hexColor.slice(1, 3), 16);
-    const g = parseInt(hexColor.slice(3, 5), 16);
-    const b = parseInt(hexColor.slice(5, 7), 16);
-    
-    if (hexColor.length === 9) {
+      const r = parseInt(hexColor.slice(1, 3), 16);
+      const g = parseInt(hexColor.slice(3, 5), 16);
+      const b = parseInt(hexColor.slice(5, 7), 16);
+
+      if (hexColor.length === 9) {
         alpha255 = parseInt(hexColor.slice(7, 9), 16);
+      }
+
+      document.getElementById('argbRSlider').value = r;
+      document.getElementById('argbRInput').value = r;
+      document.getElementById('argbGSlider').value = g;
+      document.getElementById('argbGInput').value = g;
+      document.getElementById('argbBSlider').value = b;
+      document.getElementById('argbBInput').value = b;
+      document.getElementById('argbASlider').value = alpha255;
+      document.getElementById('argbAInput').value = alpha255;
+
+      updateARGBPreview();
     }
-    
-    document.getElementById('argbRSlider').value = r;
-    document.getElementById('argbRInput').value = r;
-    document.getElementById('argbGSlider').value = g;
-    document.getElementById('argbGInput').value = g;
-    document.getElementById('argbBSlider').value = b;
-    document.getElementById('argbBInput').value = b;
-    document.getElementById('argbASlider').value = alpha255;
-    document.getElementById('argbAInput').value = alpha255;
-    
-    updateARGBPreview();
-}
 
-function switchColorTab(tab) {
-    document.getElementById('hslaTab').classList.toggle('active', tab === 'hsla');
-    document.getElementById('argbTab').classList.toggle('active', tab === 'argb');
-    document.getElementById('hslaSection').style.display = tab === 'hsla' ? 'block' : 'none';
-    document.getElementById('argbSection').style.display = tab === 'argb' ? 'block' : 'none';
+    function switchColorTab(tab) {
+      document.getElementById('hslaTab').classList.toggle('active', tab === 'hsla');
+      document.getElementById('argbTab').classList.toggle('active', tab === 'argb');
+      document.getElementById('hslaSection').style.display = tab === 'hsla' ? 'block' : 'none';
+      document.getElementById('argbSection').style.display = tab === 'argb' ? 'block' : 'none';
 
-    if (tab === 'hsla') {
+      if (tab === 'hsla') {
         const preview = document.getElementById('argbPreview');
         const hex = preview.dataset.hexColor || '#ffffff';
         const alpha255 = parseInt(preview.dataset.alpha ?? 255);
         const alpha100 = Math.round(alpha255 / 2.55);
         initHSLAValues(hex, alpha100);
-    } else if (tab === 'argb') {
+      } else if (tab === 'argb') {
         const preview = document.getElementById('hslaPreview');
         const hex = preview.dataset.hexColor || '#ffffff';
         const alpha100 = parseInt(document.getElementById('hslaASlider').value);
         const alpha255 = Math.round(alpha100 * 2.55);
         initARGBValues(hex, alpha255);
+      }
     }
-}
 
-function updateHSLAFromSliders() {
-    const h = document.getElementById('hslaHSlider').value;
-    const s = document.getElementById('hslaSSlider').value;
-    const l = document.getElementById('hslaLSlider').value;
-    const a = document.getElementById('hslaASlider').value;
-    
-    document.getElementById('hslaHInput').value = h;
-    document.getElementById('hslaSInput').value = s;
-    document.getElementById('hslaLInput').value = l;
-    document.getElementById('hslaAInput').value = a;
-    
-    updateHSLAPreview();
-}
+    function updateHSLAFromSliders() {
+      const h = document.getElementById('hslaHSlider').value;
+      const s = document.getElementById('hslaSSlider').value;
+      const l = document.getElementById('hslaLSlider').value;
+      const a = document.getElementById('hslaASlider').value;
 
-function updateARGBFromSliders() {
-    const r = document.getElementById('argbRSlider').value;
-    const g = document.getElementById('argbGSlider').value;
-    const b = document.getElementById('argbBSlider').value;
-    const a = document.getElementById('argbASlider').value;
-    
-    document.getElementById('argbRInput').value = r;
-    document.getElementById('argbGInput').value = g;
-    document.getElementById('argbBInput').value = b;
-    document.getElementById('argbAInput').value = a;
-    
-    updateARGBPreview();
-}
+      document.getElementById('hslaHInput').value = h;
+      document.getElementById('hslaSInput').value = s;
+      document.getElementById('hslaLInput').value = l;
+      document.getElementById('hslaAInput').value = a;
 
-function updateHSLAFromInputs() {
-    const h = Math.min(360, Math.max(0, parseInt(document.getElementById('hslaHInput').value) || 0));
-    const s = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaSInput').value) || 0));
-    const l = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaLInput').value) || 0));
-    const a = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaAInput').value) || 0));
-    
-    document.getElementById('hslaHSlider').value = h;
-    document.getElementById('hslaSSlider').value = s;
-    document.getElementById('hslaLSlider').value = l;
-    document.getElementById('hslaASlider').value = a;
-    
-    updateHSLAPreview();
-}
+      updateHSLAPreview();
+    }
 
-function updateARGBFromInputs() {
-    const r = Math.min(255, Math.max(0, parseInt(document.getElementById('argbRInput').value) || 0));
-    const g = Math.min(255, Math.max(0, parseInt(document.getElementById('argbGInput').value) || 0));
-    const b = Math.min(255, Math.max(0, parseInt(document.getElementById('argbBInput').value) || 0));
-    const a = Math.min(255, Math.max(0, parseInt(document.getElementById('argbAInput').value) || 0));
-    
-    document.getElementById('argbRSlider').value = r;
-    document.getElementById('argbGSlider').value = g;
-    document.getElementById('argbBSlider').value = b;
-    document.getElementById('argbASlider').value = a;
-    
-    updateARGBPreview();
-}
+    function updateARGBFromSliders() {
+      const r = document.getElementById('argbRSlider').value;
+      const g = document.getElementById('argbGSlider').value;
+      const b = document.getElementById('argbBSlider').value;
+      const a = document.getElementById('argbASlider').value;
 
-function updateHSLAPreview() {
-    const h = document.getElementById('hslaHSlider').value;
-    const s = document.getElementById('hslaSSlider').value;
-    const l = document.getElementById('hslaLSlider').value;
-    const a = document.getElementById('hslaASlider').value;
-    
-    const preview = document.getElementById('hslaPreview');
-    preview.style.setProperty('--overlay-color', `hsla(${h}, ${s}%, ${l}%, ${a / 100})`);
-    preview.style.backgroundColor = `hsla(${h}, ${s}%, ${l}%, ${a / 100})`;
-    
-    const hexColor = hslaToHex(h, s, l, a);
-    preview.dataset.hexColor = hexColor;
-    preview.dataset.alpha = Math.round(a * 2.55);
-}
+      document.getElementById('argbRInput').value = r;
+      document.getElementById('argbGInput').value = g;
+      document.getElementById('argbBInput').value = b;
+      document.getElementById('argbAInput').value = a;
 
-function updateARGBPreview() {
-    const r = document.getElementById('argbRSlider').value;
-    const g = document.getElementById('argbGSlider').value;
-    const b = document.getElementById('argbBSlider').value;
-    const a = document.getElementById('argbASlider').value;
-    
-    const hexColor = '#' + [r, g, b].map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
-    const preview = document.getElementById('argbPreview');
-    preview.style.setProperty('--overlay-color', `rgba(${r}, ${g}, ${b}, ${a / 255})`);
-    preview.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
-    preview.dataset.hexColor = hexColor;
-    preview.dataset.alpha = a;
-}
+      updateARGBPreview();
+    }
 
-function hslaToHex(h, s, l, a) {
-    s /= 100; l /= 100; a /= 100;
-    const c = (1 - Math.abs(2 * l - 1)) * s;
-    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-    const m = l - c / 2;
-    let r, g, b;
-    
-    if (0 <= h && h < 60) { r = c; g = x; b = 0; }
-    else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
-    else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
-    else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
-    else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
-    else { r = c; g = 0; b = x; }
-    
-    r = Math.round((r + m) * 255);
-    g = Math.round((g + m) * 255);
-    b = Math.round((b + m) * 255);
-    
-    return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-}
+    function updateHSLAFromInputs() {
+      const h = Math.min(360, Math.max(0, parseInt(document.getElementById('hslaHInput').value) || 0));
+      const s = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaSInput').value) || 0));
+      const l = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaLInput').value) || 0));
+      const a = Math.min(100, Math.max(0, parseInt(document.getElementById('hslaAInput').value) || 0));
 
-function confirmColor() {
-    const activeTab = document.getElementById('hslaTab').classList.contains('active') ? 'hsla' : 'argb';
-    let color;
-    
-    if (activeTab === 'hsla') {
+      document.getElementById('hslaHSlider').value = h;
+      document.getElementById('hslaSSlider').value = s;
+      document.getElementById('hslaLSlider').value = l;
+      document.getElementById('hslaASlider').value = a;
+
+      updateHSLAPreview();
+    }
+
+    function updateARGBFromInputs() {
+      const r = Math.min(255, Math.max(0, parseInt(document.getElementById('argbRInput').value) || 0));
+      const g = Math.min(255, Math.max(0, parseInt(document.getElementById('argbGInput').value) || 0));
+      const b = Math.min(255, Math.max(0, parseInt(document.getElementById('argbBInput').value) || 0));
+      const a = Math.min(255, Math.max(0, parseInt(document.getElementById('argbAInput').value) || 0));
+
+      document.getElementById('argbRSlider').value = r;
+      document.getElementById('argbGSlider').value = g;
+      document.getElementById('argbBSlider').value = b;
+      document.getElementById('argbASlider').value = a;
+
+      updateARGBPreview();
+    }
+
+    function updateHSLAPreview() {
+      const h = document.getElementById('hslaHSlider').value;
+      const s = document.getElementById('hslaSSlider').value;
+      const l = document.getElementById('hslaLSlider').value;
+      const a = document.getElementById('hslaASlider').value;
+
+      const preview = document.getElementById('hslaPreview');
+      preview.style.setProperty('--overlay-color', `hsla(${h}, ${s}%, ${l}%, ${a / 100})`);
+      preview.style.backgroundColor = `hsla(${h}, ${s}%, ${l}%, ${a / 100})`;
+
+      const hexColor = hslaToHex(h, s, l, a);
+      preview.dataset.hexColor = hexColor;
+      preview.dataset.alpha = Math.round(a * 2.55);
+    }
+
+    function updateARGBPreview() {
+      const r = document.getElementById('argbRSlider').value;
+      const g = document.getElementById('argbGSlider').value;
+      const b = document.getElementById('argbBSlider').value;
+      const a = document.getElementById('argbASlider').value;
+
+      const hexColor = '#' + [r, g, b].map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+      const preview = document.getElementById('argbPreview');
+      preview.style.setProperty('--overlay-color', `rgba(${r}, ${g}, ${b}, ${a / 255})`);
+      preview.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+      preview.dataset.hexColor = hexColor;
+      preview.dataset.alpha = a;
+    }
+
+    function hslaToHex(h, s, l, a) {
+      s /= 100;
+      l /= 100;
+      a /= 100;
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      const m = l - c / 2;
+      let r, g, b;
+
+      if (0 <= h && h < 60) {
+        r = c;
+        g = x;
+        b = 0;
+      } else if (60 <= h && h < 120) {
+        r = x;
+        g = c;
+        b = 0;
+      } else if (120 <= h && h < 180) {
+        r = 0;
+        g = c;
+        b = x;
+      } else if (180 <= h && h < 240) {
+        r = 0;
+        g = x;
+        b = c;
+      } else if (240 <= h && h < 300) {
+        r = x;
+        g = 0;
+        b = c;
+      } else {
+        r = c;
+        g = 0;
+        b = x;
+      }
+
+      r = Math.round((r + m) * 255);
+      g = Math.round((g + m) * 255);
+      b = Math.round((b + m) * 255);
+
+      return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+    }
+
+    function confirmColor() {
+      const activeTab = document.getElementById('hslaTab').classList.contains('active') ? 'hsla' : 'argb';
+      let color;
+
+      if (activeTab === 'hsla') {
         const preview = document.getElementById('hslaPreview');
         const hex = preview.dataset.hexColor || '#ffffff';
         const a100 = parseInt(document.getElementById('hslaASlider').value);
         const a255 = Math.round(a100 * 2.55);
-        
+
         if (a255 === 0) color = '#00000000';
         else if (a255 === 255) color = hex;
         else color = hex + a255.toString(16).padStart(2, '0');
-    } else {
+      } else {
         const preview = document.getElementById('argbPreview');
         const hex = preview.dataset.hexColor || '#ffffff';
         const a255 = parseInt(preview.dataset.alpha ?? 255);
-        
+
         if (a255 === 0) color = '#00000000';
         else if (a255 === 255) color = hex;
         else color = hex + a255.toString(16).padStart(2, '0');
+      }
+
+      const callback = document.getElementById('colorModal').callback;
+      if (callback) callback(color);
+      closeModal('colorModal');
     }
-    
-    const callback = document.getElementById('colorModal').callback;
-    if (callback) callback(color);
-    closeModal('colorModal');
-}
 
-function closeModal(modalId) {
-    const el = document.getElementById(modalId);
-    if (el) el.classList.remove('active');
-}
+    function closeModal(modalId) {
+      const el = document.getElementById(modalId);
+      if (el) el.classList.remove('active');
+    }
 
-function importPalette() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/png';
-    input.onchange = (e) => {
+    function importPalette() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/png';
+      input.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
+
         const reader = new FileReader();
         reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                const tempCanvas = document.createElement('canvas');
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCanvas.width = img.width;
-                tempCanvas.height = 1;
-                tempCtx.drawImage(img, 0, 0);
-                
-                const imageData = tempCtx.getImageData(0, 0, img.width, 1);
-                const data = imageData.data;
-                const colors = [];
-                
-                for (let x = 0; x < img.width; x++) {
-                    const index = x * 4;
-                    const r = data[index];
-                    const g = data[index + 1];
-                    const b = data[index + 2];
-                    const a = data[index + 3];
-                    
-                    if (a === 0) {
-                        colors.push('#00000000');
-                    } else if (a === 255) {
-                        const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
-                        colors.push(hex);
-                    } else {
-                        const hex = '#' + [r, g, b, a].map(v => v.toString(16).padStart(2, '0')).join('');
-                        colors.push(hex);
-                    }
-                }
-                
-                if (colors.length > 0) {
-                    palette = colors;
-                    savePaletteToStorage();
-                    selectPaletteIndex(0);
-                }
-            };
-            img.src = event.target.result;
+          const img = new Image();
+          img.onload = () => {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = img.width;
+            tempCanvas.height = 1;
+            tempCtx.drawImage(img, 0, 0);
+
+            const imageData = tempCtx.getImageData(0, 0, img.width, 1);
+            const data = imageData.data;
+            const colors = [];
+
+            for (let x = 0; x < img.width; x++) {
+              const index = x * 4;
+              const r = data[index];
+              const g = data[index + 1];
+              const b = data[index + 2];
+              const a = data[index + 3];
+
+              if (a === 0) {
+                colors.push('#00000000');
+              } else if (a === 255) {
+                const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+                colors.push(hex);
+              } else {
+                const hex = '#' + [r, g, b, a].map(v => v.toString(16).padStart(2, '0')).join('');
+                colors.push(hex);
+              }
+            }
+
+            if (colors.length > 0) {
+              palette = colors;
+              savePaletteToStorage();
+              selectPaletteIndex(0);
+            }
+          };
+          img.src = event.target.result;
         };
         reader.readAsDataURL(file);
-    };
-    input.click();
-}
+      };
+      input.click();
+    }
 
-function exportPalette() {
-    if (palette.length === 0) return;
+    function exportPalette() {
+      if (palette.length === 0) return;
 
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCanvas.width = palette.length;
-    tempCanvas.height = 1;
-    
-    tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-    
-    palette.forEach((color, index) => {
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCanvas.width = palette.length;
+      tempCanvas.height = 1;
+
+      tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+      palette.forEach((color, index) => {
         if (color === '#00000000' || color === 'transparent') {
-            tempCtx.fillStyle = 'rgba(0,0,0,0)';
+          tempCtx.fillStyle = 'rgba(0,0,0,0)';
         } else if (color.startsWith('#') && color.length === 9) {
-            const r = parseInt(color.slice(1, 3), 16);
-            const g = parseInt(color.slice(3, 5), 16);
-            const b = parseInt(color.slice(5, 7), 16);
-            const a = parseInt(color.slice(7, 9), 16) / 255;
-            tempCtx.fillStyle = `rgba(${r},${g},${b},${a})`;
+          const r = parseInt(color.slice(1, 3), 16);
+          const g = parseInt(color.slice(3, 5), 16);
+          const b = parseInt(color.slice(5, 7), 16);
+          const a = parseInt(color.slice(7, 9), 16) / 255;
+          tempCtx.fillStyle = `rgba(${r},${g},${b},${a})`;
         } else {
-            tempCtx.fillStyle = color;
+          tempCtx.fillStyle = color;
         }
         tempCtx.fillRect(index, 0, 1, 1);
-    });
-    
-    const link = document.createElement('a');
-    link.download = 'palette.png';
-    link.href = tempCanvas.toDataURL('image/png');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
+      });
 
-let bgModeIndex = 0;
-const bgModes = [
-    { label: '背景: 暗', color: '#0f0f23' },
-    { label: '背景: 中', color: '#4a4a60' },
-    { label: '背景: 明', color: '#a0a0b5' }
-];
+      const link = document.createElement('a');
+      link.download = 'palette.png';
+      link.href = tempCanvas.toDataURL('image/png');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
 
-function toggleCanvasBg() {
-    bgModeIndex = (bgModeIndex + 1) % bgModes.length;
-    const currentMode = bgModes[bgModeIndex];
-    document.getElementById('canvasContainer').style.backgroundColor = currentMode.color;
-    document.getElementById('bgToggleBtn').textContent = currentMode.label;
-}
-// ドラッグ中の要素インデックスを保持する変数
-let draggedIndex = null;
+    let bgModeIndex = 0;
+    const bgModes = [{
+        label: '背景: 暗',
+        color: '#0f0f23'
+      },
+      {
+        label: '背景: 中',
+        color: '#4a4a60'
+      },
+      {
+        label: '背景: 明',
+        color: '#a0a0b5'
+      }
+    ];
 
-function updateLayerUI() {
-    const layerList = document.getElementById('layerList');
-    layerList.innerHTML = '';
+    function toggleCanvasBg() {
+      bgModeIndex = (bgModeIndex + 1) % bgModes.length;
+      const currentMode = bgModes[bgModeIndex];
+      document.getElementById('canvasContainer').style.backgroundColor = currentMode.color;
+      document.getElementById('bgToggleBtn').textContent = currentMode.label;
+    }
+    // ドラッグ中の要素インデックスを保持する変数
+    let draggedIndex = null;
 
-    for (let i = layers.length - 1; i >= 0; i--) {
+    function updateLayerUI() {
+      const layerList = document.getElementById('layerList');
+      layerList.innerHTML = '';
+
+      for (let i = layers.length - 1; i >= 0; i--) {
         const layer = layers[i];
         const layerItem = document.createElement('div');
         layerItem.dataset.index = i;
         layerItem.className = 'layer-item' + (i === currentLayerIndex ? ' active' : '');
-        
+
         // 要素全体をドラッグ可能にする
         layerItem.draggable = true;
 
         layerItem.onclick = (e) => {
-            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
-                selectLayer(i);
-            }
+          if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
+            selectLayer(i);
+          }
         };
 
         // --- ドラッグ＆ドロップ イベントの設定 ---
         layerItem.ondragstart = (e) => {
-            draggedIndex = i;
-            e.dataTransfer.effectAllowed = 'move';
-            layerItem.classList.add('dragging');
+          draggedIndex = i;
+          e.dataTransfer.effectAllowed = 'move';
+          layerItem.classList.add('dragging');
         };
 
         layerItem.ondragend = () => {
-            layerItem.classList.remove('dragging');
-            draggedIndex = null;
+          layerItem.classList.remove('dragging');
+          draggedIndex = null;
         };
 
         layerItem.ondragover = (e) => {
-            e.preventDefault(); // ドロップを許可するために必須
-            e.dataTransfer.dropEffect = 'move';
+          e.preventDefault(); // ドロップを許可するために必須
+          e.dataTransfer.dropEffect = 'move';
         };
 
         layerItem.ondrop = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+          e.preventDefault();
+          e.stopPropagation();
 
-            const targetIndex = i;
-            if (draggedIndex !== null && draggedIndex !== targetIndex) {
-                reorderLayers(draggedIndex, targetIndex);
-            }
+          const targetIndex = i;
+          if (draggedIndex !== null && draggedIndex !== targetIndex) {
+            reorderLayers(draggedIndex, targetIndex);
+          }
         };
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.checked = layer.visible;
         checkbox.onchange = (e) => {
-            e.stopPropagation();
-            toggleLayerVisibility(i, e.target.checked);
+          e.stopPropagation();
+          toggleLayerVisibility(i, e.target.checked);
         };
 
         const nameInput = document.createElement('input');
@@ -2594,21 +2663,21 @@ function updateLayerUI() {
         nameInput.style.padding = '2px';
         nameInput.style.width = '90px';
         nameInput.onchange = (e) => {
-            e.stopPropagation();
-            layer.name = e.target.value;
+          e.stopPropagation();
+          layer.name = e.target.value;
         };
 
         const blendSelect = document.createElement('select');
         blendSelect.value = layer.blendMode;
         blendSelect.onchange = (e) => {
-            e.stopPropagation();
-            setLayerBlendMode(i, e.target.value);
+          e.stopPropagation();
+          setLayerBlendMode(i, e.target.value);
         };
         blendSelect.innerHTML = `
-            <option value="normal">通常</option>
-            <option value="add">加算</option>
-            <option value="multiply">乗算</option>
-        `;
+                    <option value="normal">通常</option>
+                    <option value="add">加算</option>
+                    <option value="multiply">乗算</option>
+                `;
         blendSelect.style.width = '60px';
 
         const handleSort = document.createElement('div');
@@ -2624,129 +2693,129 @@ function updateLayerUI() {
         layerItem.appendChild(handleSort);
 
         layerList.appendChild(layerItem);
+      }
     }
-}
 
-// レイヤー配列の並べ替え処理を行う関数
-function reorderLayers(fromIndex, toIndex) {
-    // 1. 配列からドラッグ対象を切り出す
-    const [movedLayer] = layers.splice(fromIndex, 1);
-    
-    // 2. 移動先に挿入する
-    layers.splice(toIndex, 0, movedLayer);
+    // レイヤー配列の並べ替え処理を行う関数
+    function reorderLayers(fromIndex, toIndex) {
+      // 1. 配列からドラッグ対象を切り出す
+      const [movedLayer] = layers.splice(fromIndex, 1);
 
-    // 3. IDの振り直し
-    layers.forEach((layer, index) => {
+      // 2. 移動先に挿入する
+      layers.splice(toIndex, 0, movedLayer);
+
+      // 3. IDの振り直し
+      layers.forEach((layer, index) => {
         layer.id = index;
-    });
+      });
 
-    // 4. 選択中レイヤーインデックスの補正
-    if (currentLayerIndex === fromIndex) {
+      // 4. 選択中レイヤーインデックスの補正
+      if (currentLayerIndex === fromIndex) {
         currentLayerIndex = toIndex;
-    } else if (fromIndex < currentLayerIndex && toIndex >= currentLayerIndex) {
+      } else if (fromIndex < currentLayerIndex && toIndex >= currentLayerIndex) {
         currentLayerIndex--;
-    } else if (fromIndex > currentLayerIndex && toIndex <= currentLayerIndex) {
+      } else if (fromIndex > currentLayerIndex && toIndex <= currentLayerIndex) {
         currentLayerIndex++;
+      }
+
+      // 5. 状態保存と描画更新
+      updateLayerUI();
+      renderCanvas();
+      saveState();
+      saveCanvasToStorage();
     }
 
-    // 5. 状態保存と描画更新
-    updateLayerUI();
-    renderCanvas();
-    saveState();
-    saveCanvasToStorage();
-}
-
-// Layer選択（UI全体をリセットせず、クラスの付け替えのみ行う）
-function selectLayer(index) {
-    if (index >= 0 && index < layers.length) {
+    // Layer選択（UI全体をリセットせず、クラスの付け替えのみ行う）
+    function selectLayer(index) {
+      if (index >= 0 && index < layers.length) {
         currentLayerIndex = index;
 
         // 全体のDOMを再生成する代わりに、activeクラスだけを更新する
         const layerItems = document.querySelectorAll('#layerList .layer-item');
         layerItems.forEach((item) => {
-            // dataset.index は文字列なので数値に変換して比較
-            if (parseInt(item.dataset.index, 10) === currentLayerIndex) {
-                item.classList.add('active');
-            } else {
-                item.classList.remove('active');
-            }
+          // dataset.index は文字列なので数値に変換して比較
+          if (parseInt(item.dataset.index, 10) === currentLayerIndex) {
+            item.classList.add('active');
+          } else {
+            item.classList.remove('active');
+          }
         });
+      }
     }
-}
 
-// Layer表示切り替え
-function toggleLayerVisibility(index, visible) {
-    if (index >= 0 && index < layers.length) {
+    // Layer表示切り替え
+    function toggleLayerVisibility(index, visible) {
+      if (index >= 0 && index < layers.length) {
         layers[index].visible = visible;
         renderCanvas();
         saveCanvasToStorage();
+      }
     }
-}
 
-// Layer合成モード設定
-function setLayerBlendMode(index, mode) {
-    if (index >= 0 && index < layers.length) {
+    // Layer合成モード設定
+    function setLayerBlendMode(index, mode) {
+      if (index >= 0 && index < layers.length) {
         layers[index].blendMode = mode;
         renderCanvas();
         saveCanvasToStorage();
         // UIは再描画しない（フォーカスを維持するため）
+      }
     }
-}
 
-// Layer追加
-function addLayer() {
-    if (layers.length >= MAX_LAYERS) {
+    // Layer追加
+    function addLayer() {
+      if (layers.length >= MAX_LAYERS) {
         alert('最大Layer数に達しました');
         return;
-    }
-    const newLayer = {
+      }
+      const newLayer = {
         id: layers.length,
         name: `Layer ${layers.length + 1}`,
         visible: true,
         blendMode: 'normal',
         data: new Array(pixelWidth * pixelHeight).fill(null)
-    };
-    layers.push(newLayer);
-    currentLayerIndex = layers.length - 1;
-    updateLayerUI();
-    renderCanvas();
-    saveState();
-    saveCanvasToStorage();
-}
+      };
+      layers.push(newLayer);
+      currentLayerIndex = layers.length - 1;
+      updateLayerUI();
+      renderCanvas();
+      saveState();
+      saveCanvasToStorage();
+    }
 
-// Layer削除
-function deleteLayer() {
-    if (layers.length <= 1) {
+    // Layer削除
+    function deleteLayer() {
+      if (layers.length <= 1) {
         alert('最低1つのLayerが必要です');
         return;
-    }
-    layers.splice(currentLayerIndex, 1);
-    // LayerIDを再割り当て
-    layers.forEach((layer, index) => {
+      }
+      layers.splice(currentLayerIndex, 1);
+      // LayerIDを再割り当て
+      layers.forEach((layer, index) => {
         layer.id = index;
-    });
-    if (currentLayerIndex >= layers.length) {
+      });
+      if (currentLayerIndex >= layers.length) {
         currentLayerIndex = layers.length - 1;
+      }
+      updateLayerUI();
+      renderCanvas();
+      saveState();
+      saveCanvasToStorage();
     }
-    updateLayerUI();
-    renderCanvas();
-    saveState();
-    saveCanvasToStorage();
-}
 
-// Layer複製
-function duplicateLayer() {
-    // 最大Layer数のチェック
-    if (layers.length >= MAX_LAYERS) {
+    // Layer複製
+    function duplicateLayer() {
+      // 最大Layer数のチェック
+      if (layers.length >= MAX_LAYERS) {
         alert('最大Layer数に達しました');
         return;
-    }
+      }
 
-    // 現在選択中のLayerを取得
-    const sourceLayer = layers[currentLayerIndex];
+      // 現在選択中のLayerを取得
+      const sourceLayer = layers[currentLayerIndex];
 
-    // Layerを複製
-    const newLayer = {
+      // Layerを複製
+      const newLayer = {
         id: layers.length,
         name: sourceLayer.name + ' コピー',
         visible: sourceLayer.visible,
@@ -2754,288 +2823,298 @@ function duplicateLayer() {
 
         // ドットデータをコピー
         data: [...sourceLayer.data]
-    };
+      };
 
-    // 現在のLayerの上に挿入
-    layers.splice(currentLayerIndex + 1, 0, newLayer);
+      // 現在のLayerの上に挿入
+      layers.splice(currentLayerIndex + 1, 0, newLayer);
 
-    // LayerIDを再割り当て
-    layers.forEach((layer, index) => {
+      // LayerIDを再割り当て
+      layers.forEach((layer, index) => {
         layer.id = index;
-    });
+      });
 
-    // 複製したLayerを選択
-    currentLayerIndex++;
+      // 複製したLayerを選択
+      currentLayerIndex++;
 
-    // 状態保存とUI更新
-    updateLayerUI();
-    renderCanvas();
-    saveState();
-    saveCanvasToStorage();
-}
+      // 状態保存とUI更新
+      updateLayerUI();
+      renderCanvas();
+      saveState();
+      saveCanvasToStorage();
+    }
 
-// Layerマージ
-function mergeLayer() {
-    if (currentLayerIndex === 0) {
+    // Layerマージ
+    function mergeLayer() {
+      if (currentLayerIndex === 0) {
         alert('最下層のLayerはマージできません');
         return;
-    }
-    const targetLayer = layers[currentLayerIndex];
-    const belowLayer = layers[currentLayerIndex - 1];
+      }
+      const targetLayer = layers[currentLayerIndex];
+      const belowLayer = layers[currentLayerIndex - 1];
 
-    // 合成モードを考慮して下のLayerに合成
-    for (let i = 0; i < targetLayer.data.length; i++) {
+      // 合成モードを考慮して下のLayerに合成
+      for (let i = 0; i < targetLayer.data.length; i++) {
         if (targetLayer.data[i]) {
-            const targetColor = targetLayer.data[i];
-            const belowColor = belowLayer.data[i];
+          const targetColor = targetLayer.data[i];
+          const belowColor = belowLayer.data[i];
 
-            if (!belowColor) {
-                // 下のLayerに色がない場合はそのまま
+          if (!belowColor) {
+            // 下のLayerに色がない場合はそのまま
+            belowLayer.data[i] = targetColor;
+          } else {
+            // 合成モードに応じて計算
+            switch (targetLayer.blendMode) {
+              case 'add':
+                belowLayer.data[i] = blendColors(belowColor, targetColor, 'add');
+                break;
+              case 'multiply':
+                belowLayer.data[i] = blendColors(belowColor, targetColor, 'multiply');
+                break;
+              default:
                 belowLayer.data[i] = targetColor;
-            } else {
-                // 合成モードに応じて計算
-                switch (targetLayer.blendMode) {
-                    case 'add':
-                        belowLayer.data[i] = blendColors(belowColor, targetColor, 'add');
-                        break;
-                    case 'multiply':
-                        belowLayer.data[i] = blendColors(belowColor, targetColor, 'multiply');
-                        break;
-                    default:
-                        belowLayer.data[i] = targetColor;
-                }
             }
+          }
         }
-    }
+      }
 
-    const mergedIndex = currentLayerIndex - 1;
-    layers.splice(currentLayerIndex, 1);
-    // LayerIDを再割り当て
-    layers.forEach((layer, index) => {
+      const mergedIndex = currentLayerIndex - 1;
+      layers.splice(currentLayerIndex, 1);
+      // LayerIDを再割り当て
+      layers.forEach((layer, index) => {
         layer.id = index;
-    });
-    currentLayerIndex = mergedIndex;
+      });
+      currentLayerIndex = mergedIndex;
 
-    updateLayerUI();
-    renderCanvas();
-    saveState();
-    saveCanvasToStorage();
-}
-
-// 色の合成
-function blendColors(color1, color2, mode) {
-    const c1 = hexToRgb(color1);
-    const c2 = hexToRgb(color2);
-
-    if (!c1 || !c2) return color2;
-
-    let r, g, b;
-
-    switch (mode) {
-        case 'add':
-            r = Math.min(255, c1.r + c2.r);
-            g = Math.min(255, c1.g + c2.g);
-            b = Math.min(255, c1.b + c2.b);
-            break;
-        case 'multiply':
-            r = Math.floor((c1.r * c2.r) / 255);
-            g = Math.floor((c1.g * c2.g) / 255);
-            b = Math.floor((c1.b * c2.b) / 255);
-            break;
-        default:
-            return color2;
+      updateLayerUI();
+      renderCanvas();
+      saveState();
+      saveCanvasToStorage();
     }
 
-    return rgbToHex(r, g, b);
-}
+    // 色の合成
+    function blendColors(color1, color2, mode) {
+      const c1 = hexToRgb(color1);
+      const c2 = hexToRgb(color2);
 
-// HEXをRGBに変換
-function hexToRgb(hex) {
-    if (!hex || !hex.startsWith('#') || hex.length !== 7) return null;
-    return {
+      if (!c1 || !c2) return color2;
+
+      let r, g, b;
+
+      switch (mode) {
+        case 'add':
+          r = Math.min(255, c1.r + c2.r);
+          g = Math.min(255, c1.g + c2.g);
+          b = Math.min(255, c1.b + c2.b);
+          break;
+        case 'multiply':
+          r = Math.floor((c1.r * c2.r) / 255);
+          g = Math.floor((c1.g * c2.g) / 255);
+          b = Math.floor((c1.b * c2.b) / 255);
+          break;
+        default:
+          return color2;
+      }
+
+      return rgbToHex(r, g, b);
+    }
+
+    // HEXをRGBに変換
+    function hexToRgb(hex) {
+      if (!hex || !hex.startsWith('#') || hex.length !== 7) return null;
+      return {
         r: parseInt(hex.slice(1, 3), 16),
         g: parseInt(hex.slice(3, 5), 16),
         b: parseInt(hex.slice(5, 7), 16)
-    };
-}
+      };
+    }
 
-// RGBをHEXに変換
-function rgbToHex(r, g, b) {
-    return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-}
+    // RGBをHEXに変換
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+    }
 
-// LayerPNGインポート
-function importLayerPNG() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/png';
-    input.onchange = (e) => {
+    // LayerPNGインポート
+    function importLayerPNG() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/png';
+      input.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                const width = Math.min(img.width, pixelWidth);
-                const height = Math.min(img.height, pixelHeight);
+          const img = new Image();
+          img.onload = () => {
+            const width = Math.min(img.width, pixelWidth);
+            const height = Math.min(img.height, pixelHeight);
 
-                const tempCanvas = document.createElement('canvas');
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCanvas.width = width;
-                tempCanvas.height = height;
-                tempCtx.drawImage(img, 0, 0, width, height);
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            tempCtx.drawImage(img, 0, 0, width, height);
 
-                const imageData = tempCtx.getImageData(0, 0, width, height);
-                const data = imageData.data;
+            const imageData = tempCtx.getImageData(0, 0, width, height);
+            const data = imageData.data;
 
-                const layer = layers[currentLayerIndex];
-                for (let y = 0; y < height; y++) {
-                    for (let x = 0; x < width; x++) {
-                        const index = (y * width + x) * 4;
-                        const r = data[index];
-                        const g = data[index + 1];
-                        const b = data[index + 2];
-                        const a = data[index + 3];
+            const layer = layers[currentLayerIndex];
+            for (let y = 0; y < height; y++) {
+              for (let x = 0; x < width; x++) {
+                const index = (y * width + x) * 4;
+                const r = data[index];
+                const g = data[index + 1];
+                const b = data[index + 2];
+                const a = data[index + 3];
 
-                        if (a > 0) {
-                            const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-                            layer.data[y * pixelWidth + x] = hex;
-                        }
-                    }
+                if (a > 0) {
+                  const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+                  layer.data[y * pixelWidth + x] = hex;
                 }
+              }
+            }
 
-                renderCanvas();
-                saveState();
-                saveCanvasToStorage();
-            };
-            img.src = event.target.result;
+            renderCanvas();
+            saveState();
+            saveCanvasToStorage();
+          };
+          img.src = event.target.result;
         };
         reader.readAsDataURL(file);
-    };
-    input.click();
-}
-
-// ツール切り替え
-function setTool(tool) {
-    currentTool = tool;
-    document.getElementById('drawToolBtn').classList.toggle('active', tool === 'draw');
-    document.getElementById('fillToolBtn').classList.toggle('active', tool === 'fill');
-    document.getElementById('selectToolBtn').classList.toggle('active', tool === 'select');
-    document.getElementById('moveToolBtn').classList.toggle('active', tool === 'move');
-}
-
-// 全選択
-function selectAll() {
-    selectedPixels.clear();
-    for (let y = 0; y < pixelHeight; y++) {
-        for (let x = 0; x < pixelWidth; x++) {
-            selectedPixels.add(`${x},${y}`);
-        }
+      };
+      input.click();
     }
-    renderCanvas();
-}
 
-// 選択解除
-function clearSelection() {
-    selectedPixels.clear();
-    renderCanvas();
-}
+    // ツール切り替え
+    function setTool(tool) {
+      currentTool = tool;
+      document.getElementById('drawToolBtn').classList.toggle('active', tool === 'draw');
+      document.getElementById('fillToolBtn').classList.toggle('active', tool === 'fill');
+      document.getElementById('selectToolBtn').classList.toggle('active', tool === 'select');
+      document.getElementById('moveToolBtn').classList.toggle('active', tool === 'move');
+    }
 
-// サイズ変更モーダル表示
-function showResizeModal() {
-    document.getElementById('newWidth').value = pixelWidth;
-    document.getElementById('newHeight').value = pixelHeight;
-    document.getElementById('resizeModal').classList.add('active');
-}
+    // 全選択
+    function selectAll() {
+      selectedPixels.clear();
+      for (let y = 0; y < pixelHeight; y++) {
+        for (let x = 0; x < pixelWidth; x++) {
+          selectedPixels.add(`${x},${y}`);
+        }
+      }
+      renderCanvas();
+    }
 
-let resizeAnchor = 'center';
+    // 選択解除
+    function clearSelection() {
+      selectedPixels.clear();
+      renderCanvas();
+    }
 
-function setResizeAnchor(anchor) {
-    resizeAnchor = anchor;
-    document.querySelectorAll('.resize-anchor').forEach(btn => {
+    // サイズ変更モーダル表示
+    function showResizeModal() {
+      document.getElementById('newWidth').value = pixelWidth;
+      document.getElementById('newHeight').value = pixelHeight;
+      document.getElementById('resizeModal').classList.add('active');
+    }
+
+    let resizeAnchor = 'center';
+
+    function setResizeAnchor(anchor) {
+      resizeAnchor = anchor;
+      document.querySelectorAll('.resize-anchor').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.anchor === anchor);
-    });
-}
+      });
+    }
 
-// キャンバスサイズ変更
-function resizeCanvas() {
-    const newWidth = parseInt(document.getElementById('newWidth').value);
-    const newHeight = parseInt(document.getElementById('newHeight').value);
+    // キャンバスサイズ変更
+    function resizeCanvas() {
+      const newWidth = parseInt(document.getElementById('newWidth').value);
+      const newHeight = parseInt(document.getElementById('newHeight').value);
 
-    if (newWidth < 1 || newWidth > 256 || newHeight < 1 || newHeight > 256) {
+      if (newWidth < 1 || newWidth > 256 || newHeight < 1 || newHeight > 256) {
         alert('サイズは1〜256の範囲で指定してください');
         return;
-    }
+      }
 
-    // 各Layerのデータをリサイズ
-    layers.forEach(layer => {
+      // 各Layerのデータをリサイズ
+      layers.forEach(layer => {
         const newData = new Array(newWidth * newHeight).fill(null);
 
         // アンカー位置に基づいてデータをコピー
-        let offsetX = 0, offsetY = 0;
+        let offsetX = 0,
+          offsetY = 0;
         switch (resizeAnchor) {
-            case 'top-left': break;
-            case 'top': offsetX = Math.floor((newWidth - pixelWidth) / 2); break;
-            case 'top-right': offsetX = newWidth - pixelWidth; break;
-            case 'left': offsetY = Math.floor((newHeight - pixelHeight) / 2); break;
-            case 'center':
-                offsetX = Math.floor((newWidth - pixelWidth) / 2);
-                offsetY = Math.floor((newHeight - pixelHeight) / 2);
-                break;
-            case 'right':
-                offsetX = newWidth - pixelWidth;
-                offsetY = Math.floor((newHeight - pixelHeight) / 2);
-                break;
-            case 'bottom-left': offsetY = newHeight - pixelHeight; break;
-            case 'bottom':
-                offsetX = Math.floor((newWidth - pixelWidth) / 2);
-                offsetY = newHeight - pixelHeight;
-                break;
-            case 'bottom-right':
-                offsetX = newWidth - pixelWidth;
-                offsetY = newHeight - pixelHeight;
-                break;
+          case 'top-left':
+            break;
+          case 'top':
+            offsetX = Math.floor((newWidth - pixelWidth) / 2);
+            break;
+          case 'top-right':
+            offsetX = newWidth - pixelWidth;
+            break;
+          case 'left':
+            offsetY = Math.floor((newHeight - pixelHeight) / 2);
+            break;
+          case 'center':
+            offsetX = Math.floor((newWidth - pixelWidth) / 2);
+            offsetY = Math.floor((newHeight - pixelHeight) / 2);
+            break;
+          case 'right':
+            offsetX = newWidth - pixelWidth;
+            offsetY = Math.floor((newHeight - pixelHeight) / 2);
+            break;
+          case 'bottom-left':
+            offsetY = newHeight - pixelHeight;
+            break;
+          case 'bottom':
+            offsetX = Math.floor((newWidth - pixelWidth) / 2);
+            offsetY = newHeight - pixelHeight;
+            break;
+          case 'bottom-right':
+            offsetX = newWidth - pixelWidth;
+            offsetY = newHeight - pixelHeight;
+            break;
         }
 
         for (let y = 0; y < pixelHeight; y++) {
-            for (let x = 0; x < pixelWidth; x++) {
-                const oldIndex = y * pixelWidth + x;
-                const newX = x + offsetX;
-                const newY = y + offsetY;
-                if (newX >= 0 && newX < newWidth && newY >= 0 && newY < newHeight) {
-                    const newIndex = newY * newWidth + newX;
-                    newData[newIndex] = layer.data[oldIndex];
-                }
+          for (let x = 0; x < pixelWidth; x++) {
+            const oldIndex = y * pixelWidth + x;
+            const newX = x + offsetX;
+            const newY = y + offsetY;
+            if (newX >= 0 && newX < newWidth && newY >= 0 && newY < newHeight) {
+              const newIndex = newY * newWidth + newX;
+              newData[newIndex] = layer.data[oldIndex];
             }
+          }
         }
 
         layer.data = newData;
-    });
+      });
 
-    pixelWidth = newWidth;
-    pixelHeight = newHeight;
+      pixelWidth = newWidth;
+      pixelHeight = newHeight;
 
-    // 選択範囲をクリア
-    selectedPixels.clear();
+      // 選択範囲をクリア
+      selectedPixels.clear();
 
-    setupCanvas();
-    closeModal('resizeModal');
-    saveState();
-    saveCanvasToStorage();
-}
+      setupCanvas();
+      closeModal('resizeModal');
+      saveState();
+      saveCanvasToStorage();
+    }
 
-// 独自形式保存
-function saveCustomFile() {
-    const data = {
+    // 独自形式保存
+    function saveCustomFile() {
+      const data = {
         version: 1,
         width: pixelWidth,
         height: pixelHeight,
 
         // レイヤー情報
         layers: layers.map(layer => ({
-            ...layer,
-            data: [...layer.data]
+          ...layer,
+          data: [...layer.data]
         })),
 
         // 現在選択中のレイヤー
@@ -3049,187 +3128,202 @@ function saveCustomFile() {
 
         // 現在選択中のパレット色
         currentPaletteIndex: currentPaletteIndex
-    };
+      };
 
-    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.download = 'pixel-art.json';
-    link.href = URL.createObjectURL(blob);
-    document.body.appendChild(link);
-    link.click();
-    // オブジェクトURLを解放
-    setTimeout(() => {
+      const blob = new Blob([JSON.stringify(data)], {
+        type: 'application/json'
+      });
+      const link = document.createElement('a');
+      link.download = 'pixel-art.json';
+      link.href = URL.createObjectURL(blob);
+      document.body.appendChild(link);
+      link.click();
+      // オブジェクトURLを解放
+      setTimeout(() => {
         document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
-    }, 1000);
-}
+      }, 1000);
+    }
 
-// 独自形式読み込み
-function loadCustomFile() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
+    // 独自形式読み込み
+    function loadCustomFile() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = (event) => {
-            try {
-                const data = JSON.parse(event.target.result);
-                if (data.version && data.width && data.height && data.layers) {
-                    pixelWidth = data.width;
-                    pixelHeight = data.height;
-                    layers = data.layers;
-                    currentLayerIndex = data.currentLayerIndex || 0;
-                    selectedPixels = new Set(data.selectedPixels || []);
-                    // パレットを復元
-                    if (Array.isArray(data.palette) && data.palette.length > 0) {
-                        palette = data.palette;
+          try {
+            const data = JSON.parse(event.target.result);
+            if (data.version && data.width && data.height && data.layers) {
+              pixelWidth = data.width;
+              pixelHeight = data.height;
+              layers = data.layers;
+              currentLayerIndex = data.currentLayerIndex || 0;
+              selectedPixels = new Set(data.selectedPixels || []);
+              // パレットを復元
+              if (Array.isArray(data.palette) && data.palette.length > 0) {
+                palette = data.palette;
 
-                        currentPaletteIndex = data.currentPaletteIndex ?? 0;
+                currentPaletteIndex = data.currentPaletteIndex ?? 0;
 
-                        if (
-                            currentPaletteIndex < 0 ||
-                            currentPaletteIndex >= palette.length
-                        ) {
-                            currentPaletteIndex = 0;
-                        }
-
-                        currentColor = palette[currentPaletteIndex];
-                    }
-                    undoStack = [];
-                    redoStack = [];
-
-                    setupCanvas();
-                    setupPalette();
-                    updateLayerUI();
-                    updateCurrentColor();
-                    saveCanvasToStorage();
-                } else {
-                    alert('無効なファイル形式です');
+                if (
+                  currentPaletteIndex < 0 ||
+                  currentPaletteIndex >= palette.length
+                ) {
+                  currentPaletteIndex = 0;
                 }
-            } catch (e) {
-                alert('ファイルの読み込みに失敗しました');
+
+                currentColor = palette[currentPaletteIndex];
+              }
+              undoStack = [];
+              redoStack = [];
+
+              setupCanvas();
+              setupPalette();
+              updateLayerUI();
+              updateCurrentColor();
+              saveCanvasToStorage();
+            } else {
+              alert('無効なファイル形式です');
             }
+          } catch (e) {
+            alert('ファイルの読み込みに失敗しました');
+          }
         };
         reader.readAsText(file);
-    };
-    input.click();
-}
+      };
+      input.click();
+    }
 
-// 移動ツールの処理
-function handleMoveTool(clientX, clientY, isEnd = false) {
-    if (currentTool !== 'move') return;
+    // 移動ツールの処理
+    function handleMoveTool(clientX, clientY, isEnd = false) {
+      if (currentTool !== 'move') return;
 
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((clientX - rect.left) / zoom);
-    const y = Math.floor((clientY - rect.top) / zoom);
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((clientX - rect.left) / zoom);
+      const y = Math.floor((clientY - rect.top) / zoom);
 
-    if (!isMoving) {
+      if (!isMoving) {
         isMoving = true;
         moveStartX = x;
         moveStartY = y;
         return;
-    }
+      }
 
-    const deltaX = x - moveStartX;
-    const deltaY = y - moveStartY;
+      const deltaX = x - moveStartX;
+      const deltaY = y - moveStartY;
 
-    if (deltaX === 0 && deltaY === 0) return;
+      if (deltaX === 0 && deltaY === 0) return;
 
-    const layer = layers[currentLayerIndex];
+      const layer = layers[currentLayerIndex];
 
-    if (selectedPixels.size > 0) {
+      if (selectedPixels.size > 0) {
         // 選択範囲の移動
         const newSelectedPixels = new Set();
         const movedData = {};
 
         selectedPixels.forEach(key => {
-            const [sx, sy] = key.split(',').map(Number);
-            const newX = sx + deltaX;
-            const newY = sy + deltaY;
+          const [sx, sy] = key.split(',').map(Number);
+          const newX = sx + deltaX;
+          const newY = sy + deltaY;
 
-            if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
-                const oldIndex = sy * pixelWidth + sx;
-                const newIndex = newY * pixelWidth + newX;
-                movedData[newIndex] = layer.data[oldIndex];
-                newSelectedPixels.add(`${newX},${newY}`);
-            }
+          if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
+            const oldIndex = sy * pixelWidth + sx;
+            const newIndex = newY * pixelWidth + newX;
+            movedData[newIndex] = layer.data[oldIndex];
+            newSelectedPixels.add(`${newX},${newY}`);
+          }
         });
 
         // 移動元をクリア
         selectedPixels.forEach(key => {
-            const [sx, sy] = key.split(',').map(Number);
-            const oldIndex = sy * pixelWidth + sx;
-            layer.data[oldIndex] = null;
+          const [sx, sy] = key.split(',').map(Number);
+          const oldIndex = sy * pixelWidth + sx;
+          layer.data[oldIndex] = null;
         });
 
         // 移動先に設定
         Object.entries(movedData).forEach(([index, color]) => {
-            layer.data[parseInt(index)] = color;
+          layer.data[parseInt(index)] = color;
         });
 
         selectedPixels = newSelectedPixels;
-    } else {
+      } else {
         // Layer全体の移動
         const newData = new Array(pixelWidth * pixelHeight).fill(null);
 
         for (let y = 0; y < pixelHeight; y++) {
-            for (let x = 0; x < pixelWidth; x++) {
-                const oldIndex = y * pixelWidth + x;
-                const newX = x + deltaX;
-                const newY = y + deltaY;
+          for (let x = 0; x < pixelWidth; x++) {
+            const oldIndex = y * pixelWidth + x;
+            const newX = x + deltaX;
+            const newY = y + deltaY;
 
-                if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
-                    const newIndex = newY * pixelWidth + newX;
-                    newData[newIndex] = layer.data[oldIndex];
-                }
+            if (newX >= 0 && newX < pixelWidth && newY >= 0 && newY < pixelHeight) {
+              const newIndex = newY * pixelWidth + newX;
+              newData[newIndex] = layer.data[oldIndex];
             }
+          }
         }
 
         layer.data = newData;
-    }
+      }
 
-    moveStartX = x;
-    moveStartY = y;
-    renderCanvas();
-    saveCanvasToStorage();
+      moveStartX = x;
+      moveStartY = y;
+      renderCanvas();
+      saveCanvasToStorage();
 
-    if (isEnd) {
+      if (isEnd) {
         isMoving = false;
+      }
     }
+
+    // Layerポップアップの切り替え
+    function toggleLayerPopup() {
+      const popup = document.getElementById('layerPopup');
+      const toggle = document.getElementById('layerPopupToggle');
+      popup.classList.toggle('collapsed');
+      toggle.textContent = popup.classList.contains('collapsed') ? '◀Layer' : '▶Layer';
+      toggle.style.writingMode = popup.classList.contains('collapsed') ? "vertical-lr" : "horizontal-tb";
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+
+      // メッセージを動的に設定
+      toast.innerText = message;
+
+      // showクラスを追加して表示
+      toast.classList.add("show");
+
+      // 3秒後に自動的に閉じる
+      setTimeout(() => {
+        toast.classList.remove("show");
+      }, 3000);
+    }
+
+// タッチ・クリック位置から正確なピクセル座標(x, y)を取得する共通関数
+function getPixelCoordinates(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  
+  // スクロールオフセットとズーム率を正確に計算
+  const x = Math.floor((clientX - rect.left) / zoom);
+  const y = Math.floor((clientY - rect.top) / zoom);
+  
+  return { x, y };
 }
 
-// Layerポップアップの切り替え
-function toggleLayerPopup() {
-    const popup = document.getElementById('layerPopup');
-    const toggle = document.getElementById('layerPopupToggle');
-    popup.classList.toggle('collapsed');
-    toggle.textContent = popup.classList.contains('collapsed') ? '◀Layer' : '▶Layer';
-    toggle.style.writingMode = popup.classList.contains('collapsed') ? "vertical-lr" : "horizontal-tb";
-}
+    // 初期化実行
+    init();
 
-function showToast(message) {
-  const toast = document.getElementById("toast");
-  
-  // メッセージを動的に設定
-  toast.innerText = message;
-  
-  // showクラスを追加して表示
-  toast.classList.add("show");
-  
-  // 3秒後に自動的に閉じる
-  setTimeout(() => {
-    toast.classList.remove("show");
-  }, 3000);
-}
+    // Layerポップアップの初期状態を設定
+    document.getElementById('layerPopupToggle').textContent = '▶Layer';
 
-// 初期化実行
-init();
-
-// Layerポップアップの初期状態を設定
-document.getElementById('layerPopupToggle').textContent = '▶Layer';
-</script>
+  </script>
 </body>
+
 </html>
