@@ -9,8 +9,8 @@
 ###google_ads_iframe_test
 
 ! 2. ネットワークブロックルール (Network Filters)
-/ads/banner-*.jpg
-/adserver/serve.html
+*/ads/banner-*.jpg
+*/adserver/serve.html
 
 ! 3. オプション指定付きのネットワークルール
-/scripts/track.js$script
+*/scripts/track.js$script
