@@ -1,7 +1,7 @@
 [Adblock Plus 2.0]
 ! Title: ブラウザテスト用フィルターリスト
 ! Description: 自作ブラウザのフィルターエンジンの動作確認用リスト
-! Version: 20260923.2
+! Version: 20260923.3
 ! Expires: 1 days
 
 ! 1. 要素非表示ルール (Cosmetic Filters)
@@ -22,7 +22,12 @@
 */ads/redirect-target.jpg$redirect=1x1-transparent.gif
 
 ! 6. 手続き型セレクタ (:has-text())
-##.promo-box:has-text(スポンサー広告)
+! 【注意】uBO本家の仕様上、手続き型セレクタとスクリプトレット注入(##+js)は
+! ドメイン指定必須で、指定の無い(汎用の)ものはuBOによって読み捨てられる
+! (https://github.com/uBlockOrigin/uBlock-issues/wiki/Procedural-cosmetic-filters)。
+! 下記の benisaru.github.io の部分は、公開する実際のホスト名に置き換えること
+benisaru.github.io##.promo-box:has-text(スポンサー広告)
 
 ! 7. スクリプトレット (set-constant)
-##+js(set-constant, __mbTestAdEnabled, false)
+! 6と同じ理由でドメイン指定必須。同様に実際のホスト名に置き換えること
+benisaru.github.io##+js(set-constant, __mbTestAdEnabled, false)
