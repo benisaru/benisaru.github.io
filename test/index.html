@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>広告フィルター・テストページ</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .ad-container { border: 2px dashed #ccc; padding: 10px; margin-bottom: 20px; text-align: center; background: #f9f9f9; }
+        .ad-banner { width: 300px; height: 250px; background: #ffcccc; display: inline-flex; align-items: center; justify-content: center; color: red; font-weight: bold; }
+        iframe { border: 1px solid #999; width: 100%; height: 100px; }
+        .subscribe-btn { display: inline-block; background: #0078d7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>広告フィルター・テストページ</h1>
+    <p>このページには複数のダミー広告が含まれています。フィルターリストを購読して、これらが消えるか（またはロードがブロックされるか）を確認してください。</p>
+
+    <!-- ABP Subscribe リンク -->
+    <div style="margin-bottom: 30px;">
+        <a href="abp:subscribe?location=http://localhost/test-filters.txt&title=ブラウザテスト用フィルターリスト" class="subscribe-btn">
+            🛡️ テスト用フィルターリストを購読する (abp:subscribe)
+        </a>
+        <p><small>※ <code>localhost</code> の部分は、実際のテスト環境のURLに変更してください。</small></p>
+    </div>
+
+    <h2>テスト1: クラス名による要素非表示（Cosmetic Filter）</h2>
+    <div class="ad-container sponsor-ad">
+        <p>このテキストは <code>.sponsor-ad</code> クラスを持っています。ブロックされるとこの枠ごと消えます。</p>
+    </div>
+
+    <h2>テスト2: IDによる要素非表示（Cosmetic Filter）</h2>
+    <div class="ad-container" id="google_ads_iframe_test">
+        <p>このテキストは <code>#google_ads_iframe_test</code> IDを持っています。</p>
+    </div>
+
+    <h2>テスト3: 画像のネットワークブロック（Network Filter）</h2>
+    <div class="ad-container">
+        <img src="/ads/banner-300x250.jpg" class="ad-banner" alt="ダミー広告画像 (読み込みエラーになるのが正解)">
+        <p><code>/ads/*</code> パスの画像読み込みテストです。</p>
+    </div>
+
+    <h2>テスト4: iframeのネットワークブロック（Network Filter）</h2>
+    <div class="ad-container">
+        <iframe src="/adserver/serve.html" id="ad-iframe"></iframe>
+        <p><code>/adserver/*</code> パスのiframe読み込みテストです。</p>
+    </div>
+
+    <h2>テスト5: スクリプトのブロック（Script Block）</h2>
+    <div class="ad-container">
+        <script src="/scripts/track.js"></script>
+        <p id="script-status">トラッキングスクリプトがブロックされていません（実行されました）。</p>
+        <script>
+            // ダミーのトラッキングスクリプトをシミュレート
+            setTimeout(() => {
+                if (window.isTrackerLoaded) {
+                    document.getElementById('script-status').style.color = "red";
+                    document.getElementById('script-status').innerText = "トラッキングスクリプトが読み込まれてしまいました！ブロック失敗です。";
+                } else {
+                    document.getElementById('script-status').style.color = "green";
+                    document.getElementById('script-status').innerText = "トラッキングスクリプトは正常にブロックされました！";
+                }
+            }, 500);
+        </script>
+    </div>
+
+</body>
+</html>
