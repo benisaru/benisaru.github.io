@@ -1,7 +1,7 @@
 [Adblock Plus 2.0]
 ! Title: ブラウザテスト用フィルターリスト
 ! Description: 自作ブラウザのフィルターエンジンの動作確認用リスト
-! Version: 20260923.1
+! Version: 20260923.2
 ! Expires: 1 days
 
 ! 1. 要素非表示ルール (Cosmetic Filters)
@@ -14,3 +14,15 @@
 
 ! 3. オプション指定付きのネットワークルール
 */scripts/track.js$script
+
+! 4. WebSocket通信のブロック ($websocket)
+||echo.websocket.org^$websocket
+
+! 5. リソース差し替え ($redirect)
+*/ads/redirect-target.jpg$redirect=1x1-transparent.gif
+
+! 6. 手続き型セレクタ (:has-text())
+##.promo-box:has-text(スポンサー広告)
+
+! 7. スクリプトレット (set-constant)
+##+js(set-constant, __mbTestAdEnabled, false)

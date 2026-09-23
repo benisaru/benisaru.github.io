@@ -10,59 +10,265 @@
         .ad-banner { width: 300px; height: 250px; background: #ffcccc; display: inline-flex; align-items: center; justify-content: center; color: red; font-weight: bold; }
         iframe { border: 1px solid #999; width: 100%; height: 100px; }
         .subscribe-btn { display: inline-block; background: #0078d7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; }
+        #summary { position: sticky; top: 0; background: #222; color: #fff; padding: 10px 14px; border-radius: 6px; margin-bottom: 20px; font-size: 0.95em; z-index: 10; }
+        #summary .count { font-weight: bold; font-size: 1.1em; }
+        .status-line { font-weight: bold; }
+        .status-ok { color: #1a7f37; }
+        .status-ng { color: #cf222e; }
+        .status-warn { color: #9a6700; }
+        .status-pending { color: #666; }
+        code { background: #eee; padding: 1px 4px; border-radius: 3px; }
     </style>
 </head>
 <body>
 
     <h1>広告フィルター・テストページ</h1>
-    <p>このページには複数のダミー広告が含まれています。フィルターリストを購読して、これらが消えるか（またはロードがブロックされるか）を確認してください。</p>
+    <p>このページには複数のダミー広告・トラッキング要素が含まれています。フィルターリストを購読して、これらが消えるか(またはロード・接続がブロックされるか)を確認してください。</p>
+
+    <div id="summary">判定中: <span class="count"><span id="summary-pass">0</span> / <span id="summary-total">9</span></span> 件がブロック/非表示を確認</div>
 
     <!-- ABP Subscribe リンク -->
     <div style="margin-bottom: 30px;">
         <a href="abp:subscribe?location=https://benisaru.github.io/test/test-filters.txt&title=ブラウザテスト用フィルターリスト" class="subscribe-btn">
             🛡️ テスト用フィルターリストを購読する (abp:subscribe)
         </a>
+        <p style="font-size: 0.85em; color: #666;">※ 自分のGitHubユーザー名/リポジトリ構成が <code>benisaru.github.io/test/</code> と異なる場合は、このリンクとフィルターリストの参照先URLを実際の公開先に合わせて書き換えてください。</p>
     </div>
 
-    <h2>テスト1: クラス名による要素非表示（Cosmetic Filter）</h2>
-    <div class="ad-container sponsor-ad">
+    <h2>テスト1: クラス名による要素非表示(Cosmetic Filter)</h2>
+    <div class="ad-container sponsor-ad" id="test1-el">
         <p>このテキストは <code>.sponsor-ad</code> クラスを持っています。ブロックされるとこの枠ごと消えます。</p>
     </div>
+    <p id="test1-status" class="status-line status-pending">判定中...</p>
 
-    <h2>テスト2: IDによる要素非表示（Cosmetic Filter）</h2>
+    <h2>テスト2: IDによる要素非表示(Cosmetic Filter)</h2>
     <div class="ad-container" id="google_ads_iframe_test">
         <p>このテキストは <code>#google_ads_iframe_test</code> IDを持っています。</p>
     </div>
+    <p id="test2-status" class="status-line status-pending">判定中...</p>
 
-    <h2>テスト3: 画像のネットワークブロック（Network Filter）</h2>
+    <h2>テスト3: 画像のネットワークブロック(Network Filter)</h2>
     <div class="ad-container">
-        <img src="./ads/banner-300x250.jpg" class="ad-banner" alt="ダミー広告画像 (読み込みエラーになるのが正解)">
+        <img id="banner-img" src="./ads/banner-300x250.jpg" class="ad-banner" alt="ダミー広告画像 (読み込みエラーになるのが正解)">
         <p><code>./ads/*</code> パスの画像読み込みテストです。</p>
     </div>
+    <p id="test3-status" class="status-line status-pending">判定中...</p>
 
-    <h2>テスト4: iframeのネットワークブロック（Network Filter）</h2>
+    <h2>テスト4: iframeのネットワークブロック(Network Filter)</h2>
     <div class="ad-container">
         <iframe src="./adserver/serve.html" id="ad-iframe"></iframe>
         <p><code>./adserver/*</code> パスのiframe読み込みテストです。</p>
     </div>
+    <p id="test4-status" class="status-line status-pending">判定中...</p>
 
-    <h2>テスト5: スクリプトのブロック（Script Block）</h2>
+    <h2>テスト5: スクリプトのブロック(Script Block)</h2>
     <div class="ad-container">
         <script src="./scripts/track.js"></script>
-        <p id="script-status">トラッキングスクリプトがブロックされていません（実行されました）。</p>
-        <script>
-            // ダミーのトラッキングスクリプトをシミュレート
-            setTimeout(() => {
-                if (window.isTrackerLoaded) {
-                    document.getElementById('script-status').style.color = "red";
-                    document.getElementById('script-status').innerText = "トラッキングスクリプトが読み込まれてしまいました！ブロック失敗です。";
-                } else {
-                    document.getElementById('script-status').style.color = "green";
-                    document.getElementById('script-status').innerText = "トラッキングスクリプトは正常にブロックされました！";
-                }
-            }, 500);
-        </script>
+        <p id="test5-status" class="status-line status-pending">判定中...</p>
     </div>
+
+    <h2>テスト6: WebSocket通信のブロック($websocket)</h2>
+    <div class="ad-container">
+        <p>公開のWebSocketエコーサーバー(<code>wss://echo.websocket.org</code>)への接続を試みます。<br>
+        フィルターリストの <code>||echo.websocket.org^$websocket</code> が効いていれば接続は確立されないはずです。</p>
+        <p id="test6-status" class="status-line status-pending">判定中...(数秒かかります)</p>
+        <p id="ws-baseline" style="color:#888; font-size: 0.85em;"></p>
+    </div>
+
+    <h2>テスト7: リソース差し替え($redirect)</h2>
+    <div class="ad-container">
+        <img id="redirect-img" src="./ads/redirect-target.jpg" class="ad-banner" alt="広告差し替えテスト用画像">
+        <p id="test7-status" class="status-line status-pending">判定中...(画像読み込み待ち)</p>
+        <p><code>*/ads/redirect-target.jpg$redirect=1x1-transparent.gif</code> により、
+        本来の画像の代わりに1x1の透明画像に差し替わるはずです。</p>
+    </div>
+
+    <h2>テスト8: 手続き型セレクタ(:has-text())</h2>
+    <div class="ad-container">
+        <div class="promo-box">この文章には「スポンサー広告」という文字列が含まれています。</div>
+        <p>上のボックスは <code>##.promo-box:has-text(スポンサー広告)</code> というルールで非表示になるはずです
+        (単なる <code>##.promo-box</code> だけでは消えない想定なので、テキストマッチ自体の動作確認になります)。</p>
+        <p id="test8-status" class="status-line status-pending">判定中...</p>
+    </div>
+
+    <h2>テスト9: スクリプトレット(set-constant)</h2>
+    <div class="ad-container">
+        <p id="test9-status" class="status-line status-pending">判定中...</p>
+        <p><code>##+js(set-constant, __mbTestAdEnabled, false)</code> により、
+        ページが <code>true</code> にしようとしている <code>window.__mbTestAdEnabled</code> が
+        <code>false</code> に固定されるはずです。</p>
+    </div>
+    <script>
+        window.__mbTestAdEnabled = true; // 広告用スクリプトがこのフラグをtrueにしたと仮定
+    </script>
+
+    <script>
+        // ==================== 判定結果の集計 ====================
+        var __mbPassCount = 0;
+        function __mbReport(elId, passed, okText, ngText) {
+            var el = document.getElementById(elId);
+            if (el) {
+                el.className = 'status-line ' + (passed ? 'status-ok' : 'status-ng');
+                el.textContent = (passed ? '✅ ' : '❌ ') + (passed ? okText : ngText);
+            }
+            if (passed) __mbPassCount++;
+            document.getElementById('summary-pass').textContent = String(__mbPassCount);
+        }
+
+        function __mbIsHidden(el) {
+            if (!el) return true;
+            var cs = getComputedStyle(el);
+            return cs.display === 'none' || cs.visibility === 'hidden' || el.offsetParent === null;
+        }
+
+        window.addEventListener('load', function() {
+            // ---- テスト1: クラス名によるコスメティックフィルタ ----
+            setTimeout(function() {
+                var hidden = __mbIsHidden(document.getElementById('test1-el'));
+                __mbReport('test1-status', hidden,
+                    'クラス名指定の要素が非表示になりました。',
+                    '要素が表示されたままです(コスメティックフィルタが効いていません)。');
+            }, 300);
+
+            // ---- テスト2: IDによるコスメティックフィルタ ----
+            setTimeout(function() {
+                var hidden = __mbIsHidden(document.getElementById('google_ads_iframe_test'));
+                __mbReport('test2-status', hidden,
+                    'ID指定の要素が非表示になりました。',
+                    '要素が表示されたままです(コスメティックフィルタが効いていません)。');
+            }, 300);
+
+            // ---- テスト3: 画像のネットワークブロック ----
+            (function() {
+                var img = document.getElementById('banner-img');
+                if (img.complete) {
+                    __mbReport('test3-status', img.naturalWidth === 0,
+                        '画像の読み込みがブロックされました。',
+                        '画像がそのまま読み込まれました(ブロックされていません)。');
+                } else {
+                    img.addEventListener('load', function() {
+                        __mbReport('test3-status', false, '', '画像がそのまま読み込まれました(ブロックされていません)。');
+                    });
+                    img.addEventListener('error', function() {
+                        __mbReport('test3-status', true, '画像の読み込みがブロックされました。', '');
+                    });
+                }
+            })();
+
+            // ---- テスト4: iframeのネットワークブロック ----
+            setTimeout(function() {
+                var iframe = document.getElementById('ad-iframe');
+                var loadedRealContent = false;
+                try {
+                    var doc = iframe.contentDocument || iframe.contentWindow.document;
+                    var text = (doc.body && doc.body.textContent) || '';
+                    loadedRealContent = text.indexOf('Ad') !== -1;
+                } catch (e) {
+                    // クロスオリジン化やアクセス不能はブロックされている可能性が高い
+                    loadedRealContent = false;
+                }
+                __mbReport('test4-status', !loadedRealContent,
+                    'iframeの中身が読み込まれませんでした。',
+                    'iframeの中身(広告)がそのまま読み込まれました(ブロックされていません)。');
+            }, 800);
+
+            // ---- テスト5: スクリプトのブロック ----
+            setTimeout(function() {
+                var pass = !window.isTrackerLoaded;
+                __mbReport('test5-status', pass,
+                    'トラッキングスクリプトは正常にブロックされました。',
+                    'トラッキングスクリプトが読み込まれてしまいました(ブロック失敗)。');
+            }, 500);
+
+            // ---- テスト6: WebSocket ----
+            (function() {
+                function runWsTest(url, elId, isBaseline) {
+                    var el = document.getElementById(elId);
+                    var start = performance.now();
+                    var settled = false;
+                    function finishBlocked(elapsed) {
+                        settled = true;
+                        if (isBaseline) {
+                            el.className = 'status-line';
+                            el.style.color = '#888';
+                            el.textContent = '(参考値) このURLへの接続は常に失敗します。所要時間: ' + elapsed +
+                                'ms ← テスト対象の所要時間がこれより明らかに短ければ、ネットワーク到達前にブロックされた可能性が高いです。';
+                            return;
+                        }
+                        if (elapsed < 20) {
+                            __mbReport(elId, true, '即座に切断されました(所要時間 ' + elapsed + 'ms)。ブロックされている可能性が高いです。', '');
+                        } else {
+                            el.className = 'status-line status-warn';
+                            el.textContent = '⚠️ 切断されましたが判定に時間がかかりました(所要時間 ' + elapsed +
+                                'ms)。ブロックというより単なるネットワークエラーの可能性もあるため、参考値の行と見比べてください。';
+                        }
+                    }
+                    function finishOpen(elapsed) {
+                        settled = true;
+                        if (isBaseline) return;
+                        __mbReport(elId, false, '', '接続が確立されました(所要時間 ' + elapsed + 'ms)。ブロックされていません。');
+                    }
+                    try {
+                        var ws = new WebSocket(url);
+                        ws.onopen = function() {
+                            finishOpen(Math.round(performance.now() - start));
+                            try { ws.close(); } catch (e) {}
+                        };
+                        ws.onerror = function() {};
+                        ws.onclose = function() {
+                            if (settled) return;
+                            finishBlocked(Math.round(performance.now() - start));
+                        };
+                    } catch (e) {
+                        settled = true;
+                        el.textContent = 'WebSocket自体が利用できません: ' + e.message;
+                    }
+                    setTimeout(function() {
+                        if (!settled) el.textContent = '10秒経過しても応答がありません(タイムアウト)。';
+                    }, 10000);
+                }
+                runWsTest('wss://echo.websocket.org/', 'test6-status', false);
+                // GitHub PagesはWebSocketアップグレードに応答しないため、ブロックの有無に関わらず
+                // このURLへの接続は必ず失敗する。判定の所要時間の目安として使う
+                runWsTest('wss://' + location.hostname + '/__mb-ws-baseline-does-not-exist', 'ws-baseline', true);
+            })();
+
+            // ---- テスト7: $redirect ----
+            (function() {
+                var img = document.getElementById('redirect-img');
+                function check() {
+                    var pass = img.naturalWidth <= 2 && img.naturalHeight <= 2;
+                    __mbReport('test7-status', pass,
+                        '1x1の透明画像に差し替えられました(実寸 ' + img.naturalWidth + 'x' + img.naturalHeight + ')。',
+                        '元の広告画像がそのまま読み込まれました(実寸 ' + img.naturalWidth + 'x' + img.naturalHeight + ')。');
+                }
+                if (img.complete && img.naturalWidth !== 0) {
+                    check();
+                } else {
+                    img.addEventListener('load', check);
+                    img.addEventListener('error', function() {
+                        document.getElementById('test7-status').textContent = '画像の読み込み自体に失敗しました(ネットワークエラー)。';
+                    });
+                }
+            })();
+
+            // ---- テスト8: 手続き型セレクタ ----
+            setTimeout(function() {
+                var hidden = __mbIsHidden(document.querySelector('.promo-box'));
+                __mbReport('test8-status', hidden,
+                    '手続き型セレクタにより非表示になりました。',
+                    '表示されたままです(手続き型セレクタが効いていません)。');
+            }, 300);
+
+            // ---- テスト9: スクリプトレット ----
+            setTimeout(function() {
+                var pass = window.__mbTestAdEnabled === false;
+                __mbReport('test9-status', pass,
+                    'set-constantスクリプトレットによりfalseに固定されました。',
+                    'フラグはtrueのままです(スクリプトレットが効いていません)。');
+            }, 0);
+        });
+    </script>
 
 </body>
 </html>
