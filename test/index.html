@@ -36,19 +36,19 @@
 
     <h2>テスト3: 画像のネットワークブロック（Network Filter）</h2>
     <div class="ad-container">
-        <img src="/ads/banner-300x250.jpg" class="ad-banner" alt="ダミー広告画像 (読み込みエラーになるのが正解)">
-        <p><code>/ads/*</code> パスの画像読み込みテストです。</p>
+        <img src="./ads/banner-300x250.jpg" class="ad-banner" alt="ダミー広告画像 (読み込みエラーになるのが正解)">
+        <p><code>./ads/*</code> パスの画像読み込みテストです。</p>
     </div>
 
     <h2>テスト4: iframeのネットワークブロック（Network Filter）</h2>
     <div class="ad-container">
-        <iframe src="/adserver/serve.html" id="ad-iframe"></iframe>
-        <p><code>/adserver/*</code> パスのiframe読み込みテストです。</p>
+        <iframe src="./adserver/serve.html" id="ad-iframe"></iframe>
+        <p><code>./adserver/*</code> パスのiframe読み込みテストです。</p>
     </div>
 
     <h2>テスト5: スクリプトのブロック（Script Block）</h2>
     <div class="ad-container">
-        <script src="/scripts/track.js"></script>
+        <script src="./scripts/track.js"></script>
         <p id="script-status">トラッキングスクリプトがブロックされていません（実行されました）。</p>
         <script>
             // ダミーのトラッキングスクリプトをシミュレート
