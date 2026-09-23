@@ -64,7 +64,16 @@
 
     <h2>テスト5: スクリプトのブロック(Script Block)</h2>
     <div class="ad-container">
-        <script src="./scripts/track.js"></script>
+        <script>
+            // 画像テストと同じ理由(ブラウザ/WebViewのHTTPキャッシュに、フィルタ有効化前に
+            // 読み込んだ古いレスポンスが残っていると、shouldInterceptRequest自体が
+            // 呼ばれずに素通りしてしまうことがある)で、動的生成+キャッシュバスターに変更
+            (function() {
+                var s = document.createElement('script');
+                s.src = './scripts/track.js?_cb=' + Date.now();
+                document.head.appendChild(s);
+            })();
+        </script>
         <p id="test5-status" class="status-line status-pending">判定中...</p>
     </div>
 
