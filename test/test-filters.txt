@@ -33,7 +33,9 @@ benisaru.github.io##.promo-box:has-text(スポンサー広告)
 benisaru.github.io##+js(set-constant, __mbTestAdEnabled, false)
 
 ! 8. クエリパラメータの除去 ($removeparam)
-*/ads/removeparam-test.jpg$removeparam=utm_test_tracker
+! 【注意】下記のプレースホルダーを、実際のCloudflare Workerのホスト名に置き換えること
+! (例: mb-removeparam-echo.your-name.workers.dev)
+||mb-removeparam-echo.biziorbizi.workers.dev^$removeparam=utm_test_tracker
 
 ! 9. $important による例外の上書き
 ! ブロックルールと例外ルールが両方存在するが、ブロック側にimportantが

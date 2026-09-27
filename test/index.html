@@ -116,17 +116,21 @@
 
     <h2>テスト10: クエリパラメータの除去($removeparam)</h2>
     <div class="ad-container">
-        <p id="test10-status" class="status-line status-pending">判定中...(数秒かかります)</p>
         <p style="font-size: 0.85em; color: #666;">
             <code>$removeparam</code>は「該当パラメータが付いていた場合、それを取り除いた上で読み込む」というルールです。
-            GitHub Pagesのような静的ホスティングはクエリ文字列を無視して同じファイルを返すため、
-            <strong>ページ側のJavaScriptからは実際に送られたパラメータの違いを直接確認できません</strong>。
-            そのためここでは「クラッシュせず正常に読み込めるか」と「読み込み所要時間の傾向」を参考値として示すに留めます。
-            <strong>確実な確認にはアプリのlogcatで <code>$removeparam: (元URL) -> (除去後URL)</code> という
-            デバッグログが出ているかを見てください。</strong>
+            GitHub Pagesのような静的ホスティングはクエリ文字列を無視して同じファイルを返すため確認できませんが、
+            Cloudflare Worker製のエコーサーバー(受け取ったクエリパラメータをそのまま返すだけの簡単なAPI)に
+            リクエストを送ることで、<strong>実際に届いたクエリパラメータ</strong>を直接確認できます。
         </p>
+        <p id="test10-status" class="status-line status-pending">判定中...</p>
         <p id="test10-detail" style="font-size: 0.8em; color: #888;"></p>
     </div>
+
+    <script>
+        // ここをCloudflare Workerの実際のURLに置き換えてください
+        // (Workers & Pages → 作成したWorker → 「表示」の下にある https://xxxx.xxxx.workers.dev の形式)
+        var MB_ECHO_ENDPOINT = 'https://mb-removeparam-echo.biziorbizi.workers.dev/';
+    </script>
 
     <h2>テスト11: $important による例外(@@)の上書き</h2>
     <div class="ad-container">
@@ -330,31 +334,29 @@
             }, 0);
 
             // ---- テスト10: $removeparam ----
-            // 上記の通り、静的ホスティングではパラメータの有無で内容もタイミングも
-            // 厳密には変わらないため、ここでの判定は「クラッシュ・全面ブロックなく
-            // 読み込めたか」だけをpass/failの基準にし、所要時間の差は数値として
-            // 参考表示するに留める(誤ったpass/failを主張しないための配慮)
+            // Cloudflare Workerのエコーサーバーへ、除去対象のパラメータを付けてfetchし、
+            // 実際にサーバーへ届いたクエリパラメータの中に残っていないかを直接確認する
             (function() {
-                function timedLoad(url) {
-                    return new Promise(function(resolve) {
-                        var start = performance.now();
-                        var img = new Image();
-                        img.onload = function() { resolve({ ok: true, ms: Math.round(performance.now() - start) }); };
-                        img.onerror = function() { resolve({ ok: false, ms: Math.round(performance.now() - start) }); };
-                        img.src = url;
-                    });
+                var detailEl = document.getElementById('test10-detail');
+                if (!MB_ECHO_ENDPOINT || MB_ECHO_ENDPOINT.indexOf('YOUR-SUBDOMAIN') !== -1) {
+                    __mbReport('test10-status', false, '',
+                        'MB_ECHO_ENDPOINTが未設定です(index.html内のYOUR-SUBDOMAINを、あなたのWorkerのURLに置き換えてください)。');
+                    return;
                 }
-                var withoutParam = './ads/removeparam-test.jpg?_cb=' + Date.now() + 'a';
-                var withParam = './ads/removeparam-test.jpg?utm_test_tracker=1&_cb=' + Date.now() + 'b';
-                Promise.all([timedLoad(withoutParam), timedLoad(withParam)]).then(function(results) {
-                    var a = results[0], b = results[1];
-                    var detailEl = document.getElementById('test10-detail');
-                    detailEl.textContent = '除去対象パラメータ無し: ' + (a.ok ? a.ms + 'ms' : '読み込み失敗') +
-                        ' / 除去対象パラメータ有り: ' + (b.ok ? b.ms + 'ms' : '読み込み失敗') +
-                        '(所要時間の差は目安に過ぎません。断定にはlogcatを確認してください)';
-                    __mbReport('test10-status', a.ok && b.ok,
-                        '両方とも正常に読み込めました(クラッシュ・全面ブロックは無いようです)。実際に除去されたかはlogcatで確認してください。',
-                        '読み込みに失敗しました(removeparam処理でエラーが起きている可能性があります)。');
+                var testUrl = MB_ECHO_ENDPOINT + '?utm_test_tracker=1&_cb=' + Date.now();
+                fetch(testUrl).then(function(res) {
+                    if (!res.ok) throw new Error('HTTPステータス ' + res.status);
+                    return res.json();
+                }).then(function(data) {
+                    var stillHasParam = data && data.query && ('utm_test_tracker' in data.query);
+                    detailEl.textContent = 'Workerが実際に受け取ったクエリ: ' + JSON.stringify(data.query);
+                    __mbReport('test10-status', !stillHasParam,
+                        'utm_test_trackerパラメータが実際に除去された状態でサーバーに届いていました。',
+                        'utm_test_trackerパラメータが除去されずそのまま届いてしまいました($removeparamが効いていません)。');
+                }).catch(function(e) {
+                    __mbReport('test10-status', false, '',
+                        'Workerへの通信に失敗しました(' + e.message + ')。エンドポイントのURLやCORS設定、' +
+                        'test-filters.txt内のホスト名指定を確認してください。');
                 });
             })();
 
