@@ -25,7 +25,7 @@
     <h1>広告フィルター・テストページ</h1>
     <p>このページには複数のダミー広告・トラッキング要素が含まれています。フィルターリストを購読して、これらが消えるか(またはロード・接続がブロックされるか)を確認してください。</p>
 
-    <div id="summary">判定中: <span class="count"><span id="summary-pass">0</span> / <span id="summary-total">9</span></span> 件がブロック/非表示を確認</div>
+    <div id="summary">判定中: <span class="count"><span id="summary-pass">0</span> / <span id="summary-total">13</span></span> 件がブロック/非表示を確認</div>
 
     <!-- ABP Subscribe リンク -->
     <div style="margin-bottom: 30px;">
@@ -113,6 +113,55 @@
     <script>
         window.__mbTestAdEnabled = true; // 広告用スクリプトがこのフラグをtrueにしたと仮定
     </script>
+
+    <h2>テスト10: クエリパラメータの除去($removeparam)</h2>
+    <div class="ad-container">
+        <p id="test10-status" class="status-line status-pending">判定中...(数秒かかります)</p>
+        <p style="font-size: 0.85em; color: #666;">
+            <code>$removeparam</code>は「該当パラメータが付いていた場合、それを取り除いた上で読み込む」というルールです。
+            GitHub Pagesのような静的ホスティングはクエリ文字列を無視して同じファイルを返すため、
+            <strong>ページ側のJavaScriptからは実際に送られたパラメータの違いを直接確認できません</strong>。
+            そのためここでは「クラッシュせず正常に読み込めるか」と「読み込み所要時間の傾向」を参考値として示すに留めます。
+            <strong>確実な確認にはアプリのlogcatで <code>$removeparam: (元URL) -> (除去後URL)</code> という
+            デバッグログが出ているかを見てください。</strong>
+        </p>
+        <p id="test10-detail" style="font-size: 0.8em; color: #888;"></p>
+    </div>
+
+    <h2>テスト11: $important による例外(@@)の上書き</h2>
+    <div class="ad-container">
+        <img id="important-img" class="ad-banner" alt="importantテスト用画像">
+        <script>document.getElementById('important-img').src = './ads/important-test.jpg?_cb=' + Date.now();</script>
+        <p style="font-size: 0.85em; color: #666;">
+            このパスには「ブロックするルール」と「それを打ち消す例外(<code>@@</code>)ルール」の両方が定義されていますが、
+            ブロック側に <code>$important</code> が付いているため、例外より優先されて<strong>ブロックされたままになる</strong>のが正解です。
+        </p>
+        <p id="test11-status" class="status-line status-pending">判定中...</p>
+    </div>
+
+    <h2>テスト12: ドメイン指定の例外($domain)</h2>
+    <div class="ad-container">
+        <img id="domain-exception-img" class="ad-banner" alt="ドメイン例外テスト用画像">
+        <script>document.getElementById('domain-exception-img').src = './ads/domain-exception-test.jpg?_cb=' + Date.now();</script>
+        <p style="font-size: 0.85em; color: #666;">
+            このパスは全体では(他のドメインでは)ブロックされますが、<strong>このページと同じホスト名を対象にした
+            <code>@@...$domain=</code></strong> 例外が定義されているため、このページ上では<strong>読み込めるのが正解</strong>です。
+            (テスト11とは逆に、こちらは「表示される」方が正しい結果です)
+        </p>
+        <p id="test12-status" class="status-line status-pending">判定中...</p>
+    </div>
+
+    <h2>テスト13: HTMLフィルタリング(##^selector)</h2>
+    <div class="ad-container" id="test13-container">
+        <div id="html-filter-marker">この要素は生のHTML段階で丸ごと取り除かれるはずです(CSSで隠すのではなく、DOMに一切存在しなくなります)。</div>
+        <p style="font-size: 0.85em; color: #666;">
+            <code>##^#html-filter-marker</code> は他のコズメティックフィルタ(CSSで隠すだけ)と違い、
+            レスポンス本文(HTML)そのものを書き換えてから読み込ませる機能です。
+            テスト1・2の「非表示」とは異なり、<code>document.getElementById()</code>で
+            <strong>要素自体が見つからなくなる</strong>のが正解です。
+        </p>
+        <p id="test13-status" class="status-line status-pending">判定中...</p>
+    </div>
 
     <script>
         // ==================== 判定結果の集計 ====================
@@ -279,6 +328,77 @@
                     'set-constantスクリプトレットによりfalseに固定されました。',
                     'フラグはtrueのままです(スクリプトレットが効いていません)。');
             }, 0);
+
+            // ---- テスト10: $removeparam ----
+            // 上記の通り、静的ホスティングではパラメータの有無で内容もタイミングも
+            // 厳密には変わらないため、ここでの判定は「クラッシュ・全面ブロックなく
+            // 読み込めたか」だけをpass/failの基準にし、所要時間の差は数値として
+            // 参考表示するに留める(誤ったpass/failを主張しないための配慮)
+            (function() {
+                function timedLoad(url) {
+                    return new Promise(function(resolve) {
+                        var start = performance.now();
+                        var img = new Image();
+                        img.onload = function() { resolve({ ok: true, ms: Math.round(performance.now() - start) }); };
+                        img.onerror = function() { resolve({ ok: false, ms: Math.round(performance.now() - start) }); };
+                        img.src = url;
+                    });
+                }
+                var withoutParam = './ads/removeparam-test.jpg?_cb=' + Date.now() + 'a';
+                var withParam = './ads/removeparam-test.jpg?utm_test_tracker=1&_cb=' + Date.now() + 'b';
+                Promise.all([timedLoad(withoutParam), timedLoad(withParam)]).then(function(results) {
+                    var a = results[0], b = results[1];
+                    var detailEl = document.getElementById('test10-detail');
+                    detailEl.textContent = '除去対象パラメータ無し: ' + (a.ok ? a.ms + 'ms' : '読み込み失敗') +
+                        ' / 除去対象パラメータ有り: ' + (b.ok ? b.ms + 'ms' : '読み込み失敗') +
+                        '(所要時間の差は目安に過ぎません。断定にはlogcatを確認してください)';
+                    __mbReport('test10-status', a.ok && b.ok,
+                        '両方とも正常に読み込めました(クラッシュ・全面ブロックは無いようです)。実際に除去されたかはlogcatで確認してください。',
+                        '読み込みに失敗しました(removeparam処理でエラーが起きている可能性があります)。');
+                });
+            })();
+
+            // ---- テスト11: $important ----
+            (function() {
+                var img = document.getElementById('important-img');
+                function check() {
+                    __mbReport('test11-status', img.naturalWidth === 0,
+                        '$importantによりブロックされたままでした(例外に打ち消されませんでした)。',
+                        '画像が読み込まれてしまいました($importantが例外に負けています)。');
+                }
+                if (img.complete) {
+                    check();
+                } else {
+                    img.addEventListener('load', check);
+                    img.addEventListener('error', check);
+                }
+            })();
+
+            // ---- テスト12: $domain(ドメイン指定の例外) ----
+            (function() {
+                var img = document.getElementById('domain-exception-img');
+                function check() {
+                    __mbReport('test12-status', img.naturalWidth > 0,
+                        'このドメインでは例外が適用され、正しく読み込めました。',
+                        '読み込めませんでした(ドメイン指定の例外がこのホストに一致していない可能性があります。' +
+                        'test-filters.txt内のプレースホルダーのホスト名を実際の公開先に置き換えたか確認してください)。');
+                }
+                if (img.complete) {
+                    check();
+                } else {
+                    img.addEventListener('load', check);
+                    img.addEventListener('error', check);
+                }
+            })();
+
+            // ---- テスト13: HTMLフィルタリング(##^selector) ----
+            setTimeout(function() {
+                var el = document.getElementById('html-filter-marker');
+                __mbReport('test13-status', el === null,
+                    '要素自体がDOMから取り除かれていました(HTMLフィルタリングが機能しています)。',
+                    '要素がDOMに残っています(HTMLフィルタリングが効いていないか、対象がメインフレームの' +
+                    'GETナビゲーションではない可能性があります)。');
+            }, 300);
         });
     </script>
 

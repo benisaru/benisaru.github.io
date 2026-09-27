@@ -1,7 +1,7 @@
 [Adblock Plus 2.0]
 ! Title: ブラウザテスト用フィルターリスト
 ! Description: 自作ブラウザのフィルターエンジンの動作確認用リスト
-! Version: 20260923.3
+! Version: 20260927.1
 ! Expires: 1 days
 
 ! 1. 要素非表示ルール (Cosmetic Filters)
@@ -31,3 +31,23 @@ benisaru.github.io##.promo-box:has-text(スポンサー広告)
 ! 7. スクリプトレット (set-constant)
 ! 6と同じ理由でドメイン指定必須。同様に実際のホスト名に置き換えること
 benisaru.github.io##+js(set-constant, __mbTestAdEnabled, false)
+
+! 8. クエリパラメータの除去 ($removeparam)
+*/ads/removeparam-test.jpg$removeparam=utm_test_tracker
+
+! 9. $important による例外の上書き
+! ブロックルールと例外ルールが両方存在するが、ブロック側にimportantが
+! 付いているため例外より優先され、最終的にブロックされ続けるのが正解
+*/ads/important-test.jpg$image
+@@*/ads/important-test.jpg$image
+*/ads/important-test.jpg$image,important
+
+! 10. $domain によるドメイン限定の例外
+! 【注意】5・6と同じ理由でドメイン指定必須。下記の benisaru.github.io の部分は
+! 実際に公開するホスト名に置き換えること。置き換えないとこのテストは失敗する
+*/ads/domain-exception-test.jpg$image
+@@*/ads/domain-exception-test.jpg$image,domain=benisaru.github.io
+
+! 11. HTMLフィルタリング (##^selector)
+! 【注意】5・6・10と同じ理由でドメイン指定必須
+benisaru.github.io##^#html-filter-marker
