@@ -3,7 +3,7 @@
 ! Description: 自作ブラウザのフィルターエンジンが対応する全記法(ネットワーク修飾子・
 !   コスメティック/手続き型セレクタ・HTMLフィルタリング・スクリプトレット・
 !   プリプロセッサ)を網羅的に検証するためのリスト。
-! Version: 20260927.2
+! Version: 20260928.1
 ! Expires: 1 days
 !
 ! 【重要】このファイル中の benisaru.github.io は実際に公開するホスト名に、
@@ -11,8 +11,17 @@
 ! 置き換えてください(手続き型セレクタ・スクリプトレット・HTMLフィルタリングは
 ! uBO仕様上ドメイン指定必須のため、置き換えないと該当テストは動作しません)。
 !
-! 対応するindex.htmlのテスト項目とは、コメント末尾の [id: xxx] という識別子で
-! 対応させています(番号ではなくIDで紐付けているので、テストの追加・並べ替えに強い)。
+! 【注意】$generichide / $specifichide / $genericblock はドメイン全体の
+! コスメティック/ネットワークフィルタの扱いをまとめて切り替えてしまう仕様上、
+! 単体テストが行いにくいため、このファイルには含めていません。
+! test-filters-generichide.txt / test-filters-specifichide.txt /
+! test-filters-genericblock.txt として別ファイルに分離し、それぞれ単独で
+! (このファイルとは同時に有効化せず)購読して確認してください。
+! 対応するテストページも test/subtests/ 以下に分離してあります。
+!
+! 各ルールの説明・対応するindex.htmlのテスト項目([id: xxx])は、
+! ルールの直前に単独のコメント行として記載しています(ルールと同じ行に
+! コメントを続けて書くと、コメントとして無視されず行全体が壊れるため)。
 
 ! ============================================================
 ! 1〜13: 基本セット(既存)
@@ -35,107 +44,132 @@ benisaru.github.io##+js(set-constant, __mbTestAdEnabled, false)
 benisaru.github.io##^#html-filter-marker
 
 ! ============================================================
-! ネットワークフィルタ: リソースタイプ修飾子 [id: net-*]
+! ネットワークフィルタ: リソースタイプ修飾子
 ! ============================================================
-*/styles/stylesheet-test.css$stylesheet                          ! [id: net-stylesheet]
-*/mbt-xhr-test$xmlhttprequest                                     ! [id: net-xhr] (拡張子無しパス。Accept不明瞭+拡張子無しの救済ロジックにより既定でもXHR判定になるが、明示指定でも確認する)
-*/fonts/font-test.woff2$font                                      ! [id: net-font]
-*/media/media-test.mp3$media                                      ! [id: net-media]
-*/ads/other-test.xml$other                                        ! [id: net-other]
-*/ads/object-test.swf$object                                      ! [id: net-object] (参考: 実機でSec-Fetch-Destが得られない場合、拡張子ベースの救済策がOBJECT型に倒す手段を持たないため判定されない可能性が高い既知の制限)
+! [id: net-stylesheet]
+*/styles/stylesheet-test.css$stylesheet
+! [id: net-xhr] 拡張子無しパス。Accept不明瞭+拡張子無しの救済ロジックにより
+! 既定でもXHR判定になるが、明示指定でも確認する
+*/mbt-xhr-test$xmlhttprequest
+! [id: net-font]
+*/fonts/font-test.woff2$font
+! [id: net-media]
+*/media/media-test.mp3$media
+! [id: net-other]
+*/ads/other-test.xml$other
+! [id: net-object] 参考: 実機でSec-Fetch-Destが得られない場合、拡張子ベースの
+! 救済策がOBJECT型に倒す手段を持たないため判定されない可能性が高い既知の制限
+*/ads/object-test.swf$object
 
 ! ============================================================
-! ネットワークフィルタ: 修飾子 [id: net-*]
+! ネットワークフィルタ: 修飾子
 ! ============================================================
-*/mbt-to-test$to=mb-removeparam-echo.biziorbizi.workers.dev       ! [id: net-to] ($domainと違いリクエスト"先"のホストを見る)
-*/denyallow-test*$denyallow=mb-removeparam-echo.biziorbizi.workers.dev ! [id: net-denyallow] (ドメイン指定なしの広いパターンだが、denyallowで指定した宛先だけは除外される)
-*/mbt-method-test$method=post                                     ! [id: net-method] (GETは通り、POSTだけブロックされるはず)
-*/MatchCase-Test.jpg$image,match-case                             ! [id: net-matchcase] (大文字小文字を区別する。同名の小文字版は別ファイルとして用意し、そちらは一致しないはず)
-*/ads/all-test.jpg$all                                            ! [id: net-all]
-*/ads/badfilter-target.jpg$image                                  ! [id: net-badfilter] (下の$badfilter行で相殺され、最終的にはブロックされない=読み込めるのが正解)
+! [id: net-to] $domainと違いリクエスト"先"のホストを見る
+*/mbt-to-test$to=mb-removeparam-echo.biziorbizi.workers.dev
+! [id: net-denyallow] ドメイン指定なしの広いパターンだが、denyallowで
+! 指定した宛先だけは除外される
+*/denyallow-test*$denyallow=mb-removeparam-echo.biziorbizi.workers.dev
+! [id: net-method] GETは通り、POSTだけブロックされるはず
+*/mbt-method-test$method=post
+! [id: net-matchcase] 大文字小文字を区別する。同名の小文字版は別ファイルとして
+! 用意し、そちらは一致しないはず
+*/MatchCase-Test.jpg$image,match-case
+! [id: net-all]
+*/ads/all-test.jpg$all
+! [id: net-badfilter] 下の$badfilter行で相殺され、最終的にはブロックされない
+! (=読み込めるのが正解)
+*/ads/badfilter-target.jpg$image
 */ads/badfilter-target.jpg$image,badfilter
 
-! $genericblock: ドメイン指定なしの広いネットワークブロックだけを、このホストでは
-! 無効化する例外。ドメイン指定付きの通常ブロックは従来通り効く、という対比になっている
-*/mbt-genericblock-generic*$image                                 ! [id: net-genericblock-generic] (汎用側。generichideではなくgenericblock対象)
-@@||benisaru.github.io^$genericblock
-*/mbt-genericblock-domain-scoped*$image,domain=benisaru.github.io ! [id: net-genericblock-domain] ($domain=指定によりdomainBucket側で管理されるため、genericblock例外の対象外。引き続きブロックされるはず)
-
-*/ads/redirect-rule-test.jpg$image                                ! [id: net-redirectrule] (この単独ブロックと、下の$redirect-ruleが組み合わさって初めて差し替えが発動する)
+! [id: net-redirectrule] この単独ブロックと、下の$redirect-ruleが
+! 組み合わさって初めて差し替えが発動する
+*/ads/redirect-rule-test.jpg$image
 */ads/redirect-rule-test.jpg$redirect-rule=1x1-transparent.gif
 
-*/ads/empty-test.txt$empty                                        ! [id: net-empty] ($redirect=nooptextの別名。中身が空文字列になるはず)
+! [id: net-empty] $redirect=nooptextの別名。中身が空文字列になるはず
+*/ads/empty-test.txt$empty
 
-! $removeparamの反転記法(除外指定、uBO本家では特定パラメータ"以外"除去などに使う拡張構文)
-! は、このエンジンでは非対応であることをそのまま確認する項目([id: net-removeparam-negated])。
-! 「非対応=期待通りの結果」であり、バグではないことをページ側でも明記している
+! $removeparamの反転記法(除外指定、uBO本家では特定パラメータ"以外"除去などに
+! 使う拡張構文)は、このエンジンでは非対応であることをそのまま確認する項目
+! ([id: net-removeparam-negated])。「非対応=期待通りの結果」であり、
+! バグではないことをページ側でも明記している
 ||mb-removeparam-echo.biziorbizi.workers.dev^$removeparam=~utm_should_not_be_removed
 
-! $popup/$popunder: window.open()等で開かれたタブの最初のメインフレーム読み込みに対して
-! だけ判定される。ここでは分かりやすいダミーホストを対象にする
-||mbt-popup-blocked-target.invalid^$popup,popunder                ! [id: net-popup]
+! [id: net-popup] window.open()等で開かれたタブの最初のメインフレーム
+! 読み込みに対してだけ判定される。分かりやすいダミーホストを対象にする
+||mbt-popup-blocked-target.invalid^$popup,popunder
 
 ! ============================================================
-! 汎用/専用コスメティックの抑制系 [id: net-*]
+! コスメティックフィルタ: 例外・拡張CSS注入
 ! ============================================================
-! $generichide/$elemhide: ドメイン指定なしの汎用コスメティックだけを無効化する例外
-##.mbt-generichide-generic                                        ! [id: net-generichide-generic] (汎用側。例外で表示されたままになるはず)
-@@||benisaru.github.io^$generichide
-benisaru.github.io##.mbt-generichide-domain-scoped                ! [id: net-generichide-domain] (ドメイン指定側。generichideの影響を受けず引き続き非表示のはず)
-
-! $specifichide: 逆にドメイン指定付きのコスメティック/手続き型/スクリプトレットだけを
-! 無効化する例外(generichideとは対象が逆)
-##.mbt-specifichide-generic                                       ! [id: net-specifichide-generic] (汎用側。specifichideの影響を受けず引き続き非表示のはず)
-benisaru.github.io##.mbt-specifichide-domain-scoped                ! [id: net-specifichide-domain] (ドメイン指定側。例外で表示されたままになるはず)
-@@||benisaru.github.io^$specifichide
-
-! ============================================================
-! コスメティックフィルタ: 例外・拡張CSS [id: cos-*]
-! ============================================================
-! #@# 基本の例外: 汎用ルールで隠される要素を、ドメイン指定の#@#で個別に復活させる
-##.mbt-exception-target                                           ! [id: cos-exception]
+! [id: cos-exception] #@# 基本の例外: 汎用ルールで隠される要素を、
+! ドメイン指定の#@#で個別に復活させる
+##.mbt-exception-target
 benisaru.github.io#@#.mbt-exception-target
 
-! #$# (AdGuard CSS注入構文)。内部的に:style()へ変換される。非表示にするのではなく
-! 任意のCSS宣言を適用する点が##との違い
+! [id: cos-cssinjection] #$# (AdGuard CSS注入構文)。内部的に:style()へ
+! 変換される。非表示にするのではなく任意のCSS宣言を適用する点が##との違い
 benisaru.github.io#$#.mbt-cssinjection-target { outline: 4px solid rgb(1, 2, 3) !important; }
 
 ! ============================================================
-! 手続き型セレクタ(全演算子) [id: proc-*]
+! 手続き型セレクタ(全演算子)
 ! ============================================================
-benisaru.github.io##.mbt-proc-has-box:has(.mbt-proc-has-trigger)              ! [id: proc-has]
-benisaru.github.io##.mbt-proc-not-box:not(.mbt-proc-not-excluded)             ! [id: proc-not]
-benisaru.github.io##.mbt-proc-matchesattr-box:matches-attr(data-mbt-ad=/^yes$/) ! [id: proc-matches-attr]
-benisaru.github.io##.mbt-proc-matchespath-box:matches-path(/test/)            ! [id: proc-matches-path]
-benisaru.github.io##.mbt-proc-mintextlength-box:min-text-length(30)           ! [id: proc-min-text-length]
-benisaru.github.io##.mbt-proc-upward-num-anchor:upward(2)                     ! [id: proc-upward-num]
-benisaru.github.io##.mbt-proc-nthancestor-anchor:nth-ancestor(2)              ! [id: proc-nth-ancestor]
-benisaru.github.io##.mbt-proc-upward-sel-anchor:upward(.mbt-proc-upward-sel-target) ! [id: proc-upward-sel]
-benisaru.github.io##.mbt-proc-matchescss-box:matches-css(color: /^rgb\(9,\s*8,\s*7\)$/) ! [id: proc-matches-css]
-benisaru.github.io##.mbt-proc-matchescssbefore-box:matches-css-before(content: /mbt-before-marker/) ! [id: proc-matches-css-before]
-benisaru.github.io##.mbt-proc-matchesmedia-box:matches-media((min-width: 1px)) ! [id: proc-matches-media]
-benisaru.github.io##.mbt-proc-matchesprop-box:matches-prop(mbtProcProp=/^leak$/) ! [id: proc-matches-prop]
-benisaru.github.io##*:xpath(//div[@id="mbt-proc-xpath-target"])               ! [id: proc-xpath]
-benisaru.github.io##.mbt-proc-style-target:style(background-color: rgb(4, 5, 6) !important;) ! [id: proc-style]
-benisaru.github.io##.mbt-proc-remove-target:remove()                         ! [id: proc-remove]
-benisaru.github.io##.mbt-proc-removeattr-target:remove-attr(data-mbt-secret) ! [id: proc-remove-attr]
-benisaru.github.io##.mbt-proc-removeclass-target:remove-class(mbt-secret-class) ! [id: proc-remove-class]
-benisaru.github.io##.mbt-proc-others-subject:has-text(対象):others()          ! [id: proc-others]
-benisaru.github.io##.mbt-proc-watchattr-box:matches-attr(data-mbt-state=on):watch-attr(data-mbt-state) ! [id: proc-watch-attr]
+! [id: proc-has]
+benisaru.github.io##.mbt-proc-has-box:has(.mbt-proc-has-trigger)
+! [id: proc-not]
+benisaru.github.io##.mbt-proc-not-box:not(.mbt-proc-not-excluded)
+! [id: proc-matches-attr]
+benisaru.github.io##.mbt-proc-matchesattr-box:matches-attr(data-mbt-ad=/^yes$/)
+! [id: proc-matches-path]
+benisaru.github.io##.mbt-proc-matchespath-box:matches-path(/test/)
+! [id: proc-min-text-length]
+benisaru.github.io##.mbt-proc-mintextlength-box:min-text-length(30)
+! [id: proc-upward-num]
+benisaru.github.io##.mbt-proc-upward-num-anchor:upward(2)
+! [id: proc-nth-ancestor]
+benisaru.github.io##.mbt-proc-nthancestor-anchor:nth-ancestor(2)
+! [id: proc-upward-sel]
+benisaru.github.io##.mbt-proc-upward-sel-anchor:upward(.mbt-proc-upward-sel-target)
+! [id: proc-matches-css]
+benisaru.github.io##.mbt-proc-matchescss-box:matches-css(color: /^rgb\(9,\s*8,\s*7\)$/)
+! [id: proc-matches-css-before]
+benisaru.github.io##.mbt-proc-matchescssbefore-box:matches-css-before(content: /mbt-before-marker/)
+! [id: proc-matches-media]
+benisaru.github.io##.mbt-proc-matchesmedia-box:matches-media((min-width: 1px))
+! [id: proc-matches-prop]
+benisaru.github.io##.mbt-proc-matchesprop-box:matches-prop(mbtProcProp=/^leak$/)
+! [id: proc-xpath]
+benisaru.github.io##*:xpath(//div[@id="mbt-proc-xpath-target"])
+! [id: proc-style]
+benisaru.github.io##.mbt-proc-style-target:style(background-color: rgb(4, 5, 6) !important;)
+! [id: proc-remove]
+benisaru.github.io##.mbt-proc-remove-target:remove()
+! [id: proc-remove-attr]
+benisaru.github.io##.mbt-proc-removeattr-target:remove-attr(data-mbt-secret)
+! [id: proc-remove-class]
+benisaru.github.io##.mbt-proc-removeclass-target:remove-class(mbt-secret-class)
+! [id: proc-others]
+benisaru.github.io##.mbt-proc-others-subject:has-text(対象):others()
+! [id: proc-watch-attr]
+benisaru.github.io##.mbt-proc-watchattr-box:matches-attr(data-mbt-state=on):watch-attr(data-mbt-state)
 
 ! ============================================================
-! HTMLフィルタリング: 例外・レスポンスヘッダ削除 [id: html-*]
+! HTMLフィルタリング: 例外・レスポンスヘッダ削除
 ! ============================================================
+! [id: html-exception] ##^だけなら消えるはずの要素が、#@#^により残るのが正解
 benisaru.github.io##^.mbt-htmlfilter-exception-target
-benisaru.github.io#@#^.mbt-htmlfilter-exception-target             ! [id: html-exception] (##^だけなら消えるはずの要素が、#@#^により残るのが正解)
+benisaru.github.io#@#^.mbt-htmlfilter-exception-target
 
-! ##^responseheader() はJSから自ページの応答ヘッダを直接読む手段が無いため、
-! 自動判定できない([id: html-responseheader]、手動確認項目としてページに掲載)
+! [id: html-responseheader] 注意: ##^responseheader() はuBO/AdGuard本家には
+! 無い、このアプリ独自の拡張構文です。本家Firefox版uBlock Originに読み込ませると
+! 未知の構文としてエラーになりますが、これはバグではなく想定通りです
+! (MyBrowser上でのみ意味を持つ行として理解してください)。
 benisaru.github.io##^responseheader(x-mbt-tracking-header)
 
 ! ============================================================
-! プリプロセッサディレクティブ [id: pre-if]
+! プリプロセッサディレクティブ
 ! ============================================================
+! [id: pre-if]
 !#if env_mobile
 benisaru.github.io##.mbt-preprocessor-target
 !#else
@@ -144,44 +178,82 @@ benisaru.github.io##.mbt-preprocessor-target
 !#endif
 
 ! ============================================================
-! スクリプトレット(全対応種) [id: scr-*]
+! スクリプトレット(全対応種)
 ! ============================================================
-benisaru.github.io##+js(aopr, MBT.aopr)                                       ! [id: scr-aopr]
-benisaru.github.io##+js(aopw, MBT.aopw)                                       ! [id: scr-aopw]
-benisaru.github.io##+js(acis, MBT.acis, magicToken12345)                      ! [id: scr-acis]
-benisaru.github.io##+js(aost, MBT.aost, <inline-script>)                      ! [id: scr-aost]
-benisaru.github.io##+js(set-attr, .mbt-setattr-target, data-mbt-marker, injected) ! [id: scr-set-attr]
-benisaru.github.io##+js(remove-attr, .mbt-scr-removeattr-target, data-mbt-secret) ! [id: scr-remove-attr]
-benisaru.github.io##+js(remove-class, .mbt-scr-removeclass-target, mbt-secret-class) ! [id: scr-remove-class]
-benisaru.github.io##+js(rmnt, .mbt-removenodetext-target, SECRETTEXT)         ! [id: scr-remove-node-text]
-benisaru.github.io##+js(json-prune, mbtSecret)                                ! [id: scr-json-prune]
-benisaru.github.io##+js(json-prune-xhr-response, url)                         ! [id: scr-json-prune-xhr]
-benisaru.github.io##+js(set-cookie, mbt_cookie_test, allowed, /)              ! [id: scr-set-cookie]
-benisaru.github.io##+js(set-local-storage-item, mbt_ls_test, enabled)         ! [id: scr-set-ls]
-benisaru.github.io##+js(cookie-remover, mbt_cookie_remover_target)            ! [id: scr-cookie-remover] (手動確認。document-start時+beforeunload時のみ動くため単発ロードでは自動判定できない)
-benisaru.github.io##+js(fingerprint2)                                         ! [id: scr-fingerprint2]
-benisaru.github.io##+js(prevent-fetch, mbt-prevent-fetch-marker)              ! [id: scr-prevent-fetch]
-benisaru.github.io##+js(prevent-xhr, mbt-prevent-xhr-marker)                  ! [id: scr-prevent-xhr]
-benisaru.github.io##+js(prevent-setTimeout, mbtPreventTimeoutMarker)          ! [id: scr-prevent-settimeout]
-benisaru.github.io##+js(prevent-setInterval, mbtPreventIntervalMarker)        ! [id: scr-prevent-setinterval]
-benisaru.github.io##+js(prevent-window-open, mbt-popup-marker)                ! [id: scr-prevent-window-open]
-benisaru.github.io##+js(aeld, click, mbtAeldMarker)                           ! [id: scr-prevent-addeventlistener]
-benisaru.github.io##+js(no-floc)                                              ! [id: scr-no-floc] (参考: FLoC自体が現行ブラウザに存在しないため有意な検証にならない)
-benisaru.github.io##+js(nowebrtc)                                             ! [id: scr-nowebrtc]
-benisaru.github.io##+js(noeval, mbtEvalMarker)                                ! [id: scr-noeval-if]
-benisaru.github.io##+js(spoof-css, .mbt-spoofcss-target, display, block)      ! [id: scr-spoof-css]
-benisaru.github.io##+js(prevent-refresh)                                      ! [id: scr-prevent-refresh]
-benisaru.github.io##+js(rpnt, .mbt-replacenodetext-target, SECRETWORD, [REDACTED]) ! [id: scr-replace-node-text]
-benisaru.github.io##+js(trusted-set, MBT.trustedConst, 42)                    ! [id: scr-trusted-set-constant]
-benisaru.github.io##+js(trusted-set-cookie, mbt_trusted_cookie, arbitrary-value-ok) ! [id: scr-trusted-set-cookie]
-benisaru.github.io##+js(trusted-set-local-storage-item, mbt_trusted_ls, freeform123) ! [id: scr-trusted-set-storage]
-benisaru.github.io##+js(trusted-set-session-storage-item, mbt_trusted_ss, freeform456) ! [id: scr-trusted-set-storage]
-benisaru.github.io##+js(trusted-replace-argument, Element.prototype.setAttribute, 1, replaced-by-trusted, condition, /^orig-value$/) ! [id: scr-trusted-replace-argument]
-benisaru.github.io##+js(trusted-suppress-native-method, window.alert, 1)      ! [id: scr-trusted-suppress] (手動確認。実際のalert()を鳴らさずに検証する安全な自動判定方法が無いため)
-benisaru.github.io##+js(trusted-replace-xhr-response, mbtSecretValue, REPLACED) ! [id: scr-trusted-replace-xhr]
-benisaru.github.io##+js(trusted-replace-fetch-response, mbtFetchSecret, REPLACEDFETCH) ! [id: scr-trusted-replace-fetch]
-benisaru.github.io##+js(trusted-click-element, .mbt-trustedclick-target)      ! [id: scr-trusted-click-element]
-benisaru.github.io##+js(trusted-rpnt, .mbt-trustedreplacenodetext-target, SECRETWORD2, [MASKED]) ! [id: scr-trusted-replace-node-text]
+! [id: scr-aopr]
+benisaru.github.io##+js(aopr, MBT.aopr)
+! [id: scr-aopw]
+benisaru.github.io##+js(aopw, MBT.aopw)
+! [id: scr-acis]
+benisaru.github.io##+js(acis, MBT.acis, magicToken12345)
+! [id: scr-aost]
+benisaru.github.io##+js(aost, MBT.aost, <inline-script>)
+! [id: scr-set-attr]
+benisaru.github.io##+js(set-attr, .mbt-setattr-target, data-mbt-marker, injected)
+! [id: scr-remove-attr]
+benisaru.github.io##+js(remove-attr, .mbt-scr-removeattr-target, data-mbt-secret)
+! [id: scr-remove-class]
+benisaru.github.io##+js(remove-class, .mbt-scr-removeclass-target, mbt-secret-class)
+! [id: scr-remove-node-text]
+benisaru.github.io##+js(rmnt, .mbt-removenodetext-target, SECRETTEXT)
+! [id: scr-json-prune]
+benisaru.github.io##+js(json-prune, mbtSecret)
+! [id: scr-json-prune-xhr]
+benisaru.github.io##+js(json-prune-xhr-response, url)
+! [id: scr-set-cookie]
+benisaru.github.io##+js(set-cookie, mbt_cookie_test, allowed, /)
+! [id: scr-set-ls]
+benisaru.github.io##+js(set-local-storage-item, mbt_ls_test, enabled)
+! [id: scr-cookie-remover] 手動確認。document-start時+beforeunload時のみ
+! 動くため単発ロードでは自動判定できない
+benisaru.github.io##+js(cookie-remover, mbt_cookie_remover_target)
+! [id: scr-fingerprint2]
+benisaru.github.io##+js(fingerprint2)
+! [id: scr-prevent-fetch]
+benisaru.github.io##+js(prevent-fetch, mbt-prevent-fetch-marker)
+! [id: scr-prevent-xhr]
+benisaru.github.io##+js(prevent-xhr, mbt-prevent-xhr-marker)
+! [id: scr-prevent-settimeout]
+benisaru.github.io##+js(prevent-setTimeout, mbtPreventTimeoutMarker)
+! [id: scr-prevent-setinterval]
+benisaru.github.io##+js(prevent-setInterval, mbtPreventIntervalMarker)
+! [id: scr-prevent-window-open]
+benisaru.github.io##+js(prevent-window-open, mbt-popup-marker)
+! [id: scr-prevent-addeventlistener]
+benisaru.github.io##+js(aeld, click, mbtAeldMarker)
+! [id: scr-no-floc] 参考: FLoC自体が現行ブラウザに存在しないため有意な検証にならない
+benisaru.github.io##+js(no-floc)
+! [id: scr-nowebrtc]
+benisaru.github.io##+js(nowebrtc)
+! [id: scr-noeval-if]
+benisaru.github.io##+js(noeval, mbtEvalMarker)
+! [id: scr-spoof-css]
+benisaru.github.io##+js(spoof-css, .mbt-spoofcss-target, display, block)
+! [id: scr-prevent-refresh]
+benisaru.github.io##+js(prevent-refresh)
+! [id: scr-replace-node-text]
+benisaru.github.io##+js(rpnt, .mbt-replacenodetext-target, SECRETWORD, [REDACTED])
+! [id: scr-trusted-set-constant]
+benisaru.github.io##+js(trusted-set, MBT.trustedConst, 42)
+! [id: scr-trusted-set-cookie]
+benisaru.github.io##+js(trusted-set-cookie, mbt_trusted_cookie, arbitrary-value-ok)
+! [id: scr-trusted-set-storage] (local-storage分)
+benisaru.github.io##+js(trusted-set-local-storage-item, mbt_trusted_ls, freeform123)
+! [id: scr-trusted-set-storage] (session-storage分)
+benisaru.github.io##+js(trusted-set-session-storage-item, mbt_trusted_ss, freeform456)
+! [id: scr-trusted-replace-argument]
+benisaru.github.io##+js(trusted-replace-argument, Element.prototype.setAttribute, 1, replaced-by-trusted, condition, /^orig-value$/)
+! [id: scr-trusted-suppress] 手動確認。実際のalert()を鳴らさずに検証する
+! 安全な自動判定方法が無いため
+benisaru.github.io##+js(trusted-suppress-native-method, window.alert, 1)
+! [id: scr-trusted-replace-xhr]
+benisaru.github.io##+js(trusted-replace-xhr-response, mbtSecretValue, REPLACED)
+! [id: scr-trusted-replace-fetch]
+benisaru.github.io##+js(trusted-replace-fetch-response, mbtFetchSecret, REPLACEDFETCH)
+! [id: scr-trusted-click-element]
+benisaru.github.io##+js(trusted-click-element, .mbt-trustedclick-target)
+! [id: scr-trusted-replace-node-text]
+benisaru.github.io##+js(trusted-rpnt, .mbt-trustedreplacenodetext-target, SECRETWORD2, [MASKED])
 
 ! ============================================================
 ! 既知の非対応(バグではなく仕様上の制限。ページ側にも解説を掲載)

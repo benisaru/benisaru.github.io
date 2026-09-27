@@ -1,0 +1,16 @@
+[Adblock Plus 2.0]
+! Title: genericblock単体テスト用リスト
+! 【重要】このリストは test-filters.txt や他のtest-filters-*.txt と
+! 同時に有効化しないでください。$genericblock例外は対象ドメインの
+! 「ドメイン指定なしのネットワークブロック」を全てまとめて無効化するため、
+! 同じドメインで動いている他のネットワーク系テストを巻き込んで壊してしまいます。
+! このテスト(test/subtests/genericblock.html)を確認する時だけ単独で購読し、
+! 終わったら購読解除するか、他のテストの前に必ず無効化してください。
+!
+! benisaru.github.io は実際のホスト名に置き換えてください。
+
+! 汎用側(ドメイン指定なし)。$genericblock例外により読み込めてしまうはず
+*/mbt-genericblock-generic*$image
+@@||benisaru.github.io^$genericblock
+! ドメイン指定側($domain=)。$genericblockの影響を受けず引き続きブロックされるはず
+*/mbt-genericblock-domain-scoped*$image,domain=benisaru.github.io

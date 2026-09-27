@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>$genericblock 単体テスト</title>
+<style>
+    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px; line-height: 1.7; }
+    .box { border: 1px solid #ccc; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+    .status-ok { color: #1a7f37; font-weight: bold; }
+    .status-ng { color: #cf222e; font-weight: bold; }
+    code { background: #eee; padding: 1px 4px; border-radius: 3px; }
+    .warn { background: #fff8e1; border: 1px solid #e8d074; padding: 10px 14px; border-radius: 6px; }
+    img { max-width: 120px; border: 1px dashed #999; }
+</style>
+</head>
+<body>
+<h1>$genericblock 単体テスト</h1>
+<div class="warn">
+    <strong>このページを確認する時は、<code>test-filters-genericblock.txt</code>だけを単独で
+    購読してください。</strong>メインのテストページ(index.html)用の<code>test-filters.txt</code>と
+    同時に有効化すると、$genericblockがドメイン全体のドメイン指定なしネットワークブロックを
+    無効化してしまうため、メインページの他のネットワーク系テストが壊れます。
+</div>
+
+<div class="box">
+    <p>汎用側(ドメイン指定なし)。<code>*/mbt-genericblock-generic*$image</code> +
+        <code>@@||host^$genericblock</code> により、<strong>読み込めてしまう</strong>のが正解です。</p>
+    <img id="img-generic" alt="汎用側">
+    <p id="status-generic" class="status-line">判定中...</p>
+</div>
+
+<div class="box">
+    <p>ドメイン指定側($domain=)。<code>*/mbt-genericblock-domain-scoped*$image,domain=host</code>
+        は$genericblockの影響を受けないため、<strong>引き続きブロックされる</strong>のが正解です。</p>
+    <img id="img-domain" alt="ドメイン指定側">
+    <p id="status-domain" class="status-line">判定中...</p>
+</div>
+
+<script>
+    function attach(imgId, statusId, expectLoaded) {
+        var img = document.getElementById(imgId);
+        var status = document.getElementById(statusId);
+        img.onload = function() {
+            var ok = expectLoaded;
+            status.innerHTML = ok
+                ? '<span class="status-ok">✅ 成功: 読み込めました</span>'
+                : '<span class="status-ng">❌ 失敗: 読み込めてしまいました</span>';
+        };
+        img.onerror = function() {
+            var ok = !expectLoaded;
+            status.innerHTML = ok
+                ? '<span class="status-ok">✅ 成功: ブロックされました</span>'
+                : '<span class="status-ng">❌ 失敗: ブロックされてしまいました</span>';
+        };
+        img.src = './' + (imgId === 'img-generic' ? 'mbt-genericblock-generic-test.jpg' : 'mbt-genericblock-domain-scoped-test.jpg') + '?_cb=' + Date.now();
+    }
+    attach('img-generic', 'status-generic', true);
+    attach('img-domain', 'status-domain', false);
+</script>
+</body>
+</html>

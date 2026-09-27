@@ -675,30 +675,6 @@
                 return { pass: window.__mb2BadfilterState === 'loaded', detail: window.__mb2BadfilterState === 'loaded' ? 'badfilterで相殺され読み込めました。' : 'ブロックされたまま(badfilterが効いていません)。' };
             } });
 
-        T({ id: 'net-genericblock-generic', category: CATS[1], filter: '*/mbt-genericblock-generic*$image + @@||host^$genericblock',
-            setup: function() {
-                var img = new Image();
-                img.onload = function() { window.__mb2GbGeneric = 'loaded'; };
-                img.onerror = function() { window.__mb2GbGeneric = 'error'; };
-                img.src = './mbt-genericblock-generic-test.jpg?_cb=' + Date.now();
-            },
-            check: function() {
-                if (!window.__mb2GbGeneric) return undefined;
-                return { pass: window.__mb2GbGeneric === 'loaded', detail: '汎用ブロックが$genericblock例外で無効化され読み込めるはず: ' + window.__mb2GbGeneric };
-            } });
-
-        T({ id: 'net-genericblock-domain', category: CATS[1], filter: '*/mbt-genericblock-domain-scoped*$image,domain=host',
-            setup: function() {
-                var img = new Image();
-                img.onload = function() { window.__mb2GbDomain = 'loaded'; };
-                img.onerror = function() { window.__mb2GbDomain = 'error'; };
-                img.src = './mbt-genericblock-domain-scoped-test.jpg?_cb=' + Date.now();
-            },
-            check: function() {
-                if (!window.__mb2GbDomain) return undefined;
-                return { pass: window.__mb2GbDomain === 'error', detail: '$domain=指定分は$genericblockの影響を受けず引き続きブロックされるはず: ' + window.__mb2GbDomain };
-            } });
-
         T({ id: 'net-redirectrule', category: CATS[1], filter: '*/ads/redirect-rule-test.jpg$image + 同URL$redirect-rule=1x1-transparent.gif',
             setup: function() {
                 var img = new Image();
@@ -740,30 +716,16 @@
             } });
 
         // ==== ③ 汎用/専用コスメティックの抑制系 ====
-        T({ id: 'net-generichide-generic', category: CATS[2], filter: '##.mbt-generichide-generic + @@||host^$generichide',
-            setup: function() { spawn('<div class="mbt-generichide-generic">generichide対象(汎用)</div>'); },
-            check: function() {
-                var pass = !isHidden(document.querySelector('.mbt-generichide-generic'));
-                return { pass: pass, detail: pass ? '$generichide例外により表示されたままです。' : '非表示になってしまいました(例外が効いていません)。' };
-            } });
-        T({ id: 'net-generichide-domain', category: CATS[2], filter: 'host##.mbt-generichide-domain-scoped',
-            setup: function() { spawn('<div class="mbt-generichide-domain-scoped">generichide対象外(ドメイン指定)</div>'); },
-            check: function() {
-                var pass = isHidden(document.querySelector('.mbt-generichide-domain-scoped'));
-                return { pass: pass, detail: pass ? '$generichideの影響を受けず引き続き非表示です。' : '表示されてしまいました。' };
-            } });
-        T({ id: 'net-specifichide-generic', category: CATS[2], filter: '##.mbt-specifichide-generic',
-            setup: function() { spawn('<div class="mbt-specifichide-generic">specifichide対象外(汎用)</div>'); },
-            check: function() {
-                var pass = isHidden(document.querySelector('.mbt-specifichide-generic'));
-                return { pass: pass, detail: pass ? '$specifichideの影響を受けず引き続き非表示です。' : '表示されてしまいました。' };
-            } });
-        T({ id: 'net-specifichide-domain', category: CATS[2], filter: 'host##.mbt-specifichide-domain-scoped + @@||host^$specifichide',
-            setup: function() { spawn('<div class="mbt-specifichide-domain-scoped">specifichide対象(ドメイン指定)</div>'); },
-            check: function() {
-                var pass = !isHidden(document.querySelector('.mbt-specifichide-domain-scoped'));
-                return { pass: pass, detail: pass ? '$specifichide例外により表示されたままです。' : '非表示になってしまいました。' };
-            } });
+        // $generichide/$specifichide/$genericblockはドメイン全体のコスメティック/
+        // ネットワークフィルタの扱いをまとめて切り替える仕様上、このページの他の
+        // テストと同じ購読リストに含めると全体を巻き込んで壊してしまう。そのため
+        // 別ファイル(test-filters-*.txt)+別ページ(subtests/*.html)に分離した。
+        T({ id: 'net-generichide', category: CATS[2], filter: '(別ファイル test-filters-generichide.txt で検証)', manual: true,
+            note: '$generichideは対象ドメインの「ドメイン指定なしの汎用コスメティックフィルタ」を全て無効化してしまうため、このページの他のテストと同時には検証できません。<a href="./subtests/generichide.html">subtests/generichide.html</a> を、test-filters-generichide.txt だけを単独購読した状態で開いて確認してください。' });
+        T({ id: 'net-specifichide', category: CATS[2], filter: '(別ファイル test-filters-specifichide.txt で検証)', manual: true,
+            note: '$specifichideは対象ドメインの「ドメイン指定付きのコスメティック/手続き型/スクリプトレット」を全て無効化してしまうため、このページの他のテスト(手続き型セレクタ・スクリプトレットのほぼ全て)を巻き込みます。<a href="./subtests/specifichide.html">subtests/specifichide.html</a> を、test-filters-specifichide.txt だけを単独購読した状態で開いて確認してください。' });
+        T({ id: 'net-genericblock', category: CATS[2], filter: '(別ファイル test-filters-genericblock.txt で検証)', manual: true,
+            note: '$genericblockは対象ドメインの「ドメイン指定なしのネットワークブロック」を全て無効化してしまうため、このページの他のネットワーク系テストを巻き込みます。<a href="./subtests/genericblock.html">subtests/genericblock.html</a> を、test-filters-genericblock.txt だけを単独購読した状態で開いて確認してください。' });
 
         // ==== ④ コスメティック: 例外・拡張CSS ====
         T({ id: 'cos-exception', category: CATS[3], filter: '##.mbt-exception-target + host#@#.mbt-exception-target',

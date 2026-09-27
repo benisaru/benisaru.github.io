@@ -1,0 +1,17 @@
+[Adblock Plus 2.0]
+! Title: specifichide単体テスト用リスト
+! 【重要】このリストは test-filters.txt や他のtest-filters-*.txt と
+! 同時に有効化しないでください。$specifichide例外は対象ドメインの
+! 「ドメイン指定付きのコスメティック/手続き型/スクリプトレット」を全てまとめて
+! 無効化するため、同じドメインで動いている他のテスト(手続き型セレクタ・
+! スクリプトレットのテストのほぼ全て)を巻き込んで壊してしまいます。
+! このテスト(test/subtests/specifichide.html)を確認する時だけ単独で購読し、
+! 終わったら購読解除するか、他のテストの前に必ず無効化してください。
+!
+! benisaru.github.io は実際のホスト名に置き換えてください。
+
+! 汎用側(ドメイン指定なし)。$specifichideの影響を受けず引き続き非表示のはず
+##.mbt-specifichide-generic
+! ドメイン指定側。$specifichide例外により表示されたままになるはず
+benisaru.github.io##.mbt-specifichide-domain-scoped
+@@||benisaru.github.io^$specifichide
