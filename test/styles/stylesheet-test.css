@@ -1,0 +1,6 @@
+/* $stylesheet の分類確認用。このファイル自体が読み込みブロックされた場合、
+   このカスタムプロパティは一切定義されず、JS側で getComputedStyle().getPropertyValue()
+   が空文字列を返すことで判定する */
+.mbt-stylesheet-target {
+    --mbt-stylesheet-loaded: 1;
+}
