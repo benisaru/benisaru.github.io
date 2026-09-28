@@ -1,0 +1,35 @@
+[Adblock Plus 2.0]
+! Title: 信頼済み限定スクリプトレット テスト用リスト
+! 【重要】本家uBlock Originでは replace-node-text(rpnt) と trusted-* は
+! 「信頼済みリスト」でしか使えず、外部リストとして購読するとエラー(無効)になります。
+! 本家で試す場合は、このファイルの中身を「マイフィルター」に貼り付け、
+! 「信頼が必要なカスタムフィルターを許可する」にチェックを入れてください
+! (または詳細設定 trustedListPrefixes に user- を加える)。
+! MyBrowserにはこの信頼制限が無く、購読するだけで全て有効になります
+! (本家より緩い動作であることに注意)。
+!
+! benisaru.github.io は実際のホスト名に置き換えてください。
+
+! [id: scr-replace-node-text]
+benisaru.github.io##+js(rpnt, .mbt-replacenodetext-target, SECRETWORD, [REDACTED])
+! [id: scr-trusted-set-constant]
+benisaru.github.io##+js(trusted-set, MBT.trustedConst, 42)
+! [id: scr-trusted-set-cookie]
+benisaru.github.io##+js(trusted-set-cookie, mbt_trusted_cookie, arbitrary-value-ok)
+! [id: scr-trusted-set-storage] (local-storage分)
+benisaru.github.io##+js(trusted-set-local-storage-item, mbt_trusted_ls, freeform123)
+! [id: scr-trusted-set-storage] (session-storage分)
+benisaru.github.io##+js(trusted-set-session-storage-item, mbt_trusted_ss, freeform456)
+! [id: scr-trusted-replace-argument]
+benisaru.github.io##+js(trusted-replace-argument, Element.prototype.setAttribute, 1, replaced-by-trusted, condition, /^orig-value$/)
+! [id: scr-trusted-suppress] 手動確認。実際のalert()を鳴らさずに検証する
+! 安全な自動判定方法が無いため
+benisaru.github.io##+js(trusted-suppress-native-method, window.alert, 1)
+! [id: scr-trusted-replace-xhr]
+benisaru.github.io##+js(trusted-replace-xhr-response, mbtSecretValue, REPLACED)
+! [id: scr-trusted-replace-fetch]
+benisaru.github.io##+js(trusted-replace-fetch-response, mbtFetchSecret, REPLACEDFETCH)
+! [id: scr-trusted-click-element]
+benisaru.github.io##+js(trusted-click-element, .mbt-trustedclick-target)
+! [id: scr-trusted-replace-node-text]
+benisaru.github.io##+js(trusted-rpnt, .mbt-trustedreplacenodetext-target, SECRETWORD2, [MASKED])

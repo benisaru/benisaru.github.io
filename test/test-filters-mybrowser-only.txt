@@ -1,0 +1,9 @@
+[Adblock Plus 2.0]
+! Title: MyBrowser独自拡張テスト用リスト
+! 【重要】このリストは本家uBlock Originに読み込ませるとエラーになる行を含みます
+! (本家との差異の確認用。MyBrowserでのみ有効に動作します)。
+!
+! $match-case: 本家uBOでは「正規表現フィルタ専用」で、通常パターンに付けると
+! フィルタごと破棄される。MyBrowserは通常パターンで大文字小文字を区別できるが、
+! 逆に本家が対応する正規表現フィルタ(/.../)には対応していない。
+*/MatchCase-Test.jpg$image,match-case

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>##^responseheader() テスト</title>
+<style>
+    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px; line-height: 1.7; }
+    code { background: #eee; padding: 1px 4px; border-radius: 3px; }
+    .warn { background: #fff8e1; border: 1px solid #e8d074; padding: 10px 14px; border-radius: 6px; }
+    a.go { display:inline-block; padding:8px 16px; background:#1a73e8; color:#fff; border-radius:6px; text-decoration:none; }
+    .sub { background:#e8f1ff; border:1px solid #9bbcf0; padding:10px 14px; border-radius:6px; margin:12px 0; font-size:0.92em; }
+    .sub button { font-size:0.9em; }
+</style>
+</head>
+<body>
+<h1>##^responseheader() テスト</h1>
+<div class="sub">
+    購読するリスト: <strong>test-filters.txt</strong><br>
+    <a class="sub-abp" href="#">🔗 uBlock Originで購読する(abp:subscribe)</a> /
+    <a class="sub-raw" href="../test-filters.txt" target="_blank">リストの中身を開く</a> /
+    <button class="sub-copy" type="button">URLをコピー</button>
+    <span class="sub-msg"></span><br>
+    <small>MyBrowserの場合は、コピーしたURLをフィルターリスト追加画面に貼り付けてください。</small>
+</div>
+<script>
+(function() {
+    var abs = new URL('../test-filters.txt', location.href).href;
+    var box = document.currentScript.previousElementSibling;
+    box.querySelector('.sub-abp').href = 'abp:subscribe?location=' + encodeURIComponent(abs) + '&title=' + encodeURIComponent('ブラウザテスト用フィルターリスト(完全版)');
+    box.querySelector('.sub-copy').onclick = function() {
+        var msg = box.querySelector('.sub-msg');
+        (navigator.clipboard ? navigator.clipboard.writeText(abs) : Promise.reject()).then(
+            function() { msg.textContent = ' コピーしました: ' + abs; },
+            function() { msg.textContent = ' コピーできませんでした。手動で: ' + abs; });
+    };
+})();
+</script>
+
+<div class="warn">
+    <code>##^responseheader(header-name)</code>は本家uBOにも実在する構文で、削除できるのは
+    <code>location</code> / <code>refresh</code> / <code>report-to</code> / <code>set-cookie</code>
+    の4種だけです(MyBrowserも同じ制限)。ドキュメント(document/frame)の応答にのみ効くため、
+    fetch()では確認できません。下のボタンでCloudflare Workerが返すテスト用ページへ
+    <strong>ページ遷移</strong>すると、そのページが自分で結果を表示します。
+</div>
+<p>前提: Cloudflare Workerに、同梱の<code>mb-removeparam-echo.js</code>(<code>/responseheader-test</code>ルート追加版)を
+デプロイし、test-filters.txtの<code>mb-removeparam-echo.biziorbizi.workers.dev##^responseheader(set-cookie)</code>を
+実際のWorkerのホスト名に置き換えて購読してください。</p>
+<p><a class="go" id="go" href="#">テスト用ページを開く →</a></p>
+<script>
+    // index.htmlと同じWorkerを使う
+    var ENDPOINT = 'https://mb-removeparam-echo.biziorbizi.workers.dev/';
+    document.getElementById('go').href = ENDPOINT + 'responseheader-test';
+</script>
+</body>
+</html>

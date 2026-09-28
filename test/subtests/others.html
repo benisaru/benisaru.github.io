@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>:others() 単体テスト</title>
+<style>
+    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px; line-height: 1.7; }
+    .status-ok { color: #1a7f37; font-weight: bold; }
+    .status-ng { color: #cf222e; font-weight: bold; }
+    code { background: #eee; padding: 1px 4px; border-radius: 3px; }
+    .warn { background: #fff8e1; border: 1px solid #e8d074; padding: 10px 14px; border-radius: 6px; }
+    .sub { background:#e8f1ff; border:1px solid #9bbcf0; padding:10px 14px; border-radius:6px; margin:12px 0; font-size:0.92em; }
+    .sub button { font-size:0.9em; }
+    .decoy { border: 1px dashed #999; padding: 8px; margin: 8px 0; }
+</style>
+</head>
+<body>
+<header id="far-header" class="decoy">遠い要素(ヘッダ): <code>:others()</code>が効いていれば隠されるはずです。</header>
+<main>
+<div class="mbt-others-subject" id="subject">
+    <h1>:others() 単体テスト</h1>
+    <div class="warn">
+        <code>:others()</code>は「対象要素の祖先と子孫<strong>以外</strong>のページ内の全要素」を隠す演算子です
+        (本家uBO仕様)。メインのindex.htmlでこの種のフィルタを有効にするとページ全体が消えてしまうため、
+        <code>:matches-path()</code>でこのページ(subtests/others.html)だけに限定してあります。
+        このブロック自体(対象要素とその子孫)は表示されたままになるのが正解で、
+        周りの「遠い要素」「兄弟」「フッタ」は隠れるのが正解です。
+    </div>
+<div class="sub">
+    購読するリスト: <strong>test-filters.txt</strong><br>
+    <a class="sub-abp" href="#">🔗 uBlock Originで購読する(abp:subscribe)</a> /
+    <a class="sub-raw" href="../test-filters.txt" target="_blank">リストの中身を開く</a> /
+    <button class="sub-copy" type="button">URLをコピー</button>
+    <span class="sub-msg"></span><br>
+    <small>MyBrowserの場合は、コピーしたURLをフィルターリスト追加画面に貼り付けてください。</small>
+</div>
+<script>
+(function() {
+    var abs = new URL('../test-filters.txt', location.href).href;
+    var box = document.currentScript.previousElementSibling;
+    box.querySelector('.sub-abp').href = 'abp:subscribe?location=' + encodeURIComponent(abs) + '&title=' + encodeURIComponent('ブラウザテスト用フィルターリスト(完全版)');
+    box.querySelector('.sub-copy').onclick = function() {
+        var msg = box.querySelector('.sub-msg');
+        (navigator.clipboard ? navigator.clipboard.writeText(abs) : Promise.reject()).then(
+            function() { msg.textContent = ' コピーしました: ' + abs; },
+            function() { msg.textContent = ' コピーできませんでした。手動で: ' + abs; });
+    };
+})();
+</script>
+
+    <p id="status">判定中...</p>
+</div>
+<div id="sibling" class="decoy">兄弟要素: 隠されるはずです。</div>
+</main>
+<footer id="far-footer" class="decoy">遠い要素(フッタ): 隠されるはずです。</footer>
+<script>
+    function isHidden(el) {
+        var cs = getComputedStyle(el);
+        return cs.display === 'none' || cs.visibility === 'hidden' || el.offsetParent === null;
+    }
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            var subjectOk = !isHidden(document.getElementById('subject'));
+            var decoys = ['far-header', 'sibling', 'far-footer'].map(function(id) { return isHidden(document.getElementById(id)); });
+            var decoysOk = decoys.every(Boolean);
+            var st = document.getElementById('status');
+            st.innerHTML = (subjectOk && decoysOk)
+                ? '<span class="status-ok">✅ 成功: 対象は表示、周囲(ヘッダ/兄弟/フッタ)は非表示です</span>'
+                : '<span class="status-ng">❌ 失敗: 対象=' + (subjectOk ? '表示' : '非表示') +
+                  ' / ヘッダ・兄弟・フッタの非表示=' + decoys.join(',') + ' (test-filters.txtを購読していますか?)</span>';
+        }, 600);
+    });
+</script>
+</body>
+</html>

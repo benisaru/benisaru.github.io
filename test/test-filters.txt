@@ -66,14 +66,15 @@ benisaru.github.io##^#html-filter-marker
 ! ============================================================
 ! [id: net-to] $domainと違いリクエスト"先"のホストを見る
 */mbt-to-test$to=mb-removeparam-echo.biziorbizi.workers.dev
-! [id: net-denyallow] ドメイン指定なしの広いパターンだが、denyallowで
-! 指定した宛先だけは除外される
-*/denyallow-test*$denyallow=mb-removeparam-echo.biziorbizi.workers.dev
+! [id: net-denyallow] denyallowで指定した宛先だけは除外される。
+! 本家uBOでは domain= が必須(無いとエラー)のため必ず併記する
+*/denyallow-test*$denyallow=mb-removeparam-echo.biziorbizi.workers.dev,domain=benisaru.github.io
 ! [id: net-method] GETは通り、POSTだけブロックされるはず
 */mbt-method-test$method=post
-! [id: net-matchcase] 大文字小文字を区別する。同名の小文字版は別ファイルとして
-! 用意し、そちらは一致しないはず
-*/MatchCase-Test.jpg$image,match-case
+! [id: net-matchcase] $match-case は本家uBOでは「正規表現フィルタ専用」で、
+! 通常パターンに付けるとフィルタごと破棄されエラーになる。一方MyBrowserは
+! 通常パターンで対応し正規表現フィルタは非対応のため、1行で両立できない。
+! そのため test-filters-mybrowser-only.txt に分離した。
 ! [id: net-all]
 */ads/all-test.jpg$all
 ! [id: net-badfilter] 下の$badfilter行で相殺され、最終的にはブロックされない
@@ -148,8 +149,10 @@ benisaru.github.io##.mbt-proc-remove-target:remove()
 benisaru.github.io##.mbt-proc-removeattr-target:remove-attr(data-mbt-secret)
 ! [id: proc-remove-class]
 benisaru.github.io##.mbt-proc-removeclass-target:remove-class(mbt-secret-class)
-! [id: proc-others]
-benisaru.github.io##.mbt-proc-others-subject:has-text(対象):others()
+! [id: proc-others] :others() は「対象の祖先と子孫以外のページ内の全要素」を
+! 隠す演算子(本家仕様)。index.html上で有効にするとページ全体が消えるため、
+! :matches-path()で subtests/others.html だけに限定している
+benisaru.github.io##.mbt-others-subject:matches-path(subtests/others.html):others()
 ! [id: proc-watch-attr]
 benisaru.github.io##.mbt-proc-watchattr-box:matches-attr(data-mbt-state=on):watch-attr(data-mbt-state)
 
@@ -160,11 +163,12 @@ benisaru.github.io##.mbt-proc-watchattr-box:matches-attr(data-mbt-state=on):watc
 benisaru.github.io##^.mbt-htmlfilter-exception-target
 benisaru.github.io#@#^.mbt-htmlfilter-exception-target
 
-! [id: html-responseheader] 注意: ##^responseheader() はuBO/AdGuard本家には
-! 無い、このアプリ独自の拡張構文です。本家Firefox版uBlock Originに読み込ませると
-! 未知の構文としてエラーになりますが、これはバグではなく想定通りです
-! (MyBrowser上でのみ意味を持つ行として理解してください)。
-benisaru.github.io##^responseheader(x-mbt-tracking-header)
+! [id: html-responseheader] ##^responseheader() は本家uBOにも実在する構文
+! (uBO 1.35.0〜)。ただし削除できるヘッダは location / refresh / report-to /
+! set-cookie の4種のみ(MyBrowserも同じ制限)。テスト用のWorkerページ
+! (mb-removeparam-echo.js の /responseheader-test)が Set-Cookie を返すので、
+! それが除去されるかを確認する(subtests/responseheader.html から開く)
+mb-removeparam-echo.biziorbizi.workers.dev##^responseheader(set-cookie)
 
 ! ============================================================
 ! プリプロセッサディレクティブ
@@ -231,29 +235,11 @@ benisaru.github.io##+js(noeval, mbtEvalMarker)
 benisaru.github.io##+js(spoof-css, .mbt-spoofcss-target, display, block)
 ! [id: scr-prevent-refresh]
 benisaru.github.io##+js(prevent-refresh)
-! [id: scr-replace-node-text]
-benisaru.github.io##+js(rpnt, .mbt-replacenodetext-target, SECRETWORD, [REDACTED])
-! [id: scr-trusted-set-constant]
-benisaru.github.io##+js(trusted-set, MBT.trustedConst, 42)
-! [id: scr-trusted-set-cookie]
-benisaru.github.io##+js(trusted-set-cookie, mbt_trusted_cookie, arbitrary-value-ok)
-! [id: scr-trusted-set-storage] (local-storage分)
-benisaru.github.io##+js(trusted-set-local-storage-item, mbt_trusted_ls, freeform123)
-! [id: scr-trusted-set-storage] (session-storage分)
-benisaru.github.io##+js(trusted-set-session-storage-item, mbt_trusted_ss, freeform456)
-! [id: scr-trusted-replace-argument]
-benisaru.github.io##+js(trusted-replace-argument, Element.prototype.setAttribute, 1, replaced-by-trusted, condition, /^orig-value$/)
-! [id: scr-trusted-suppress] 手動確認。実際のalert()を鳴らさずに検証する
-! 安全な自動判定方法が無いため
-benisaru.github.io##+js(trusted-suppress-native-method, window.alert, 1)
-! [id: scr-trusted-replace-xhr]
-benisaru.github.io##+js(trusted-replace-xhr-response, mbtSecretValue, REPLACED)
-! [id: scr-trusted-replace-fetch]
-benisaru.github.io##+js(trusted-replace-fetch-response, mbtFetchSecret, REPLACEDFETCH)
-! [id: scr-trusted-click-element]
-benisaru.github.io##+js(trusted-click-element, .mbt-trustedclick-target)
-! [id: scr-trusted-replace-node-text]
-benisaru.github.io##+js(trusted-rpnt, .mbt-trustedreplacenodetext-target, SECRETWORD2, [MASKED])
+
+! ============================================================
+! 信頼済みリスト限定のスクリプトレット(rpnt / trusted-*)は
+! test-filters-trusted.txt に分離した(外部リストとして購読するとエラーになるため)
+! ============================================================
 
 ! ============================================================
 ! 既知の非対応(バグではなく仕様上の制限。ページ側にも解説を掲載)

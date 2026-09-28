@@ -11,10 +11,33 @@
     code { background: #eee; padding: 1px 4px; border-radius: 3px; }
     .warn { background: #fff8e1; border: 1px solid #e8d074; padding: 10px 14px; border-radius: 6px; }
     img { max-width: 120px; border: 1px dashed #999; }
+    .sub { background:#e8f1ff; border:1px solid #9bbcf0; padding:10px 14px; border-radius:6px; margin:12px 0; font-size:0.92em; }
+    .sub button { font-size:0.9em; }
 </style>
 </head>
 <body>
 <h1>$genericblock 単体テスト</h1>
+<div class="sub">
+    購読するリスト: <strong>test-filters-genericblock.txt</strong><br>
+    <a class="sub-abp" href="#">🔗 uBlock Originで購読する(abp:subscribe)</a> /
+    <a class="sub-raw" href="../test-filters-genericblock.txt" target="_blank">リストの中身を開く</a> /
+    <button class="sub-copy" type="button">URLをコピー</button>
+    <span class="sub-msg"></span><br>
+    <small>MyBrowserの場合は、コピーしたURLをフィルターリスト追加画面に貼り付けてください。</small>
+</div>
+<script>
+(function() {
+    var abs = new URL('../test-filters-genericblock.txt', location.href).href;
+    var box = document.currentScript.previousElementSibling;
+    box.querySelector('.sub-abp').href = 'abp:subscribe?location=' + encodeURIComponent(abs) + '&title=' + encodeURIComponent('genericblock単体テスト');
+    box.querySelector('.sub-copy').onclick = function() {
+        var msg = box.querySelector('.sub-msg');
+        (navigator.clipboard ? navigator.clipboard.writeText(abs) : Promise.reject()).then(
+            function() { msg.textContent = ' コピーしました: ' + abs; },
+            function() { msg.textContent = ' コピーできませんでした。手動で: ' + abs; });
+    };
+})();
+</script>
 <div class="warn">
     <strong>このページを確認する時は、<code>test-filters-genericblock.txt</code>だけを単独で
     購読してください。</strong>メインのテストページ(index.html)用の<code>test-filters.txt</code>と
@@ -22,6 +45,12 @@
     無効化してしまうため、メインページの他のネットワーク系テストが壊れます。
 </div>
 
+<div class="warn" style="margin-top:12px">
+    <strong>本家uBlock Originでは<code>$genericblock</code>は非対応です</strong>(公式ドキュメントに
+    「Not supported」と明記。多数のフィルタが黙って無効化されてしまうため意図的に未実装)。
+    本家に読み込ませると例外ルールはエラーになり、このページは常に「汎用側=ブロックされる」結果になります。
+    MyBrowserだけが対応している独自の挙動であることに注意してください。
+</div>
 <div class="box">
     <p>汎用側(ドメイン指定なし)。<code>*/mbt-genericblock-generic*$image</code> +
         <code>@@||host^$genericblock</code> により、<strong>読み込めてしまう</strong>のが正解です。</p>

@@ -37,6 +37,8 @@
         #mb2-summary { position: sticky; top: 46px; background: #333; color: #fff; padding: 8px 14px; border-radius: 6px; margin: 20px 0; font-size: 0.9em; z-index: 9; }
         #mb2-specimens { margin-top: 30px; padding: 10px; border: 1px dashed #bbb; background: #fafafa; font-size: 0.8em; max-height: 260px; overflow: auto; }
         #mb2-specimens h3 { margin-top: 0; font-size: 0.95em; }
+        .mb2-sub { background:#e8f1ff; border:1px solid #9bbcf0; padding:10px 14px; border-radius:6px; margin:12px 0; font-size:0.9em; }
+        .mb2-sub li { margin-bottom:4px; }
         .mb2-unsupported-box { background: #fff8e1; border: 1px solid #e8d074; padding: 12px 16px; border-radius: 6px; font-size: 0.9em; margin: 16px 0; }
         .mb2-unsupported-box li { margin-bottom: 6px; }
     </style>
@@ -444,6 +446,7 @@
             ##^単体なら消えるが、対応する#@#^例外により残るはずのHTMLフィルタリング例外確認用要素
         </div>
 
+        <div class="mb2-sub" id="mb2-sublist"></div>
         <div id="mb2-summary">判定中: <span id="mb2-pass">0</span> / <span id="mb2-total">0</span> 件が自動判定で成功
             (このほか <span id="mb2-manual-count">0</span> 件は手動確認・参考項目のため集計対象外)</div>
         <div id="mb2-categories"></div>
@@ -463,6 +466,9 @@
                     (サブドメイン)を用意できない現在のホスティング構成では、通常の
                     <code>$third-party</code>/<code>$first-party</code>との挙動差を実演できません。</li>
                 <li>生の正規表現フィルタ(<code>/pattern/</code>形式)は非対応です。</li>
+                <li><strong>MyBrowser独自(本家uBOと差がある)</strong>: <code>$genericblock</code>は本家では非対応(公式に「Not supported」)、
+                    <code>$match-case</code>は本家では正規表現フィルタ専用で通常パターンに付けるとフィルタごと破棄されます。
+                    <code>rpnt</code>/<code>trusted-*</code>は本家では信頼済みリスト限定ですが、MyBrowserは信頼制限なしで動作します。</li>
             </ul>
         </div>
 
@@ -536,6 +542,11 @@
             'プリプロセッサディレクティブ',
             'スクリプトレット(全対応種)'
         ];
+        var CAT_NOTES = {};
+        CAT_NOTES[CATS[7]] = '<code>rpnt</code>(replace-node-text)と<code>trusted-*</code>は本家uBOでは信頼済みリスト限定のため、' +
+            'メインのtest-filters.txtには含めていません。<code>test-filters-trusted.txt</code>を併せて用意してください' +
+            '(本家ではマイフィルターに貼り付け+「信頼が必要なカスタムフィルターを許可する」が必要。MyBrowserは購読するだけで有効=本家より緩い動作)。' +
+            'ボタン付きの2項目は、ブラウザ標準のポップアップブロッカーが自動実行時に確認ダイアログを出してテストを止めることがあるため、クリック時のみ実行します。';
         var TESTS = [];
         function T(o) { o.category = o.category; TESTS.push(o); }
 
@@ -610,7 +621,7 @@
                     .catch(function() { return { pass: true, detail: '宛先ホスト指定でブロックされました。' }; });
             } });
 
-        T({ id: 'net-denyallow', category: CATS[1], filter: '*/denyallow-test*$denyallow=<Workerホスト>',
+        T({ id: 'net-denyallow', category: CATS[1], filter: '*/denyallow-test*$denyallow=<Workerホスト>,domain=<このホスト>',
             check: function() {
                 if (!WORKER) return { pass: false, detail: 'MB_ECHO_ENDPOINT未設定。' };
                 var p1 = fetch('./ads/denyallow-test.txt?_cb=' + Date.now()).then(function() { return false; }).catch(function() { return true; });
@@ -632,7 +643,8 @@
                 });
             } });
 
-        T({ id: 'net-matchcase', category: CATS[1], filter: '*/MatchCase-Test.jpg$image,match-case',
+        T({ id: 'net-matchcase', category: CATS[1], filter: '*/MatchCase-Test.jpg$image,match-case', mybrowserOnly: true,
+            note: '【MyBrowser独自拡張】本家uBOの$match-caseは正規表現フィルタ専用で、通常パターンに付けるとフィルタごと破棄されます(MyBrowserは逆に通常パターンで対応し、正規表現フィルタは非対応)。test-filters-mybrowser-only.txt を購読した時だけ意味を持つ項目で、集計対象外です。',
             setup: function() {
                 window.__mb2MatchCase = {};
                 function imgTest(name, key) {
@@ -707,12 +719,13 @@
                     }).catch(function(e) { return { pass: false, detail: '通信失敗: ' + e.message }; });
             } });
 
-        T({ id: 'net-popup', category: CATS[1], filter: '||mbt-popup-blocked-target.invalid^$popup,popunder',
+        T({ id: 'net-popup', category: CATS[1], filter: '||mbt-popup-blocked-target.invalid^$popup,popunder', interactive: true,
+            note: 'window.open()はユーザー操作が無いとブラウザ自身のポップアップブロッカーが介入し、確認ダイアログ等でテスト全体が止まることがあるため、ボタンをクリックした時だけ実行します。',
             check: function() {
                 var w = null;
                 try { w = window.open('https://mbt-popup-blocked-target.invalid/'); } catch (e) {}
                 if (w) { try { w.close(); } catch (e) {} }
-                return { pass: w === null, detail: w === null ? 'window.open()がnullを返し、ポップアップがブロックされました。' : 'ポップアップが開いてしまいました。' };
+                return { pass: w === null, detail: w === null ? 'window.open()がnullを返し、ポップアップがブロックされました。' : 'ポップアップが開いてしまいました(ブラウザ標準のブロッカーが許可した場合もあります)。' };
             } });
 
         // ==== ③ 汎用/専用コスメティックの抑制系 ====
@@ -830,19 +843,9 @@
                 var pass = !el.classList.contains('mbt-secret-class') && el.classList.contains('mbt-keep-class');
                 return { pass: pass };
             } });
-        T({ id: 'proc-others', category: CATS[4], filter: '##.mbt-proc-others-subject:has-text(対象):others()',
-            setup: function() {
-                spawn('<div id="mb2-others-wrap">' +
-                      '<div class="mbt-proc-others-subject" id="mb2-others-subject">これは対象要素です</div>' +
-                      '<div id="mb2-others-sib1">兄弟1(隠されるはず)</div>' +
-                      '<div id="mb2-others-sib2">兄弟2(隠されるはず)</div></div>');
-            },
-            check: function() {
-                var pass = !isHidden(document.getElementById('mb2-others-subject')) &&
-                    isHidden(document.getElementById('mb2-others-sib1')) &&
-                    isHidden(document.getElementById('mb2-others-sib2'));
-                return { pass: pass };
-            } });
+        T({ id: 'proc-others', category: CATS[4], filter: '##.mbt-others-subject:matches-path(subtests/others.html):others()', manual: true,
+            note: ':others()は「対象の祖先と子孫以外のページ内の全要素」を隠す演算子(本家仕様)で、このページで有効にするとページ全体が消えてしまいます。<a href="./subtests/others.html">subtests/others.html</a>(:matches-path()でそのページだけに限定)で確認してください。' });
+
         T({ id: 'proc-watch-attr', category: CATS[4], filter: '##.mbt-proc-watchattr-box:matches-attr(data-mbt-state=on):watch-attr(data-mbt-state)',
             setup: function() {
                 var el = spawn('<div class="mbt-proc-watchattr-box" id="mb2-watchattr" data-mbt-state="off">属性変更を監視中</div>');
@@ -857,8 +860,8 @@
                 var pass = document.getElementById('mb2-html-exception-target') !== null;
                 return { pass: pass, detail: pass ? '#@#^例外によりDOMに残っています。' : '要素ごと消えてしまいました(例外が効いていません)。' };
             } });
-        T({ id: 'html-responseheader', category: CATS[5], filter: 'host##^responseheader(x-mbt-tracking-header)', manual: true,
-            note: 'JSからは自ページ自身のナビゲーション応答ヘッダを直接読む標準的な手段が無い(fetchで再取得しても別リクエスト扱いになりHTMLフィルタリングの対象外)ため、自動判定できません。確認するには、Cloudflare Worker側などで実際にこのヘッダーを付与したページを用意し、リモートデバッグ(chrome://inspect)のNetworkパネルで応答ヘッダーを直接確認してください。' });
+        T({ id: 'html-responseheader', category: CATS[5], filter: 'worker-host##^responseheader(set-cookie)', manual: true,
+            note: '本家uBOにも実在する構文です(削除できるのはlocation/refresh/report-to/set-cookieの4種のみ)。ドキュメントの応答にのみ効くため、Workerのテスト用ページへ遷移して確認します: <a href="./subtests/responseheader.html">subtests/responseheader.html</a>' });
 
         // ==== ⑦ プリプロセッサ ====
         T({ id: 'pre-if', category: CATS[6], filter: '!#if env_mobile / host##.mbt-preprocessor-target / !#else / !#endif',
@@ -958,13 +961,15 @@
             },
             delay: 600,
             check: function() { return { pass: window.__mb2SICount === 0 }; } });
-        T({ id: 'scr-prevent-window-open', category: CATS[7], filter: '##+js(prevent-window-open, mbt-popup-marker)',
+        T({ id: 'scr-prevent-window-open', category: CATS[7], filter: '##+js(prevent-window-open, mbt-popup-marker)', interactive: true,
+            note: '上と同じ理由でボタンクリック時のみ実行します。',
             check: function() {
                 var w = null;
                 try { w = window.open('about:blank#mbt-popup-marker'); } catch (e) {}
                 if (w) { try { w.close(); } catch (e) {} }
                 return { pass: w === null };
             } });
+
         T({ id: 'scr-prevent-addeventlistener', category: CATS[7], filter: '##+js(aeld, click, mbtAeldMarker)',
             setup: function() {
                 window.__mb2AeldFired = false;
@@ -1064,6 +1069,12 @@
                 h.className = 'mb2-cat';
                 h.textContent = cat;
                 root.appendChild(h);
+                if (CAT_NOTES[cat]) {
+                    var d = document.createElement('div');
+                    d.className = 'mb2-cat-desc';
+                    d.innerHTML = CAT_NOTES[cat];
+                    root.appendChild(d);
+                }
                 var table = document.createElement('table');
                 table.className = 'mb2-table';
                 table.innerHTML = '<thead><tr><th class="mb2-num">#</th><th>フィルタ記法</th><th class="mb2-status">結果</th></tr></thead>';
@@ -1078,12 +1089,19 @@
                     filterCell.innerHTML = '<code>' + t.filter.replace(/</g, '&lt;') + '</code>' + (t.note ? '<span class="mb2-detail">' + t.note + '</span>' : '');
                     var statusCell = document.createElement('td');
                     statusCell.className = 'mb2-status mb2-pending';
-                    statusCell.textContent = t.manual ? '🔧 手動確認' : '判定中...';
+                    statusCell.textContent = t.manual ? '🔧 手動確認' : (t.interactive ? '' : '判定中...');
                     if (t.manual) statusCell.className = 'mb2-status mb2-manual';
+                    if (t.interactive) {
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.textContent = '▶ クリックして実行';
+                        btn.onclick = function() { btn.disabled = true; btn.textContent = '実行中...'; runOne(t, true); };
+                        statusCell.appendChild(btn);
+                    }
                     tr.appendChild(num); tr.appendChild(filterCell); tr.appendChild(statusCell);
                     tbody.appendChild(tr);
                     cells[t.id] = statusCell;
-                    if (!t.manual) automatedTotal++;
+                    if (!t.manual && !t.mybrowserOnly) automatedTotal++;
                 });
                 table.appendChild(tbody);
                 root.appendChild(table);
@@ -1109,13 +1127,14 @@
                 return;
             }
             cell.className = 'mb2-status ' + (pass ? 'mb2-ok' : 'mb2-ng');
-            cell.innerHTML = (pass ? '✅ 成功' : '❌ 失敗') + (detail ? '<span class="mb2-detail">' + detail + '</span>' : '');
-            if (pass) automatedPass++;
+            cell.innerHTML = (t.mybrowserOnly ? '【MyBrowser独自・集計外】' : '') + (pass ? '✅ 成功' : '❌ 失敗') + (detail ? '<span class="mb2-detail">' + detail + '</span>' : '');
+            if (pass && !t.mybrowserOnly) automatedPass++;
             updateSummary();
         }
 
-        function runOne(t) {
+        function runOne(t, byClick) {
             if (t.manual) return;
+            if (t.interactive && !byClick) return; // ユーザー操作起点のテストは自動実行しない
             try { if (t.setup) t.setup(); } catch (e) { finish(t, { pass: false, detail: 'setup例外: ' + e.message }); return; }
             var deadline = Date.now() + (t.timeoutMs || 2000);
             function poll() {
@@ -1134,6 +1153,27 @@
             }
             setTimeout(poll, t.delay || 250);
         }
+
+        (function buildSubscribeLinks() {
+            var lists = [
+                ['test-filters.txt', 'メイン(全項目・これだけを購読)'],
+                ['test-filters-trusted.txt', '信頼済み限定スクリプトレット(マイフィルターに貼り付け推奨)'],
+                ['test-filters-mybrowser-only.txt', 'MyBrowser独自拡張($match-case)'],
+                ['test-filters-generichide.txt', '$generichide単体(他と同時に有効化しない)'],
+                ['test-filters-specifichide.txt', '$specifichide単体(他と同時に有効化しない)'],
+                ['test-filters-genericblock.txt', '$genericblock単体(本家は非対応・他と同時に有効化しない)']
+            ];
+            var html = '<strong>フィルターリスト(購読リンク)</strong><ul>';
+            lists.forEach(function(l) {
+                var abs = new URL('./' + l[0], location.href).href;
+                html += '<li><a href="abp:subscribe?location=' + encodeURIComponent(abs) + '&title=' + encodeURIComponent(l[0]) + '">🔗 購読</a> ' +
+                        '<a href="./' + l[0] + '" target="_blank">' + l[0] + '</a> … ' + l[1] + '</li>';
+            });
+            html += '</ul><small>専用ページ: <a href="./subtests/generichide.html">generichide</a> / ' +
+                    '<a href="./subtests/specifichide.html">specifichide</a> / <a href="./subtests/genericblock.html">genericblock</a> / ' +
+                    '<a href="./subtests/others.html">:others()</a> / <a href="./subtests/responseheader.html">##^responseheader()</a></small>';
+            document.getElementById('mb2-sublist').innerHTML = html;
+        })();
 
         window.addEventListener('load', function() {
             if (window.__mb2Started) return; // 環境によってはloadが複数回発火し得るための多重実行防止
