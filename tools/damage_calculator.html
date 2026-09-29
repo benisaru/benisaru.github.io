@@ -315,6 +315,159 @@
   .breakdown td:first-child{color:var(--text);text-align:left;width:45%;}
   .hl-min{color:#ff8f8f;}
   .hl-max{color:var(--accent2);}
+
+  /* 電卓セクションのスタイル */
+  .calc-display-area{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px;
+    margin-bottom:12px;
+  }
+  .calc-history-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:8px;
+  }
+  .calc-history-header span{
+    font-size:12px;
+    color:var(--sub);
+  }
+  .calc-history-header button{
+    padding:4px 8px;
+    font-size:11px;
+    background:var(--panel);
+    color:var(--sub);
+    border:1px solid var(--border);
+    border-radius:4px;
+    cursor:pointer;
+  }
+  .calc-history-header button:hover{
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  #calcHistoryList{
+    max-height:120px;
+    overflow-y:auto;
+    border-top:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+    margin-bottom:8px;
+  }
+  .calc-history-item{
+    display:flex;
+    justify-content:space-between;
+    padding:6px 4px;
+    border-bottom:1px solid var(--border);
+    font-size:12px;
+    cursor:pointer;
+  }
+  .calc-history-item:hover{
+    background:var(--panel);
+  }
+  .calc-history-item .h-expr{
+    color:var(--sub);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    margin-right:10px;
+  }
+  .calc-history-item .h-result{
+    color:var(--accent);
+    font-weight:bold;
+    flex:none;
+  }
+  .calc-history-empty{
+    font-size:12px;
+    color:var(--sub);
+    text-align:center;
+    padding:8px 0;
+  }
+  #calcResult{
+    font-size:24px;
+    font-weight:bold;
+    color:var(--good);
+    word-break:break-all;
+    text-align:right;
+    margin-bottom:4px;
+  }
+  #calcError{
+    color:#ff6b6b;
+    font-size:12px;
+    text-align:right;
+    min-height:16px;
+  }
+  #calcExpr{
+    width:100%;
+    padding:10px;
+    font-size:14px;
+    font-family:inherit;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:6px;
+    margin-bottom:10px;
+    height:80px;
+    resize:none;
+    overflow-y:auto;
+  }
+  #calcExpr:focus{
+    outline:none;
+    border-color:var(--accent);
+  }
+  .calc-btn-row{
+    display:flex;
+    gap:8px;
+  }
+  .calc-btn-row button{
+    flex:1;
+    padding:10px;
+    font-size:13px;
+    border:none;
+    border-radius:6px;
+    font-weight:bold;
+    cursor:pointer;
+  }
+  #calcResetBtn{
+    background:var(--panel);
+    color:var(--text);
+    border:1px solid var(--border);
+  }
+  #calcResetBtn:hover{
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  #calcCopyBtn{
+    background:linear-gradient(135deg,var(--accent),#3d7de0);
+    color:#0e111a;
+  }
+  #calcCopyBtn:hover{
+    filter:brightness(1.08);
+  }
+  .calc-hint{
+    font-size:11px;
+    color:var(--sub);
+    margin-top:8px;
+    text-align:center;
+  }
+  .calc-toast{
+    position:fixed;
+    bottom:100px;
+    left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:rgba(0,0,0,0.8);
+    color:#fff;
+    padding:8px 16px;
+    border-radius:16px;
+    font-size:13px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.25s, transform 0.25s;
+  }
+  .calc-toast.show{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
 </style>
 </head>
 <body>
@@ -547,6 +700,30 @@
       <table id="breakdown_table"></table>
     </div>
   </div>
+
+  <!-- 電卓セクション -->
+  <details class="panel" style="margin-top:14px;" data-panel-id="calculator" open>
+    <summary>テキスト電卓</summary>
+    <div class="panel-body">
+      <div class="calc-display-area">
+      <div class="calc-history-header">
+        <span>計算履歴</span>
+        <button id="calcClearHistoryBtn">全削除</button>
+      </div>
+      <div id="calcHistoryList"></div>
+      <div id="calcResult"></div>
+      <div id="calcError"></div>
+    </div>
+    <textarea id="calcExpr" placeholder="例: 3 + 4 * (2 - 1)" rows="2"></textarea>
+    <div class="calc-btn-row">
+      <button id="calcResetBtn">リセット</button>
+      <button id="calcCopyBtn">結果をコピー</button>
+    </div>
+    <div class="calc-hint">+ − × ÷ ( ) [ ] ^ が使えます。</div>
+    </div>
+  </details>
+
+  <div class="toast" id="calcToast"></div>
 
 </div>
 
@@ -1402,6 +1579,192 @@ function calculate(){
     renderSingleResult(result);
   }
 }
+
+// ---------- 電卓機能 ----------
+const calcExprInput = document.getElementById('calcExpr');
+const calcResultEl = document.getElementById('calcResult');
+const calcErrorEl = document.getElementById('calcError');
+const calcResetBtn = document.getElementById('calcResetBtn');
+const calcCopyBtn = document.getElementById('calcCopyBtn');
+const calcToastEl = document.getElementById('calcToast');
+const calcHistoryListEl = document.getElementById('calcHistoryList');
+const calcClearHistoryBtn = document.getElementById('calcClearHistoryBtn');
+
+let calcLastResult = '';
+let calcLastExpr = '';
+const CALC_STORAGE_KEY = 'calc_history_v1';
+let calcStorageAvailable = true;
+
+function checkCalcStorageAvailable() {
+  try {
+    const testKey = '__storage_test__';
+    localStorage.setItem(testKey, '1');
+    localStorage.removeItem(testKey);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function loadCalcHistory() {
+  try {
+    const raw = localStorage.getItem(CALC_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveCalcHistory(list) {
+  try {
+    localStorage.setItem(CALC_STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {
+    // 保存できない場合は何もしない
+  }
+}
+
+function addCalcHistory(expr, result) {
+  if (!calcStorageAvailable) return;
+  const list = loadCalcHistory();
+  list.push({ expr, result });
+  if (list.length > 50) list.shift();
+  saveCalcHistory(list);
+  renderCalcHistory();
+  calcHistoryListEl.scrollTop = calcHistoryListEl.scrollHeight;
+}
+
+function renderCalcHistory() {
+  const list = calcStorageAvailable ? loadCalcHistory() : [];
+  calcHistoryListEl.innerHTML = '';
+  if (list.length === 0) {
+    calcHistoryListEl.innerHTML = '<div class="calc-history-empty">履歴はまだありません</div>';
+    return;
+  }
+  list.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'calc-history-item';
+    row.innerHTML =
+      '<span class="h-expr"></span><span class="h-result"></span>';
+    row.querySelector('.h-expr').textContent = item.expr;
+    row.querySelector('.h-result').textContent = '= ' + item.result;
+    row.addEventListener('click', () => {
+      calcExprInput.value = item.expr;
+      calculateCalc();
+      calcExprInput.focus();
+    });
+    calcHistoryListEl.appendChild(row);
+  });
+}
+
+function calculateCalc() {
+  let raw = calcExprInput.value;
+  calcErrorEl.textContent = '';
+
+  raw = raw.replace(/[\s\r\n,、]+/g, '').replace(/=+$/, '');
+
+  if (!raw) {
+    calcResultEl.textContent = '';
+    calcLastResult = '';
+    return;
+  }
+
+  let expr = raw
+    .replace(/[×✕]/g, '*')
+    .replace(/[÷]/g, '/')
+    .replace(/[−ー]/g, '-')
+    .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+    .replace(/[（]/g, '(')
+    .replace(/[）]/g, ')')
+    .replace(/\^/g, '**')
+    .replace(/[\[［]/g, 'floor(')
+    .replace(/[\]］]/g, ')');
+
+  const checkStr = expr.replace(/floor|ceil|round/gi, '');
+  if (!/^[0-9+\-*/().\s]+$/.test(checkStr)) {
+    calcErrorEl.textContent = '使用できない文字が含まれています';
+    calcResultEl.textContent = '';
+    calcLastResult = '';
+    calcLastExpr = '';
+    return;
+  }
+
+  expr = expr
+    .replace(/floor/gi, 'Math.floor')
+    .replace(/ceil/gi, 'Math.ceil')
+    .replace(/round/gi, 'Math.round');
+
+  try {
+    const value = Function('"use strict"; return (' + expr + ')')();
+    if (typeof value !== 'number' || !isFinite(value)) {
+      throw new Error('計算できません');
+    }
+    const rounded = Math.round(value * 1e10) / 1e10;
+    calcResultEl.textContent = '= ' + rounded;
+    calcLastResult = String(rounded);
+    calcLastExpr = raw;
+  } catch (e) {
+    calcErrorEl.textContent = '式が正しくありません';
+    calcResultEl.textContent = '';
+    calcLastResult = '';
+    calcLastExpr = '';
+  }
+}
+
+function showCalcToast(msg) {
+  calcToastEl.textContent = msg;
+  calcToastEl.classList.add('show');
+  setTimeout(() => calcToastEl.classList.remove('show'), 1500);
+}
+
+calcExprInput.addEventListener('input', calculateCalc);
+calcExprInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    calculateCalc();
+    if (calcLastResult && calcLastExpr) {
+      addCalcHistory(calcLastExpr, calcLastResult);
+    }
+  }
+});
+
+calcResetBtn.addEventListener('click', () => {
+  calcExprInput.value = '';
+  calcResultEl.textContent = '';
+  calcErrorEl.textContent = '';
+  calcLastResult = '';
+  calcLastExpr = '';
+  calcExprInput.focus();
+});
+
+calcClearHistoryBtn.addEventListener('click', () => {
+  if (!calcStorageAvailable) return;
+  saveCalcHistory([]);
+  renderCalcHistory();
+  showCalcToast('履歴を削除しました');
+});
+
+calcStorageAvailable = checkCalcStorageAvailable();
+renderCalcHistory();
+calcHistoryListEl.scrollTop = calcHistoryListEl.scrollHeight;
+
+calcCopyBtn.addEventListener('click', async () => {
+  if (!calcLastResult) {
+    showCalcToast('コピーする結果がありません');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(calcLastResult);
+    showCalcToast('コピーしました');
+  } catch (e) {
+    const tmp = document.createElement('textarea');
+    tmp.value = calcLastResult;
+    document.body.appendChild(tmp);
+    tmp.select();
+    document.execCommand('copy');
+    document.body.removeChild(tmp);
+    showCalcToast('コピーしました');
+  }
+});
 </script>
 </body>
 </html>
