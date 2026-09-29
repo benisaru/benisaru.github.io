@@ -468,6 +468,24 @@
     opacity:1;
     transform:translateX(-50%) translateY(0);
   }
+  .toast{
+    position:fixed;
+    bottom:30px;
+    left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:rgba(0,0,0,0.8);
+    color:#fff;
+    padding:8px 16px;
+    border-radius:16px;
+    font-size:13px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.25s, transform 0.25s;
+  }
+  .toast.show{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
 </style>
 </head>
 <body>
@@ -724,6 +742,7 @@
   </details>
 
   <div class="calc-toast" id="calcToast"></div>
+  <div class="toast" id="toast"></div>
 
 </div>
 
@@ -984,7 +1003,7 @@ function renderChartList(){
     btn.title = exists ? entry.presetName : `${entry.presetName}（保存データが見つかりません）`;
     btn.addEventListener('click', ()=>{
       const data = loadPresets()[entry.presetName];
-      if(!data){ alert(`「${entry.presetName}」の保存データが見つかりません`); return; }
+      if(!data){ showToast(`「${entry.presetName}」の保存データが見つかりません`); return; }
       setAllValues(data);
       $('preset_name').value = entry.presetName;
     });
@@ -1008,7 +1027,7 @@ function renderChartList(){
 function addChartEntry(){
   const name = $('chart_source_select').value;
   if(!name){
-    alert('先に「保存・読み込み」で入力データを保存してください');
+    showToast('先に「保存・読み込み」で入力データを保存してください');
     return;
   }
   chartEntries.push({ id: makeEntryId(), presetName: name });
@@ -1087,7 +1106,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   $('saveBtn').addEventListener('click', ()=>{
     const name = $('preset_name').value.trim();
-    if(!name){ alert('保存名を入力してください'); return; }
+    if(!name){ showToast('保存名を入力してください'); return; }
     const presets = loadPresets();
     presets[name] = getAllValues();
     savePresetsObj(presets);
@@ -1095,13 +1114,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     $('preset_select').value = name;
     $('chart_source_select').value = name;
     renderChartList();
-    alert(`「${name}」として保存しました`);
+    showToast(`「${name}」として保存しました`);
   });
 
   $('loadBtn').addEventListener('click', ()=>{
     const name = $('preset_select').value;
     const presets = loadPresets();
-    if(!name || !presets[name]){ alert('読み込むデータがありません'); return; }
+    if(!name || !presets[name]){ showToast('読み込むデータがありません'); return; }
     setAllValues(presets[name]);
     $('preset_name').value = name;
   });
@@ -1126,19 +1145,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   $('chartSaveBtn').addEventListener('click', ()=>{
     const name = $('chart_preset_name').value.trim();
-    if(!name){ alert('チャート保存名を入力してください'); return; }
+    if(!name){ showToast('チャート保存名を入力してください'); return; }
     const charts = loadCharts();
     charts[name] = chartEntries.map(e=>({ presetName: e.presetName }));
     saveChartsObj(charts);
     refreshChartPresetSelect();
     $('chart_preset_select').value = name;
-    alert(`チャート「${name}」を保存しました`);
+    showToast(`チャート「${name}」を保存しました`);
   });
 
   $('chartLoadBtn').addEventListener('click', ()=>{
     const name = $('chart_preset_select').value;
     const charts = loadCharts();
-    if(!name || !charts[name]){ alert('読み込むチャートがありません'); return; }
+    if(!name || !charts[name]){ showToast('読み込むチャートがありません'); return; }
     chartEntries = charts[name].map(e=>({ id: makeEntryId(), presetName: e.presetName }));
     renderChartList();
     $('chart_preset_name').value = name;
@@ -1565,7 +1584,7 @@ function calculate(){
       .map(e=> ({ label: e.presetName, data: presets[e.presetName] }))
       .filter(e=> !!e.data);
     if(resolved.length < chartEntries.length){
-      alert('チャート内の一部の保存データが見つからないため、除外して計算しました。「保存・読み込み」を確認してください');
+      showToast('チャート内の一部の保存データが見つからないため、除外して計算しました。「保存・読み込み」を確認してください');
     }
     lastEntriesSnapshot = resolved.map(e=> ({ label: e.label, data: Object.assign({}, e.data) }));
     syncSliders(lastEntriesSnapshot.length ? lastEntriesSnapshot[0].data : null);
@@ -1578,6 +1597,14 @@ function calculate(){
     const result = computeAll(lastSingleSnapshot);
     renderSingleResult(result);
   }
+}
+
+// ---------- 共通トースト機能 ----------
+function showToast(msg) {
+  const toastEl = document.getElementById('toast');
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  setTimeout(() => toastEl.classList.remove('show'), 2000);
 }
 
 // ---------- 電卓機能 ----------
@@ -1710,11 +1737,7 @@ function calculateCalc() {
   }
 }
 
-function showCalcToast(msg) {
-  calcToastEl.textContent = msg;
-  calcToastEl.classList.add('show');
-  setTimeout(() => calcToastEl.classList.remove('show'), 1500);
-}
+
 
 calcExprInput.addEventListener('input', calculateCalc);
 calcExprInput.addEventListener('keydown', (e) => {
@@ -1740,7 +1763,7 @@ calcClearHistoryBtn.addEventListener('click', () => {
   if (!calcStorageAvailable) return;
   saveCalcHistory([]);
   renderCalcHistory();
-  showCalcToast('履歴を削除しました');
+  showToast('履歴を削除しました');
 });
 
 calcStorageAvailable = checkCalcStorageAvailable();
@@ -1749,12 +1772,12 @@ calcHistoryListEl.scrollTop = calcHistoryListEl.scrollHeight;
 
 calcCopyBtn.addEventListener('click', async () => {
   if (!calcLastResult) {
-    showCalcToast('コピーする結果がありません');
+    showToast('コピーする結果がありません');
     return;
   }
   try {
     await navigator.clipboard.writeText(calcLastResult);
-    showCalcToast('コピーしました');
+    showToast('コピーしました');
   } catch (e) {
     const tmp = document.createElement('textarea');
     tmp.value = calcLastResult;
@@ -1762,7 +1785,7 @@ calcCopyBtn.addEventListener('click', async () => {
     tmp.select();
     document.execCommand('copy');
     document.body.removeChild(tmp);
-    showCalcToast('コピーしました');
+    showToast('コピーしました');
   }
 });
 </script>
