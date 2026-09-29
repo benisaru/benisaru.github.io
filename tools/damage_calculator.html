@@ -452,7 +452,7 @@
   }
   .calc-toast{
     position:fixed;
-    bottom:100px;
+    bottom:30px;
     left:50%;
     transform:translateX(-50%) translateY(20px);
     background:rgba(0,0,0,0.8);
@@ -723,7 +723,7 @@
     </div>
   </details>
 
-  <div class="toast" id="calcToast"></div>
+  <div class="calc-toast" id="calcToast"></div>
 
 </div>
 
@@ -1478,8 +1478,8 @@ function renderSingleResult(result){
 
   const rMin = result.randoms[0];
   const rMax = result.randoms[result.randoms.length-1];
-  lastMinFormula = `${buildFormulaPart(result.raw, rMin)} = ${result.minDmg.toLocaleString()}`;
-  lastMaxFormula = `${buildFormulaPart(result.raw, rMax)} = ${result.maxDmg.toLocaleString()}`;
+  lastMinFormula = `${buildFormulaPart(result.raw, rMin)} = `;
+  lastMaxFormula = `${buildFormulaPart(result.raw, rMax)} = `;
 
   $('result').classList.add('show');
 }
