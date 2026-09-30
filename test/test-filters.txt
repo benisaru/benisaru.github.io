@@ -3,7 +3,7 @@
 ! Description: 自作ブラウザのフィルターエンジンが対応する全記法(ネットワーク修飾子・
 !   コスメティック/手続き型セレクタ・HTMLフィルタリング・スクリプトレット・
 !   プリプロセッサ)を網羅的に検証するためのリスト。
-! Version: 20260928.1
+! Version: 20260929.1
 ! Expires: 1 days
 !
 ! 【重要】このファイル中の benisaru.github.io は実際に公開するホスト名に、
@@ -11,13 +11,16 @@
 ! 置き換えてください(手続き型セレクタ・スクリプトレット・HTMLフィルタリングは
 ! uBO仕様上ドメイン指定必須のため、置き換えないと該当テストは動作しません)。
 !
-! 【注意】$generichide / $specifichide / $genericblock はドメイン全体の
-! コスメティック/ネットワークフィルタの扱いをまとめて切り替えてしまう仕様上、
-! 単体テストが行いにくいため、このファイルには含めていません。
-! test-filters-generichide.txt / test-filters-specifichide.txt /
-! test-filters-genericblock.txt として別ファイルに分離し、それぞれ単独で
-! (このファイルとは同時に有効化せず)購読して確認してください。
-! 対応するテストページも test/subtests/ 以下に分離してあります。
+! 【注意】$generichide / $specifichide はドメイン全体のコスメティックフィルタの
+! 扱いをまとめて切り替えてしまう仕様上、単体テストが行いにくいため、このファイル
+! には含めていません。test-filters-generichide.txt / test-filters-specifichide.txt
+! として別ファイルに分離し、それぞれ単独で(このファイルとは同時に有効化せず)
+! 購読して確認してください。対応するテストページも test/subtests/ 以下に分離してあります。
+!
+! 【MyBrowserと本家の仕様統一について】$genericblockと$match-caseは、本家uBOの
+! 仕様(前者は非対応、後者は正規表現フィルタ専用)にMyBrowser側を合わせたため、
+! どちらのルールも読み込み時に読み捨てられます。このリストにはそもそも含めて
+! いません(以前のバージョンにあった専用テスト・分割ファイルは削除しました)。
 !
 ! 各ルールの説明・対応するindex.htmlのテスト項目([id: xxx])は、
 ! ルールの直前に単独のコメント行として記載しています(ルールと同じ行に
@@ -71,10 +74,6 @@ benisaru.github.io##^#html-filter-marker
 */denyallow-test*$denyallow=mb-removeparam-echo.biziorbizi.workers.dev,domain=benisaru.github.io
 ! [id: net-method] GETは通り、POSTだけブロックされるはず
 */mbt-method-test$method=post
-! [id: net-matchcase] $match-case は本家uBOでは「正規表現フィルタ専用」で、
-! 通常パターンに付けるとフィルタごと破棄されエラーになる。一方MyBrowserは
-! 通常パターンで対応し正規表現フィルタは非対応のため、1行で両立できない。
-! そのため test-filters-mybrowser-only.txt に分離した。
 ! [id: net-all]
 */ads/all-test.jpg$all
 ! [id: net-badfilter] 下の$badfilter行で相殺され、最終的にはブロックされない
@@ -94,7 +93,7 @@ benisaru.github.io##^#html-filter-marker
 ! 使う拡張構文)は、このエンジンでは非対応であることをそのまま確認する項目
 ! ([id: net-removeparam-negated])。「非対応=期待通りの結果」であり、
 ! バグではないことをページ側でも明記している
-||mb-removeparam-echo.biziorbizi.workers.dev^$removeparam=~utm_should_not_be_removed
+*/removeparam-negated-test*$removeparam=~utm_should_not_be_removed
 
 ! [id: net-popup] window.open()等で開かれたタブの最初のメインフレーム
 ! 読み込みに対してだけ判定される。分かりやすいダミーホストを対象にする
@@ -185,21 +184,22 @@ benisaru.github.io##.mbt-preprocessor-target
 ! スクリプトレット(全対応種)
 ! ============================================================
 ! [id: scr-aopr]
-benisaru.github.io##+js(aopr, MBT.aopr)
+benisaru.github.io##+js(aopr, mbtAoprTarget)
 ! [id: scr-aopw]
-benisaru.github.io##+js(aopw, MBT.aopw)
+benisaru.github.io##+js(aopw, mbtAopwTarget)
 ! [id: scr-acis]
-benisaru.github.io##+js(acis, MBT.acis, magicToken12345)
+benisaru.github.io##+js(acis, mbtAcisTarget, magicToken12345)
 ! [id: scr-aost]
-benisaru.github.io##+js(aost, MBT.aost, <inline-script>)
-! [id: scr-set-attr]
-benisaru.github.io##+js(set-attr, .mbt-setattr-target, data-mbt-marker, injected)
-! [id: scr-remove-attr]
-benisaru.github.io##+js(remove-attr, .mbt-scr-removeattr-target, data-mbt-secret)
+benisaru.github.io##+js(aost, mbtAostTarget, <inline-script>)
+! [id: scr-set-attr] 本家は値を''/true/false/整数/[他属性コピー]に制限するため整数を使う
+benisaru.github.io##+js(set-attr, .mbt-setattr-target, data-mbt-marker, 1)
+! [id: scr-remove-attr] 本家は(属性名/クラス名, selector, behavior)の引数順
+benisaru.github.io##+js(remove-attr, data-mbt-secret, .mbt-scr-removeattr-target)
 ! [id: scr-remove-class]
-benisaru.github.io##+js(remove-class, .mbt-scr-removeclass-target, mbt-secret-class)
-! [id: scr-remove-node-text]
-benisaru.github.io##+js(rmnt, .mbt-removenodetext-target, SECRETTEXT)
+benisaru.github.io##+js(remove-class, mbt-secret-class, .mbt-scr-removeclass-target)
+! [id: scr-remove-node-text] 既知の課題: 本家のnodeNameは実タグ名/正規表現でDOM全体を
+! treewalker走査する仕様。MyBrowserは現状CSSセレクタとして扱っており未対応
+benisaru.github.io##+js(rmnt, DIV, SECRETTEXT)
 ! [id: scr-json-prune]
 benisaru.github.io##+js(json-prune, mbtSecret)
 ! [id: scr-json-prune-xhr]
@@ -237,11 +237,37 @@ benisaru.github.io##+js(spoof-css, .mbt-spoofcss-target, display, block)
 benisaru.github.io##+js(prevent-refresh)
 
 ! ============================================================
-! 信頼済みリスト限定のスクリプトレット(rpnt / trusted-*)は
-! test-filters-trusted.txt に分離した(外部リストとして購読するとエラーになるため)
 ! ============================================================
+! (rpnt / trusted-* は現時点ではMyBrowser側で「常に信頼済み」として扱うため、
+! 通常のスクリプトレットと同じくここに含めている)
 
-! ============================================================
+! [id: scr-trusted-set-constant]
+benisaru.github.io##+js(trusted-set, mbtTrustedConstTarget, 42)
+! [id: scr-trusted-set-cookie]
+benisaru.github.io##+js(trusted-set-cookie, mbt_trusted_cookie, arbitrary-value-ok)
+! [id: scr-trusted-set-storage] (local-storage分)
+benisaru.github.io##+js(trusted-set-local-storage-item, mbt_trusted_ls, freeform123)
+! [id: scr-trusted-set-storage] (session-storage分)
+benisaru.github.io##+js(trusted-set-session-storage-item, mbt_trusted_ss, freeform456)
+! [id: scr-trusted-replace-argument] 値は本家のvalidateConstantFn仕様上、素の文字列は
+! 常にundefinedへ解決されるため、json:"..."でJSON文字列として明示する必要がある
+benisaru.github.io##+js(trusted-replace-argument, Element.prototype.setAttribute, 1, json:"replaced-by-trusted", condition, /^orig-value$/)
+! [id: scr-trusted-suppress] 手動確認。実際のalert()を鳴らさずに検証する
+! 安全な自動判定方法が無いため
+benisaru.github.io##+js(trusted-suppress-native-method, window.alert, 1)
+! [id: scr-trusted-replace-xhr]
+benisaru.github.io##+js(trusted-replace-xhr-response, mbtSecretValue, REPLACED)
+! [id: scr-trusted-replace-fetch]
+benisaru.github.io##+js(trusted-replace-fetch-response, mbtFetchSecret, REPLACEDFETCH)
+! [id: scr-trusted-click-element]
+benisaru.github.io##+js(trusted-click-element, .mbt-trustedclick-target)
+! rpnt/trusted-rpntも同じ理由(nodeNameが実タグ名/正規表現でありCSSセレクタでは
+! ない仕様にMyBrowserが未対応)で既知の課題。参考として行だけは記載しておく
+! [id: scr-replace-node-text]
+benisaru.github.io##+js(rpnt, DIV, SECRETWORD, [REDACTED])
+! [id: scr-trusted-replace-node-text]
+benisaru.github.io##+js(trusted-rpnt, DIV, SECRETWORD2, [MASKED])
+
 ! 既知の非対応(バグではなく仕様上の制限。ページ側にも解説を掲載)
 ! ============================================================
 ! - $csp= / $replace= / $uritransform= は該当ルールごと安全に読み飛ばされる(無視される)

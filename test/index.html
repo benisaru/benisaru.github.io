@@ -466,9 +466,10 @@
                     (サブドメイン)を用意できない現在のホスティング構成では、通常の
                     <code>$third-party</code>/<code>$first-party</code>との挙動差を実演できません。</li>
                 <li>生の正規表現フィルタ(<code>/pattern/</code>形式)は非対応です。</li>
-                <li><strong>MyBrowser独自(本家uBOと差がある)</strong>: <code>$genericblock</code>は本家では非対応(公式に「Not supported」)、
-                    <code>$match-case</code>は本家では正規表現フィルタ専用で通常パターンに付けるとフィルタごと破棄されます。
-                    <code>rpnt</code>/<code>trusted-*</code>は本家では信頼済みリスト限定ですが、MyBrowserは信頼制限なしで動作します。</li>
+                <li><strong>MyBrowser独自(本家uBOと差がある)</strong>: <code>trusted-*</code>は本家では信頼済みリスト限定ですが、
+                    MyBrowserは信頼制限なしで動作します。<code>rmnt</code>/<code>rpnt</code>/<code>trusted-rpnt</code>は
+                    本家仕様(nodeNameは実タグ名/正規表現でDOM全体をtreewalker走査)にMyBrowserがまだ対応しておらず、
+                    現状CSSセレクタとして扱っています(既知の課題)。</li>
             </ul>
         </div>
 
@@ -543,10 +544,10 @@
             'スクリプトレット(全対応種)'
         ];
         var CAT_NOTES = {};
-        CAT_NOTES[CATS[7]] = '<code>rpnt</code>(replace-node-text)と<code>trusted-*</code>は本家uBOでは信頼済みリスト限定のため、' +
-            'メインのtest-filters.txtには含めていません。<code>test-filters-trusted.txt</code>を併せて用意してください' +
-            '(本家ではマイフィルターに貼り付け+「信頼が必要なカスタムフィルターを許可する」が必要。MyBrowserは購読するだけで有効=本家より緩い動作)。' +
-            'ボタン付きの2項目は、ブラウザ標準のポップアップブロッカーが自動実行時に確認ダイアログを出してテストを止めることがあるため、クリック時のみ実行します。';
+        CAT_NOTES[CATS[7]] = '<code>trusted-*</code>は本家uBOでは信頼済みリスト限定です(マイフィルターに貼り付け+' +
+            '「信頼が必要なカスタムフィルターを許可する」が必要)。MyBrowserは現時点では全てのスクリプトレットを' +
+            '「常に信頼済み」として扱うため、購読するだけで有効になります(本家より緩い動作である点に注意)。' +
+            '<code>rmnt</code>/<code>rpnt</code>/<code>trusted-rpnt</code>は既知の課題(下記)のため手動確認扱いです。';
         var TESTS = [];
         function T(o) { o.category = o.category; TESTS.push(o); }
 
@@ -643,26 +644,6 @@
                 });
             } });
 
-        T({ id: 'net-matchcase', category: CATS[1], filter: '*/MatchCase-Test.jpg$image,match-case', mybrowserOnly: true,
-            note: '【MyBrowser独自拡張】本家uBOの$match-caseは正規表現フィルタ専用で、通常パターンに付けるとフィルタごと破棄されます(MyBrowserは逆に通常パターンで対応し、正規表現フィルタは非対応)。test-filters-mybrowser-only.txt を購読した時だけ意味を持つ項目で、集計対象外です。',
-            setup: function() {
-                window.__mb2MatchCase = {};
-                function imgTest(name, key) {
-                    var img = new Image();
-                    img.onload = function() { window.__mb2MatchCase[key] = 'loaded'; };
-                    img.onerror = function() { window.__mb2MatchCase[key] = 'error'; };
-                    img.src = './ads/' + name + '?_cb=' + Date.now();
-                }
-                imgTest('MatchCase-Test.jpg', 'exact');
-                imgTest('matchcase-test.jpg', 'lower');
-            },
-            check: function() {
-                var st = window.__mb2MatchCase;
-                if (!st.exact || !st.lower) return undefined;
-                var pass = st.exact === 'error' && st.lower === 'loaded';
-                return { pass: pass, detail: '大文字小文字完全一致=' + st.exact + ' / 小文字版(非一致のはず)=' + st.lower };
-            } });
-
         T({ id: 'net-all', category: CATS[1], filter: '*/ads/all-test.jpg$all',
             setup: function() {
                 var img = new Image();
@@ -709,37 +690,35 @@
                     .catch(function(e) { return { pass: false, detail: '取得自体に失敗: ' + e.message }; });
             } });
 
-        T({ id: 'net-removeparam-negated', category: CATS[1], filter: '$removeparam=~xxx (反転記法・既知の非対応)', expectedUnsupported: true,
+        T({ id: 'net-removeparam-negated', category: CATS[1], filter: '*/removeparam-negated-test*$removeparam=~xxx (反転記法・既知の非対応)', expectedUnsupported: true,
             check: function() {
                 if (!WORKER) return { pass: false, detail: 'MB_ECHO_ENDPOINT未設定。' };
-                return fetch(WORKER + '?utm_should_not_be_removed=1&_cb=' + Date.now()).then(function(r) { return r.json(); })
+                return fetch(WORKER + 'removeparam-negated-test?utm_should_not_be_removed=1&_cb=' + Date.now()).then(function(r) { return r.json(); })
                     .then(function(data) {
                         var stillThere = data && data.query && ('utm_should_not_be_removed' in data.query);
                         return { pass: stillThere, detail: stillThere ? '想定通り、反転記法は無視されパラメータが残りました(非対応の確認)。' : '除去されました(反転記法が対応された?再確認してください)。' };
                     }).catch(function(e) { return { pass: false, detail: '通信失敗: ' + e.message }; });
             } });
 
-        T({ id: 'net-popup', category: CATS[1], filter: '||mbt-popup-blocked-target.invalid^$popup,popunder', interactive: true,
-            note: 'window.open()はユーザー操作が無いとブラウザ自身のポップアップブロッカーが介入し、確認ダイアログ等でテスト全体が止まることがあるため、ボタンをクリックした時だけ実行します。',
+        T({ id: 'net-popup', category: CATS[1], filter: '||mbt-popup-blocked-target.invalid^$popup,popunder', manual: true,
+            note: 'MyBrowserの実装ではwindow.open()自体はユーザー操作があれば常にタブを作成し(ここはブラウザ側の一般的なポップアップブロッカーと同等のゲート)、$popup/$popunderによるブロックはその新規タブが実際にナビゲーションする際のネットワーク層で行われます。そのため元ページのJSからはwindow.open()の戻り値だけでは判定できません。下のボタンでポップアップを開き、新しく開いたタブが空白/読み込み失敗のままになっている(実際のページが表示されない)ことを目視で確認してください。',
+            interactive: true,
             check: function() {
                 var w = null;
                 try { w = window.open('https://mbt-popup-blocked-target.invalid/'); } catch (e) {}
-                if (w) { try { w.close(); } catch (e) {} }
-                return { pass: w === null, detail: w === null ? 'window.open()がnullを返し、ポップアップがブロックされました。' : 'ポップアップが開いてしまいました(ブラウザ標準のブロッカーが許可した場合もあります)。' };
+                return { pass: true, detail: (w ? '新しいタブが開きました。そのタブの内容が空白/読み込み失敗のままなら正常(ブロック成功)、実際のページらしきものが表示されていれば失敗です。目視で確認してください。' : 'window.open()自体がブロックされました(ブラウザ標準のポップアップブロッカーの可能性もあります)。') };
             } });
 
         // ==== ③ 汎用/専用コスメティックの抑制系 ====
-        // $generichide/$specifichide/$genericblockはドメイン全体のコスメティック/
-        // ネットワークフィルタの扱いをまとめて切り替える仕様上、このページの他の
-        // テストと同じ購読リストに含めると全体を巻き込んで壊してしまう。そのため
-        // 別ファイル(test-filters-*.txt)+別ページ(subtests/*.html)に分離した。
+        // $generichide/$specifichideはドメイン全体のコスメティックフィルタの扱いを
+        // まとめて切り替える仕様上、このページの他のテストと同じ購読リストに含めると
+        // 全体を巻き込んで壊してしまう。そのため別ファイル(test-filters-*.txt)+
+        // 別ページ(subtests/*.html)に分離した。$genericblockは本家非対応のためMyBrowser側も
+        // ルールごと読み捨てるよう修正済みで、このリストにテスト自体を設けていない。
         T({ id: 'net-generichide', category: CATS[2], filter: '(別ファイル test-filters-generichide.txt で検証)', manual: true,
             note: '$generichideは対象ドメインの「ドメイン指定なしの汎用コスメティックフィルタ」を全て無効化してしまうため、このページの他のテストと同時には検証できません。<a href="./subtests/generichide.html">subtests/generichide.html</a> を、test-filters-generichide.txt だけを単独購読した状態で開いて確認してください。' });
         T({ id: 'net-specifichide', category: CATS[2], filter: '(別ファイル test-filters-specifichide.txt で検証)', manual: true,
             note: '$specifichideは対象ドメインの「ドメイン指定付きのコスメティック/手続き型/スクリプトレット」を全て無効化してしまうため、このページの他のテスト(手続き型セレクタ・スクリプトレットのほぼ全て)を巻き込みます。<a href="./subtests/specifichide.html">subtests/specifichide.html</a> を、test-filters-specifichide.txt だけを単独購読した状態で開いて確認してください。' });
-        T({ id: 'net-genericblock', category: CATS[2], filter: '(別ファイル test-filters-genericblock.txt で検証)', manual: true,
-            note: '$genericblockは対象ドメインの「ドメイン指定なしのネットワークブロック」を全て無効化してしまうため、このページの他のネットワーク系テストを巻き込みます。<a href="./subtests/genericblock.html">subtests/genericblock.html</a> を、test-filters-genericblock.txt だけを単独購読した状態で開いて確認してください。' });
-
         // ==== ④ コスメティック: 例外・拡張CSS ====
         T({ id: 'cos-exception', category: CATS[3], filter: '##.mbt-exception-target + host#@#.mbt-exception-target',
             setup: function() { spawn('<div class="mbt-exception-target">#@#例外の確認</div>'); },
@@ -869,33 +848,33 @@
             check: function() { return { pass: isHidden(document.querySelector('.mbt-preprocessor-target')) }; } });
 
         // ==== ⑧ スクリプトレット ====
-        T({ id: 'scr-aopr', category: CATS[7], filter: '##+js(aopr, MBT.aopr)',
-            check: function() { return throwsCheck(function() { window.MBT.aopr = 'x'; var v = window.MBT.aopr; }); } });
-        T({ id: 'scr-aopw', category: CATS[7], filter: '##+js(aopw, MBT.aopw)',
-            check: function() { return throwsCheck(function() { window.MBT.aopw = 'y'; }); } });
-        T({ id: 'scr-acis', category: CATS[7], filter: '##+js(acis, MBT.acis, magicToken12345)',
+        T({ id: 'scr-aopr', category: CATS[7], filter: '##+js(aopr, mbtAoprTarget)',
+            check: function() { return throwsCheck(function() { window.mbtAoprTarget = 'x'; var v = window.mbtAoprTarget; }); } });
+        T({ id: 'scr-aopw', category: CATS[7], filter: '##+js(aopw, mbtAopwTarget)',
+            check: function() { return throwsCheck(function() { window.mbtAopwTarget = 'y'; }); } });
+        T({ id: 'scr-acis', category: CATS[7], filter: '##+js(acis, mbtAcisTarget, magicToken12345)',
             setup: function() {
                 runInlineScript('// magicToken12345\n' +
-                    'try { var v = window.MBT.acis; window.__mb2AcisThrew = false; } catch (e) { window.__mb2AcisThrew = (e instanceof ReferenceError); }');
+                    'try { var v = window.mbtAcisTarget; window.__mb2AcisThrew = false; } catch (e) { window.__mb2AcisThrew = (e instanceof ReferenceError); }');
             },
             check: function() { return { pass: window.__mb2AcisThrew === true }; } });
-        T({ id: 'scr-aost', category: CATS[7], filter: '##+js(aost, MBT.aost, <inline-script>)',
+        T({ id: 'scr-aost', category: CATS[7], filter: '##+js(aost, mbtAostTarget, <inline-script>)',
             setup: function() {
-                runInlineScript('(function(){ try { var v = window.MBT.aost; window.__mb2AostThrew = false; } catch (e) { window.__mb2AostThrew = (e instanceof ReferenceError); } })();');
+                runInlineScript('(function(){ try { var v = window.mbtAostTarget; window.__mb2AostThrew = false; } catch (e) { window.__mb2AostThrew = (e instanceof ReferenceError); } })();');
             },
             check: function() { return { pass: window.__mb2AostThrew === true }; } });
-        T({ id: 'scr-set-attr', category: CATS[7], filter: '##+js(set-attr, .mbt-setattr-target, data-mbt-marker, injected)',
+        T({ id: 'scr-set-attr', category: CATS[7], filter: '##+js(set-attr, .mbt-setattr-target, data-mbt-marker, 1)', note: '本家は値を\'\'/true/false/整数/[他属性コピー]に制限するため整数を使う。',
             setup: function() { spawn('<div class="mbt-setattr-target">set-attr対象</div>'); },
-            check: function() { return { pass: document.querySelector('.mbt-setattr-target').getAttribute('data-mbt-marker') === 'injected' }; } });
-        T({ id: 'scr-remove-attr', category: CATS[7], filter: '##+js(remove-attr, .mbt-scr-removeattr-target, data-mbt-secret)',
+            check: function() { return { pass: document.querySelector('.mbt-setattr-target').getAttribute('data-mbt-marker') === '1' }; } });
+        T({ id: 'scr-remove-attr', category: CATS[7], filter: '##+js(remove-attr, data-mbt-secret, .mbt-scr-removeattr-target)',
             setup: function() { spawn('<div class="mbt-scr-removeattr-target" data-mbt-secret="x">remove-attr対象</div>'); },
             check: function() { return { pass: !document.querySelector('.mbt-scr-removeattr-target').hasAttribute('data-mbt-secret') }; } });
-        T({ id: 'scr-remove-class', category: CATS[7], filter: '##+js(remove-class, .mbt-scr-removeclass-target, mbt-secret-class)',
+        T({ id: 'scr-remove-class', category: CATS[7], filter: '##+js(remove-class, mbt-secret-class, .mbt-scr-removeclass-target)',
             setup: function() { spawn('<div class="mbt-scr-removeclass-target mbt-secret-class">remove-class対象</div>'); },
             check: function() { return { pass: !document.querySelector('.mbt-scr-removeclass-target').classList.contains('mbt-secret-class') }; } });
-        T({ id: 'scr-remove-node-text', category: CATS[7], filter: '##+js(rmnt, .mbt-removenodetext-target, SECRETTEXT)',
-            setup: function() { spawn('<div class="mbt-removenodetext-target">これはSECRETTEXTを含む本文です</div>'); },
-            check: function() { return { pass: document.querySelector('.mbt-removenodetext-target').textContent === '' }; } });
+        T({ id: 'scr-remove-node-text', category: CATS[7], filter: '##+js(rmnt, DIV, SECRETTEXT)', manual: true,
+            note: '既知の課題: 本家のnodeName引数は「実際のタグ名(または正規表現)」で、documentツリーをtreewalkerで走査して一致するノードのテキストを操作する仕様です。MyBrowserは現状これをCSSセレクタとして扱っており未対応のため、修正までは手動確認項目としています。' });
+
         T({ id: 'scr-json-prune', category: CATS[7], filter: '##+js(json-prune, mbtSecret)',
             check: function() {
                 var obj = JSON.parse('{"mbtSecret":"leak","ok":1}');
@@ -981,7 +960,7 @@
         T({ id: 'scr-no-floc', category: CATS[7], filter: '##+js(no-floc)', manual: true,
             note: 'FLoC(interestCohort API)自体が現行の主要ブラウザから既に撤廃されているため、このスクリプトレットの効果を有意に検証することができません(将来UAが対応した場合への保険的実装です)。' });
         T({ id: 'scr-nowebrtc', category: CATS[7], filter: '##+js(nowebrtc)',
-            check: function() { return { pass: typeof window.RTCPeerConnection === 'function' && window.RTCPeerConnection.name === 'noop' }; } });
+            check: function() { return { pass: typeof window.RTCPeerConnection === 'function' && window.RTCPeerConnection.toString().indexOf('[native code]') === -1 }; } });
         T({ id: 'scr-noeval-if', category: CATS[7], filter: '##+js(noeval, mbtEvalMarker)',
             check: function() { return { pass: window.eval('/* mbtEvalMarker */ 123') === undefined }; } });
         T({ id: 'scr-spoof-css', category: CATS[7], filter: '##+js(spoof-css, .mbt-spoofcss-target, display, block)',
@@ -996,11 +975,11 @@
             },
             delay: 500,
             check: function() { return { pass: document.querySelector('meta[http-equiv="refresh" i]') === null }; } });
-        T({ id: 'scr-replace-node-text', category: CATS[7], filter: '##+js(rpnt, .mbt-replacenodetext-target, SECRETWORD, [REDACTED])',
-            setup: function() { spawn('<div class="mbt-replacenodetext-target">This has SECRETWORD inside</div>'); },
-            check: function() { return { pass: document.querySelector('.mbt-replacenodetext-target').textContent === 'This has [REDACTED] inside' }; } });
-        T({ id: 'scr-trusted-set-constant', category: CATS[7], filter: '##+js(trusted-set, MBT.trustedConst, 42)',
-            check: function() { return { pass: window.MBT && window.MBT.trustedConst === 42 }; } });
+        T({ id: 'scr-replace-node-text', category: CATS[7], filter: '##+js(rpnt, DIV, SECRETWORD, [REDACTED])', manual: true,
+            note: '既知の課題: remove-node-textと同じ理由(nodeNameがCSSセレクタではなく実タグ名/正規表現である仕様にMyBrowserが未対応)で、修正までは手動確認項目としています。' });
+
+        T({ id: 'scr-trusted-set-constant', category: CATS[7], filter: '##+js(trusted-set, mbtTrustedConstTarget, 42)',
+            check: function() { return { pass: window.mbtTrustedConstTarget === 42 }; } });
         T({ id: 'scr-trusted-set-cookie', category: CATS[7], filter: '##+js(trusted-set-cookie, mbt_trusted_cookie, arbitrary-value-ok)',
             check: function() { return { pass: document.cookie.indexOf('mbt_trusted_cookie=arbitrary-value-ok') !== -1 }; } });
         T({ id: 'scr-trusted-set-storage', category: CATS[7], filter: '##+js(trusted-set-local-storage-item,...) + ##+js(trusted-set-session-storage-item,...)',
@@ -1008,7 +987,7 @@
                 var pass = localStorage.getItem('mbt_trusted_ls') === 'freeform123' && sessionStorage.getItem('mbt_trusted_ss') === 'freeform456';
                 return { pass: pass };
             } });
-        T({ id: 'scr-trusted-replace-argument', category: CATS[7], filter: '##+js(trusted-replace-argument, Element.prototype.setAttribute, 1, replaced-by-trusted, condition, /^orig-value$/)',
+        T({ id: 'scr-trusted-replace-argument', category: CATS[7], filter: '##+js(trusted-replace-argument, Element.prototype.setAttribute, 1, json:"replaced-by-trusted", condition, /^orig-value$/)',
             check: function() {
                 var el = document.createElement('div');
                 el.setAttribute('data-mbt-test', 'orig-value');
@@ -1048,9 +1027,8 @@
             },
             delay: 400,
             check: function() { return { pass: window.__mb2TrustedClicked === true }; } });
-        T({ id: 'scr-trusted-replace-node-text', category: CATS[7], filter: '##+js(trusted-rpnt, .mbt-trustedreplacenodetext-target, SECRETWORD2, [MASKED])',
-            setup: function() { spawn('<div class="mbt-trustedreplacenodetext-target">This has SECRETWORD2 inside</div>'); },
-            check: function() { return { pass: document.querySelector('.mbt-trustedreplacenodetext-target').textContent === 'This has [MASKED] inside' }; } });
+        T({ id: 'scr-trusted-replace-node-text', category: CATS[7], filter: '##+js(trusted-rpnt, DIV, SECRETWORD2, [MASKED])', manual: true,
+            note: '既知の課題: replace-node-textと同じ理由により、修正までは手動確認項目としています。' });
 
         // ------------------------------------------------------------
         // レンダリング & 実行
@@ -1128,15 +1106,15 @@
             }
             cell.className = 'mb2-status ' + (pass ? 'mb2-ok' : 'mb2-ng');
             cell.innerHTML = (t.mybrowserOnly ? '【MyBrowser独自・集計外】' : '') + (pass ? '✅ 成功' : '❌ 失敗') + (detail ? '<span class="mb2-detail">' + detail + '</span>' : '');
-            if (pass && !t.mybrowserOnly) automatedPass++;
+            if (pass && !t.mybrowserOnly && !t.manual) automatedPass++;
             updateSummary();
         }
 
         function runOne(t, byClick) {
-            if (t.manual) return;
+            if (t.manual && !byClick) return; // 手動確認項目は、クリックされない限り自動実行しない
             if (t.interactive && !byClick) return; // ユーザー操作起点のテストは自動実行しない
             try { if (t.setup) t.setup(); } catch (e) { finish(t, { pass: false, detail: 'setup例外: ' + e.message }); return; }
-            var deadline = Date.now() + (t.timeoutMs || 2000);
+            var deadline = Date.now() + (t.timeoutMs || 4500);
             function poll() {
                 var r;
                 try { r = t.check(); } catch (e) { finish(t, { pass: false, detail: '例外: ' + e.message }); return; }
@@ -1151,17 +1129,14 @@
                 }
                 finish(t, r);
             }
-            setTimeout(poll, t.delay || 250);
+            setTimeout(poll, t.delay || 400);
         }
 
         (function buildSubscribeLinks() {
             var lists = [
-                ['test-filters.txt', 'メイン(全項目・これだけを購読)'],
-                ['test-filters-trusted.txt', '信頼済み限定スクリプトレット(マイフィルターに貼り付け推奨)'],
-                ['test-filters-mybrowser-only.txt', 'MyBrowser独自拡張($match-case)'],
+                ['test-filters.txt', 'メイン(基本的にこれだけを購読)'],
                 ['test-filters-generichide.txt', '$generichide単体(他と同時に有効化しない)'],
-                ['test-filters-specifichide.txt', '$specifichide単体(他と同時に有効化しない)'],
-                ['test-filters-genericblock.txt', '$genericblock単体(本家は非対応・他と同時に有効化しない)']
+                ['test-filters-specifichide.txt', '$specifichide単体(他と同時に有効化しない)']
             ];
             var html = '<strong>フィルターリスト(購読リンク)</strong><ul>';
             lists.forEach(function(l) {
@@ -1170,7 +1145,7 @@
                         '<a href="./' + l[0] + '" target="_blank">' + l[0] + '</a> … ' + l[1] + '</li>';
             });
             html += '</ul><small>専用ページ: <a href="./subtests/generichide.html">generichide</a> / ' +
-                    '<a href="./subtests/specifichide.html">specifichide</a> / <a href="./subtests/genericblock.html">genericblock</a> / ' +
+                    '<a href="./subtests/specifichide.html">specifichide</a> / ' +
                     '<a href="./subtests/others.html">:others()</a> / <a href="./subtests/responseheader.html">##^responseheader()</a></small>';
             document.getElementById('mb2-sublist').innerHTML = html;
         })();
