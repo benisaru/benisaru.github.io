@@ -1762,8 +1762,8 @@ function renderSumResult(entryResults){
     const rMax = entryResults[0].result.randoms[entryResults[0].result.randoms.length-1];
     const minParts = entryResults.map(e=> buildFormulaPart(e.result.raw, rMin));
     const maxParts = entryResults.map(e=> buildFormulaPart(e.result.raw, rMax));
-    lastMinFormula = `${minParts.join(' + ')} = ${minDmg.toLocaleString()}`;
-    lastMaxFormula = `${maxParts.join(' + ')} = ${maxDmg.toLocaleString()}`;
+    lastMinFormula = `${minParts.join(' + ')} = `;
+    lastMaxFormula = `${maxParts.join(' + ')} = `;
   }else{
     lastMinFormula = '';
     lastMaxFormula = '';
