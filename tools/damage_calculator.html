@@ -164,6 +164,12 @@
     flex-wrap:wrap;
     gap:12px 10px;
     width:100%;
+    max-height:200px;
+    overflow-y:auto;
+    padding:4px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:var(--panel);
   }
   .chart-empty-note{color:var(--sub);font-size:12px;}
   .chart-chip{position:relative;display:inline-flex;}
@@ -204,6 +210,25 @@
     font-weight:bold;
   }
   .chart-chip .chip-remove:hover{filter:brightness(1.15);}
+  .chart-chip .drag-handle{
+    position:absolute;
+    top:-6px;
+    left:-6px;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:var(--border);
+    color:var(--sub);
+    border:none;
+    font-size:10px;
+    line-height:1;
+    cursor:move;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+  }
+  .chart-chip .drag-handle:hover{background:var(--accent);color:#12161f;}
   .checkbox-group{
     display:flex;
     gap:10px;
@@ -486,7 +511,105 @@
     opacity:1;
     transform:translateX(-50%) translateY(0);
   }
+  /* ドラッグ並び替え用スタイル */
+  .sortable-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    width:100%;
+    max-height:200px;
+    overflow-y:auto;
+    padding:4px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:var(--panel);
+  }
+  .sortable-item{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:8px 12px;
+    cursor:move;
+    width:100%;
+    user-select:none;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .sortable-item:hover{
+    border-color:var(--accent);
+  }
+  .sortable-item.sortable-ghost{
+    opacity:0.4;
+    background:var(--panel);
+  }
+  .sortable-item.sortable-drag{
+    opacity:1;
+    background:var(--panel2);
+    box-shadow:0 4px 12px rgba(0,0,0,0.3);
+  }
+  .sortable-item .drag-handle{
+    color:var(--sub);
+    cursor:move;
+    font-size:14px;
+  }
+  .sortable-item .item-name{
+    flex:1;
+    font-size:12px;
+    color:var(--text);
+    word-wrap:break-word;
+    word-break:break-all;
+  }
+  .sortable-item .item-actions{
+    display:flex;
+    gap:4px;
+    flex-shrink:0;
+  }
+  .sortable-item .item-actions button{
+    padding:2px 6px;
+    font-size:11px;
+    border-radius:4px;
+    min-width:32px;
+  }
+  /* スクロールバーのカスタマイズ */
+  .sortable-list::-webkit-scrollbar,
+  .chart-list::-webkit-scrollbar{
+    width:8px;
+  }
+  .sortable-list::-webkit-scrollbar-track,
+  .chart-list::-webkit-scrollbar-track{
+    background:var(--panel);
+    border-radius:4px;
+  }
+  .sortable-list::-webkit-scrollbar-thumb,
+  .chart-list::-webkit-scrollbar-thumb{
+    background:var(--border);
+    border-radius:4px;
+  }
+  .sortable-list::-webkit-scrollbar-thumb:hover,
+  .chart-list::-webkit-scrollbar-thumb:hover{
+    background:var(--accent);
+  }
+  /* カンストトグル用スタイル */
+  .cap-toggle-container{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+    font-size:12px;
+    color:var(--sub);
+  }
+  .cap-toggle-container input[type=checkbox]{
+    accent-color:var(--accent);
+    width:18px;
+    height:18px;
+    cursor:pointer;
+  }
+  .cap-toggle-container label{
+    cursor:pointer;
+  }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body>
 <div class="container">
@@ -622,13 +745,7 @@
       <div class="row">
         <label>保存済みデータ</label>
         <div class="inputs" style="flex:1 1 auto;">
-          <select id="preset_select" style="width:100%;"></select>
-        </div>
-      </div>
-      <div class="row">
-        <div class="inputs" style="flex:1 1 auto;gap:8px;">
-          <button id="loadBtn" type="button" style="flex:1;">読み込む</button>
-          <button id="deleteBtn" type="button" style="flex:1;">削除する</button>
+          <div id="preset_list" class="sortable-list"></div>
         </div>
       </div>
       <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。</div>
@@ -666,13 +783,7 @@
       <div class="row">
         <label>保存済みチャート</label>
         <div class="inputs" style="flex:1 1 auto;">
-          <select id="chart_preset_select" style="width:100%;"></select>
-        </div>
-      </div>
-      <div class="row">
-        <div class="inputs" style="flex:1 1 auto;gap:8px;">
-          <button id="chartLoadBtn" type="button" style="flex:1;">読み込む</button>
-          <button id="chartDeleteBtn" type="button" style="flex:1;">削除する</button>
+          <div id="chart_preset_list" class="sortable-list"></div>
         </div>
       </div>
       <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。</div>
@@ -684,6 +795,10 @@
   </div>
 
   <div id="result">
+    <div class="cap-toggle-container">
+      <input type="checkbox" id="damageCapEnabled">
+      <label for="damageCapEnabled">ダメージカンスト有効（9999999で上限）</label>
+    </div>
     <div class="summary">
       <div class="card">
         <div class="label">最小ダメージ (0.90倍)</div>
@@ -897,11 +1012,27 @@ const CHECKBOX_IDS = ['move_falloff','terastal','effective','effective_up','crit
 const PRESET_KEY = 'pokemasDamageCalcPresets';
 
 function loadPresets(){
-  try{ return JSON.parse(localStorage.getItem(PRESET_KEY) || '{}'); }
-  catch(e){ return {}; }
+  try{
+    const raw = localStorage.getItem(PRESET_KEY);
+    if(!raw) return {obj:{}, order:[]};
+    const data = JSON.parse(raw);
+    // 配列形式（順序維持用）とオブジェクト形式の両方に対応
+    if(Array.isArray(data)){
+      const obj={};
+      data.forEach(item=> obj[item.name]=item.data);
+      return {obj, order:data.map(d=>d.name)};
+    }
+    // オブジェクト形式の場合、配列形式に変換して保存
+    const order = Object.keys(data);
+    const arrData = order.map(name=>({name, data:data[name]}));
+    localStorage.setItem(PRESET_KEY, JSON.stringify(arrData));
+    return {obj:data, order};
+  }catch(e){ return {obj:{}, order:[]}; }
 }
-function savePresetsObj(obj){
-  localStorage.setItem(PRESET_KEY, JSON.stringify(obj));
+function savePresetsObj(objWithOrder){
+  const {obj, order} = objWithOrder;
+  const data = order.map(name=>({name, data:obj[name]}));
+  localStorage.setItem(PRESET_KEY, JSON.stringify(data));
 }
 function getAllValues(){
   const data={};
@@ -926,21 +1057,42 @@ function setAllValues(data){
   });
 }
 function refreshPresetSelect(){
-  const presets=loadPresets();
-  const sel=$('preset_select');
-  const names=Object.keys(presets);
-  sel.innerHTML='';
+  const {obj:presets, order:names}=loadPresets();
+  const list=$('preset_list');
+  list.innerHTML='';
   if(names.length===0){
-    const opt=document.createElement('option');
-    opt.value='';
-    opt.textContent='（保存済みデータなし）';
-    sel.appendChild(opt);
+    const empty=document.createElement('div');
+    empty.className='chart-empty-note';
+    empty.textContent='（保存済みデータなし）';
+    list.appendChild(empty);
   }else{
     names.forEach(name=>{
-      const opt=document.createElement('option');
-      opt.value=name;
-      opt.textContent=name;
-      sel.appendChild(opt);
+      const item=document.createElement('div');
+      item.className='sortable-item';
+      item.dataset.name=name;
+      item.innerHTML=`
+        <span class="drag-handle">☰</span>
+        <span class="item-name">${name}</span>
+        <div class="item-actions">
+          <button type="button" data-action="load">読込</button>
+          <button type="button" data-action="delete">削除</button>
+        </div>
+      `;
+      item.querySelector('[data-action="load"]').addEventListener('click', ()=>{
+        setAllValues(presets[name]);
+        $('preset_name').value = name;
+        showToast(`「${name}」を読み込みました`);
+      });
+      item.querySelector('[data-action="delete"]').addEventListener('click', ()=>{
+        if(!confirm(`「${name}」を削除しますか？`)) return;
+        delete presets[name];
+        const newOrder = names.filter(n=>n!==name);
+        savePresetsObj({obj:presets, order:newOrder});
+        refreshPresetSelect();
+        renderChartList();
+        showToast(`「${name}」を削除しました`);
+      });
+      list.appendChild(item);
     });
   }
   refreshChartSourceSelect();
@@ -951,19 +1103,33 @@ let chartEntries = []; // {id, presetName} … 保存データへの参照
 const CHART_KEY = 'pokemasDamageCalcCharts';
 
 function loadCharts(){
-  try{ return JSON.parse(localStorage.getItem(CHART_KEY) || '{}'); }
-  catch(e){ return {}; }
+  try{
+    const raw = localStorage.getItem(CHART_KEY);
+    if(!raw) return {obj:{}, order:[]};
+    const data = JSON.parse(raw);
+    if(Array.isArray(data)){
+      const obj={};
+      data.forEach(item=> obj[item.name]=item.data);
+      return {obj, order:data.map(d=>d.name)};
+    }
+    // オブジェクト形式の場合、配列形式に変換して保存
+    const order = Object.keys(data);
+    const arrData = order.map(name=>({name, data:data[name]}));
+    localStorage.setItem(CHART_KEY, JSON.stringify(arrData));
+    return {obj:data, order};
+  }catch(e){ return {obj:{}, order:[]}; }
 }
-function saveChartsObj(obj){
-  localStorage.setItem(CHART_KEY, JSON.stringify(obj));
+function saveChartsObj(objWithOrder){
+  const {obj, order} = objWithOrder;
+  const data = order.map(name=>({name, data:obj[name]}));
+  localStorage.setItem(CHART_KEY, JSON.stringify(data));
 }
 function makeEntryId(){
   return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 }
 function refreshChartSourceSelect(){
-  const presets=loadPresets();
+  const {obj:presets, order:names}=loadPresets();
   const sel=$('chart_source_select');
-  const names=Object.keys(presets);
   sel.innerHTML='';
   if(names.length===0){
     const opt=document.createElement('option');
@@ -989,12 +1155,19 @@ function renderChartList(){
     list.appendChild(empty);
     return;
   }
-  const presets = loadPresets();
+  const {obj:presets} = loadPresets();
   chartEntries.forEach(entry=>{
     const chip=document.createElement('span');
     chip.className='chart-chip';
+    chip.dataset.entryId = entry.id;
     const exists = Object.prototype.hasOwnProperty.call(presets, entry.presetName);
     if(!exists) chip.classList.add('chip-missing');
+
+    const dragHandle=document.createElement('button');
+    dragHandle.type='button';
+    dragHandle.className='drag-handle';
+    dragHandle.textContent='☰';
+    dragHandle.setAttribute('aria-label','ドラッグして並び替え');
 
     const btn=document.createElement('button');
     btn.type='button';
@@ -1002,7 +1175,7 @@ function renderChartList(){
     btn.textContent=entry.presetName;
     btn.title = exists ? entry.presetName : `${entry.presetName}（保存データが見つかりません）`;
     btn.addEventListener('click', ()=>{
-      const data = loadPresets()[entry.presetName];
+      const data = presets[entry.presetName];
       if(!data){ showToast(`「${entry.presetName}」の保存データが見つかりません`); return; }
       setAllValues(data);
       $('preset_name').value = entry.presetName;
@@ -1019,6 +1192,7 @@ function renderChartList(){
       renderChartList();
     });
 
+    chip.appendChild(dragHandle);
     chip.appendChild(btn);
     chip.appendChild(removeBtn);
     list.appendChild(chip);
@@ -1034,22 +1208,43 @@ function addChartEntry(){
   renderChartList();
 }
 function refreshChartPresetSelect(){
-  const charts=loadCharts();
-  const sel=$('chart_preset_select');
-  const names=Object.keys(charts);
-  sel.innerHTML='';
+  const {obj:charts, order:names}=loadCharts();
+  const list=$('chart_preset_list');
+  list.innerHTML='';
   if(names.length===0){
-    const opt=document.createElement('option');
-    opt.value='';
-    opt.textContent='（保存済みチャートなし）';
-    sel.appendChild(opt);
+    const empty=document.createElement('div');
+    empty.className='chart-empty-note';
+    empty.textContent='（保存済みチャートなし）';
+    list.appendChild(empty);
     return;
   }
   names.forEach(name=>{
-    const opt=document.createElement('option');
-    opt.value=name;
-    opt.textContent=name;
-    sel.appendChild(opt);
+    const item=document.createElement('div');
+    item.className='sortable-item';
+    item.dataset.name=name;
+    item.innerHTML=`
+      <span class="drag-handle">☰</span>
+      <span class="item-name">${name}</span>
+      <div class="item-actions">
+        <button type="button" data-action="load">読込</button>
+        <button type="button" data-action="delete">削除</button>
+      </div>
+    `;
+    item.querySelector('[data-action="load"]').addEventListener('click', ()=>{
+      chartEntries = charts[name].map(e=>({ id: makeEntryId(), presetName: e.presetName }));
+      renderChartList();
+      $('chart_preset_name').value = name;
+      showToast(`チャート「${name}」を読み込みました`);
+    });
+    item.querySelector('[data-action="delete"]').addEventListener('click', ()=>{
+      if(!confirm(`チャート「${name}」を削除しますか？`)) return;
+      delete charts[name];
+      const newOrder = names.filter(n=>n!==name);
+      saveChartsObj({obj:charts, order:newOrder});
+      refreshChartPresetSelect();
+      showToast(`チャート「${name}」を削除しました`);
+    });
+    list.appendChild(item);
   });
 }
 
@@ -1107,35 +1302,71 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('saveBtn').addEventListener('click', ()=>{
     const name = $('preset_name').value.trim();
     if(!name){ showToast('保存名を入力してください'); return; }
-    const presets = loadPresets();
+    const {obj:presets, order:names} = loadPresets();
     presets[name] = getAllValues();
-    savePresetsObj(presets);
+    if(!names.includes(name)){
+      names.push(name);
+    }
+    savePresetsObj({obj:presets, order:names});
     refreshPresetSelect();
-    $('preset_select').value = name;
     $('chart_source_select').value = name;
     renderChartList();
     showToast(`「${name}」として保存しました`);
   });
 
-  $('loadBtn').addEventListener('click', ()=>{
-    const name = $('preset_select').value;
-    const presets = loadPresets();
-    if(!name || !presets[name]){ showToast('読み込むデータがありません'); return; }
-    setAllValues(presets[name]);
-    $('preset_name').value = name;
-  });
+  // ---- 保存データのドラッグ並び替え ----
+  if(typeof Sortable !== 'undefined'){
+    new Sortable($('preset_list'), {
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      dragClass: 'sortable-drag',
+      handle: '.drag-handle',
+      onEnd: function(evt){
+        const {obj:presets, order:names} = loadPresets();
+        const newOrder = [];
+        $('preset_list').querySelectorAll('.sortable-item').forEach(item=>{
+          newOrder.push(item.dataset.name);
+        });
+        savePresetsObj({obj:presets, order:newOrder});
+        refreshChartSourceSelect();
+      }
+    });
 
-  $('deleteBtn').addEventListener('click', ()=>{
-    const name = $('preset_select').value;
-    if(!name){ return; }
-    const presets = loadPresets();
-    if(!presets[name]) return;
-    if(!confirm(`「${name}」を削除しますか？`)) return;
-    delete presets[name];
-    savePresetsObj(presets);
-    refreshPresetSelect();
-    renderChartList();
-  });
+    // ---- チャート保存データのドラッグ並び替え ----
+    new Sortable($('chart_preset_list'), {
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      dragClass: 'sortable-drag',
+      handle: '.drag-handle',
+      onEnd: function(evt){
+        const {obj:charts, order:names} = loadCharts();
+        const newOrder = [];
+        $('chart_preset_list').querySelectorAll('.sortable-item').forEach(item=>{
+          newOrder.push(item.dataset.name);
+        });
+        saveChartsObj({obj:charts, order:newOrder});
+      }
+    });
+
+    // ---- チャート内項目のドラッグ並び替え ----
+    new Sortable($('chartList'), {
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      dragClass: 'sortable-drag',
+      onEnd: function(evt){
+        // ドラッグ後の順序でchartEntriesを更新
+        const newEntries = [];
+        $('chartList').querySelectorAll('.chart-chip').forEach(chip=>{
+          const entryId = chip.dataset.entryId;
+          const existingEntry = chartEntries.find(e=>e.id===entryId);
+          if(existingEntry){
+            newEntries.push(existingEntry);
+          }
+        });
+        chartEntries = newEntries;
+      }
+    });
+  }
 
   // ---- チャート ----
   renderChartList();
@@ -1146,32 +1377,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('chartSaveBtn').addEventListener('click', ()=>{
     const name = $('chart_preset_name').value.trim();
     if(!name){ showToast('チャート保存名を入力してください'); return; }
-    const charts = loadCharts();
+    const {obj:charts, order:names} = loadCharts();
     charts[name] = chartEntries.map(e=>({ presetName: e.presetName }));
-    saveChartsObj(charts);
+    if(!names.includes(name)){
+      names.push(name);
+    }
+    saveChartsObj({obj:charts, order:names});
     refreshChartPresetSelect();
-    $('chart_preset_select').value = name;
     showToast(`チャート「${name}」を保存しました`);
-  });
-
-  $('chartLoadBtn').addEventListener('click', ()=>{
-    const name = $('chart_preset_select').value;
-    const charts = loadCharts();
-    if(!name || !charts[name]){ showToast('読み込むチャートがありません'); return; }
-    chartEntries = charts[name].map(e=>({ id: makeEntryId(), presetName: e.presetName }));
-    renderChartList();
-    $('chart_preset_name').value = name;
-  });
-
-  $('chartDeleteBtn').addEventListener('click', ()=>{
-    const name = $('chart_preset_select').value;
-    if(!name){ return; }
-    const charts = loadCharts();
-    if(!charts[name]) return;
-    if(!confirm(`チャート「${name}」を削除しますか？`)) return;
-    delete charts[name];
-    saveChartsObj(charts);
-    refreshChartPresetSelect();
   });
 
   // ---- 計算式コピー ----
@@ -1189,6 +1402,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // ---- スキル装備調整スライダー ----
   $('slider_equip').addEventListener('input', onSliderChange);
   $('slider_skill_equip').addEventListener('input', onSliderChange);
+
+  // ---- ダメージカンストトグル ----
+  $('damageCapEnabled').addEventListener('change', ()=>{
+    if(lastCalcMode==='sum' && lastEntriesSnapshot){
+      const entryResults = lastEntriesSnapshot.map(e=> ({
+        label: e.label,
+        result: computeAll(e.data)
+      }));
+      renderSumResult(entryResults);
+    }else if(lastCalcMode==='single' && lastSingleSnapshot){
+      const result = computeAll(lastSingleSnapshot);
+      renderSingleResult(result);
+    }
+  });
 });
 
 
@@ -1305,9 +1532,9 @@ function computeAll(ctx){
     return Math.floor(raw);
   });
 
-  const minDmg = damages[0];
-  const maxDmg = damages[damages.length-1];
-  const avgDmg = Math.round(damages.reduce((a,b)=>a+b,0)/damages.length);
+  const minDmg = applyDamageCap(damages[0]);
+  const maxDmg = applyDamageCap(damages[damages.length-1]);
+  const avgDmg = applyDamageCap(Math.round(damages.reduce((a,b)=>a+b,0)/damages.length));
 
   const breakdownRows = [
     ['攻撃', atk.toFixed(3)],
@@ -1342,12 +1569,19 @@ function computeAll(ctx){
   };
 }
 
-function formatDamage(d, hp){
+function formatDamage(d, hp, skipCap=false){
+  const capEnabled = !skipCap && $('damageCapEnabled') && $('damageCapEnabled').checked;
+  const capped = capEnabled ? Math.min(d, 9999999) : d;
   if(hp >= 1){
-    const pct = (d / hp * 100).toFixed(1);
-    return `${d.toLocaleString()}（${pct}%）`;
+    const pct = (capped / hp * 100).toFixed(1);
+    return `${capped.toLocaleString()}（${pct}%）`;
   }
-  return d.toLocaleString();
+  return capped.toLocaleString();
+}
+
+function applyDamageCap(d){
+  const capEnabled = $('damageCapEnabled') && $('damageCapEnabled').checked;
+  return capEnabled ? Math.min(d, 9999999) : d;
 }
 
 function formatNum(n, digits){
@@ -1467,7 +1701,7 @@ function flashCopyButton(btn){
   setTimeout(()=>{ btn.textContent = original; btn.disabled = false; }, 1500);
 }
 
-function renderDamageTable(randoms, damages, hp){
+function renderDamageTable(randoms, damages, hp, skipCap=false){
   const body = $('res_table_body');
   body.innerHTML='';
   damages.forEach((d,i)=>{
@@ -1475,7 +1709,7 @@ function renderDamageTable(randoms, damages, hp){
     const tdR=document.createElement('td');
     tdR.textContent = (randoms[i]!==undefined ? randoms[i].toFixed(2) : '-') + '倍';
     const tdD=document.createElement('td');
-    tdD.textContent = formatDamage(d, hp);
+    tdD.textContent = formatDamage(skipCap ? d : applyDamageCap(d), hp, skipCap);
     if(i===0){ tdR.classList.add('hl-min'); tdD.classList.add('hl-min'); }
     if(i===damages.length-1){ tdR.classList.add('hl-max'); tdD.classList.add('hl-max'); }
     tr.appendChild(tdR);
@@ -1490,7 +1724,7 @@ function renderSingleResult(result){
   $('res_max').textContent = formatDamage(result.maxDmg, hp);
   $('res_avg').textContent = formatDamage(result.avgDmg, hp);
 
-  renderDamageTable(result.randoms, result.damages, hp);
+  renderDamageTable(result.randoms, result.damages, hp, false);
 
   const bd = $('breakdown_table');
   bd.innerHTML = result.breakdownRows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
@@ -1506,22 +1740,24 @@ function renderSingleResult(result){
 function renderSumResult(entryResults){
   const hp = entryResults.length ? entryResults[0].result.enemyHp : 0;
   const randoms = entryResults.length ? entryResults[0].result.randoms : [];
-  const totalDamages = randoms.map((_,i)=> entryResults.reduce((s,e)=> s + e.result.damages[i], 0));
+  // 各項目のダメージをカンスト適用してから合算
+  const totalDamages = randoms.map((_,i)=> entryResults.reduce((s,e)=> s + applyDamageCap(e.result.damages[i]), 0));
 
+  // 最終合算時はカンスト処理を行わない
   const minDmg = totalDamages.length ? totalDamages[0] : 0;
   const maxDmg = totalDamages.length ? totalDamages[totalDamages.length-1] : 0;
   const avgDmg = totalDamages.length ? Math.round(totalDamages.reduce((a,b)=>a+b,0)/totalDamages.length) : 0;
 
-  $('res_min').textContent = formatDamage(minDmg, hp);
-  $('res_max').textContent = formatDamage(maxDmg, hp);
-  $('res_avg').textContent = formatDamage(avgDmg, hp);
+  $('res_min').textContent = formatDamage(minDmg, hp, true);
+  $('res_max').textContent = formatDamage(maxDmg, hp, true);
+  $('res_avg').textContent = formatDamage(avgDmg, hp, true);
 
-  renderDamageTable(randoms, totalDamages, hp);
+  renderDamageTable(randoms, totalDamages, hp, true);
 
   const bd = $('breakdown_table');
   const rows = entryResults.map(e=>[
     e.label,
-    `${e.result.minDmg.toLocaleString()} 〜 ${e.result.maxDmg.toLocaleString()}（平均 ${e.result.avgDmg.toLocaleString()}）`
+    `${applyDamageCap(e.result.minDmg).toLocaleString()} 〜 ${applyDamageCap(e.result.maxDmg).toLocaleString()}（平均 ${applyDamageCap(e.result.avgDmg).toLocaleString()}）`
   ]);
   rows.push(['合算項目数', entryResults.length + '件']);
   bd.innerHTML = rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
@@ -1531,8 +1767,8 @@ function renderSumResult(entryResults){
     const rMax = entryResults[0].result.randoms[entryResults[0].result.randoms.length-1];
     const minParts = entryResults.map(e=> buildFormulaPart(e.result.raw, rMin));
     const maxParts = entryResults.map(e=> buildFormulaPart(e.result.raw, rMax));
-    lastMinFormula = `${minParts.join(' + ')} = ${minDmg.toLocaleString()}`;
-    lastMaxFormula = `${maxParts.join(' + ')} = ${maxDmg.toLocaleString()}`;
+    lastMinFormula = `${minParts.join(' + ')} = `;
+    lastMaxFormula = `${maxParts.join(' + ')} = `;
   }else{
     lastMinFormula = '';
     lastMaxFormula = '';
@@ -1579,7 +1815,7 @@ function calculate(){
   const sumEnabled = $('chartSumEnabled') && $('chartSumEnabled').checked;
   if(sumEnabled && chartEntries.length>0){
     lastCalcMode = 'sum';
-    const presets = loadPresets();
+    const {obj:presets} = loadPresets();
     const resolved = chartEntries
       .map(e=> ({ label: e.presetName, data: presets[e.presetName] }))
       .filter(e=> !!e.data);
