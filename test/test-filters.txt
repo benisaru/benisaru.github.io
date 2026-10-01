@@ -58,7 +58,9 @@ benisaru.github.io##^#html-filter-marker
 */fonts/font-test.woff2$font
 ! [id: net-media]
 */media/media-test.mp3$media
-! [id: net-other]
+! [id: net-other] 参考: fetch()は実ブラウザのwebRequest APIでは常に"xmlhttprequest"
+! に分類され、URLの拡張子に関わらず"other"型にはならないため、fetch()ベースでは
+! 本家環境で検証できない
 */ads/other-test.xml$other
 ! [id: net-object] 参考: 実機でSec-Fetch-Destが得られない場合、拡張子ベースの
 ! 救済策がOBJECT型に倒す手段を持たないため判定されない可能性が高い既知の制限
@@ -190,7 +192,7 @@ benisaru.github.io##+js(aopw, mbtAopwTarget)
 ! [id: scr-acis]
 benisaru.github.io##+js(acis, mbtAcisTarget, magicToken12345)
 ! [id: scr-aost]
-benisaru.github.io##+js(aost, mbtAostTarget, <inline-script>)
+benisaru.github.io##+js(aost, mbtAostTarget, inlineScript)
 ! [id: scr-set-attr] 本家は値を''/true/false/整数/[他属性コピー]に制限するため整数を使う
 benisaru.github.io##+js(set-attr, .mbt-setattr-target, data-mbt-marker, 1)
 ! [id: scr-remove-attr] 本家は(属性名/クラス名, selector, behavior)の引数順
@@ -211,8 +213,9 @@ benisaru.github.io##+js(set-local-storage-item, mbt_ls_test, enabled)
 ! [id: scr-cookie-remover] 手動確認。document-start時+beforeunload時のみ
 ! 動くため単発ロードでは自動判定できない
 benisaru.github.io##+js(cookie-remover, mbt_cookie_remover_target)
-! [id: scr-fingerprint2]
-benisaru.github.io##+js(fingerprint2)
+! [id: scr-fingerprint2] 本家には##+js(fingerprint2)というスクリプトレットは無く、
+! $redirect=fingerprint2.jsで偽のfingerprintjs2ライブラリに差し替える仕組みが正しい
+*/fingerprint2-test.js$redirect=fingerprint2.js,script
 ! [id: scr-prevent-fetch]
 benisaru.github.io##+js(prevent-fetch, mbt-prevent-fetch-marker)
 ! [id: scr-prevent-xhr]

@@ -603,12 +603,8 @@
                 return { pass: window.__mb2MediaState === 'error', detail: window.__mb2MediaState === 'error' ? '音声の読み込みがブロックされました。' : '音声が読み込まれてしまいました。' };
             } });
 
-        T({ id: 'net-other', category: CATS[0], filter: '*/ads/other-test.xml$other',
-            check: function() {
-                return fetch('./ads/other-test.xml?_cb=' + Date.now())
-                    .then(function() { return { pass: false, detail: '読み込めてしまいました。' }; })
-                    .catch(function() { return { pass: true, detail: 'ネットワークエラーとしてブロックされました。' }; });
-            } });
+        T({ id: 'net-other', category: CATS[0], filter: '*/ads/other-test.xml$other', manual: true,
+            note: '本家uBOはブラウザのwebRequest APIが報告する実際の種別を使うため、fetch()で送ったリクエストは(URLの拡張子に関わらず)常に"xmlhttprequest"に分類され、"other"にはなりません。fetch()ベースでは本家環境で$otherを再現・検証できないため、参考項目としています。' });
 
         T({ id: 'net-object', category: CATS[0], filter: '*/ads/object-test.swf$object', manual: true,
             note: '実機のWebViewはSec-Fetch-Destをほぼ送らず、拡張子ベースの救済策もOBJECT型への到達手段を持たないため、$object型のルールはそもそも一致しない可能性が高い既知の制限があります。<object>/<embed>のerrorイベントの発火自体も環境依存のため、自動判定は行わずここでは参考掲載のみとしています。' });
@@ -858,7 +854,7 @@
                     'try { var v = window.mbtAcisTarget; window.__mb2AcisThrew = false; } catch (e) { window.__mb2AcisThrew = (e instanceof ReferenceError); }');
             },
             check: function() { return { pass: window.__mb2AcisThrew === true }; } });
-        T({ id: 'scr-aost', category: CATS[7], filter: '##+js(aost, mbtAostTarget, <inline-script>)',
+        T({ id: 'scr-aost', category: CATS[7], filter: '##+js(aost, mbtAostTarget, inlineScript)',
             setup: function() {
                 runInlineScript('(function(){ try { var v = window.mbtAostTarget; window.__mb2AostThrew = false; } catch (e) { window.__mb2AostThrew = (e instanceof ReferenceError); } })();');
             },
@@ -902,29 +898,49 @@
             check: function() { return { pass: localStorage.getItem('mbt_ls_test') === 'enabled' }; } });
         T({ id: 'scr-cookie-remover', category: CATS[7], filter: '##+js(cookie-remover, mbt_cookie_remover_target)', manual: true,
             note: 'このスクリプトレットはdocument-start時とbeforeunload時にのみ動くため、1回のページロード内では自動判定できません。手動確認するには: devtoolsコンソールで document.cookie="mbt_cookie_remover_target=1" を実行後にページをリロードし、リロード後は毎回自動的に消えている(=リロード前のbeforeunloadで削除された)ことを確認してください。' });
-        T({ id: 'scr-fingerprint2', category: CATS[7], filter: '##+js(fingerprint2)',
+        T({ id: 'scr-fingerprint2', category: CATS[7], filter: '*/fingerprint2-test.js$redirect=fingerprint2.js,script',
+            note: '本家では##+js(fingerprint2)というスクリプトレットは存在せず、$redirect=fingerprint2.jsで偽のfingerprintjs2ライブラリに差し替える仕組みです。<script src>を使って検証します。',
+            setup: function() {
+                var s = document.createElement('script');
+                s.src = './ads/fingerprint2-test.js?_cb=' + Date.now();
+                s.onload = function() { window.__mb2Fp2Loaded = true; };
+                s.onerror = function() { window.__mb2Fp2Loaded = false; };
+                document.head.appendChild(s);
+            },
             check: function() {
-                var ok = window.Fingerprint2 && window.Fingerprint2.VERSION === '2.1.4' && window.Fingerprint2.x64hash128() === '0000000000000000000000000000000';
-                return { pass: !!ok };
+                if (window.__mb2Fp2Loaded === undefined) return undefined;
+                if (!window.Fingerprint2) return { pass: false, detail: 'window.Fingerprint2が定義されていません。' };
+                var h1 = window.Fingerprint2.x64hash128();
+                var h2 = window.Fingerprint2.x64hash128();
+                var pass = window.Fingerprint2 === window.Fingerprint && typeof h1 === 'string' && /^[0-9a-f]{32}$/.test(h1) && h1 === h2;
+                return { pass: pass, detail: 'x64hash128()=' + h1 };
             } });
+
         T({ id: 'scr-prevent-fetch', category: CATS[7], filter: '##+js(prevent-fetch, mbt-prevent-fetch-marker)',
+            note: '本家はfetch()を拒否(reject)するのではなく、空文字列の偽Responseで解決(resolve)する仕様です。',
             check: function() {
-                return fetch('./mbt-prevent-fetch-marker-xyz')
-                    .then(function() { return { pass: false, detail: 'fetchが実行されてしまいました。' }; })
-                    .catch(function() { return { pass: true, detail: 'fetchが即座に拒否されました。' }; });
+                return fetch('./mbt-prevent-fetch-marker-xyz').then(function(r) { return r.text(); })
+                    .then(function(text) { return { pass: text === '', detail: '取得内容の長さ=' + text.length }; })
+                    .catch(function() { return { pass: true, detail: 'ネットワークエラーとして拒否されました(この形でも実質ブロックは成立)。' }; });
             } });
+
         T({ id: 'scr-prevent-xhr', category: CATS[7], filter: '##+js(prevent-xhr, mbt-prevent-xhr-marker)',
+            note: '本家はerrorイベントではなくloadイベントを、status=200・responseText=\'\'の偽レスポンスで発火させる仕様です。',
             check: function() {
                 return new Promise(function(resolve) {
                     var xhr = new XMLHttpRequest();
                     var settled = false;
                     xhr.open('GET', './mbt-prevent-xhr-marker-xyz');
-                    xhr.onerror = function() { settled = true; resolve({ pass: true, detail: 'errorイベントが発火しました。' }); };
-                    xhr.onload = function() { if (!settled) { settled = true; resolve({ pass: false, detail: '通常通り読み込まれました。' }); } };
+                    xhr.onload = function() {
+                        settled = true;
+                        resolve({ pass: xhr.status === 200 && xhr.responseText === '', detail: 'status=' + xhr.status + ' / 長さ=' + xhr.responseText.length });
+                    };
+                    xhr.onerror = function() { settled = true; resolve({ pass: true, detail: 'errorイベントが発火しました(この形でも実質ブロックは成立)。' }); };
                     xhr.send();
                     setTimeout(function() { if (!settled) resolve({ pass: false, detail: 'タイムアウト' }); }, 1500);
                 });
             } });
+
         T({ id: 'scr-prevent-settimeout', category: CATS[7], filter: '##+js(prevent-setTimeout, mbtPreventTimeoutMarker)',
             setup: function() {
                 window.__mb2STFired = false;
@@ -960,21 +976,31 @@
         T({ id: 'scr-no-floc', category: CATS[7], filter: '##+js(no-floc)', manual: true,
             note: 'FLoC(interestCohort API)自体が現行の主要ブラウザから既に撤廃されているため、このスクリプトレットの効果を有意に検証することができません(将来UAが対応した場合への保険的実装です)。' });
         T({ id: 'scr-nowebrtc', category: CATS[7], filter: '##+js(nowebrtc)',
-            check: function() { return { pass: typeof window.RTCPeerConnection === 'function' && window.RTCPeerConnection.toString().indexOf('[native code]') === -1 }; } });
+            check: function() {
+                try {
+                    var pass = typeof window.RTCPeerConnection === 'function' && new window.RTCPeerConnection().toString() === '[object RTCPeerConnection]';
+                    return { pass: pass };
+                } catch (e) { return { pass: false, detail: '例外: ' + e.message }; }
+            } });
         T({ id: 'scr-noeval-if', category: CATS[7], filter: '##+js(noeval, mbtEvalMarker)',
             check: function() { return { pass: window.eval('/* mbtEvalMarker */ 123') === undefined }; } });
         T({ id: 'scr-spoof-css', category: CATS[7], filter: '##+js(spoof-css, .mbt-spoofcss-target, display, block)',
             setup: function() { spawn('<div class="mbt-spoofcss-target" style="display:none;">spoof-css対象</div>'); },
             check: function() { return { pass: getComputedStyle(document.querySelector('.mbt-spoofcss-target')).display === 'block' }; } });
         T({ id: 'scr-prevent-refresh', category: CATS[7], filter: '##+js(prevent-refresh)',
+            note: '本家はmetaタグ自体は削除せず、ページのloadイベントから(content値[秒]×500)ms後にwindow.stop()を呼ぶ仕様です。content=1として500ms後の呼び出しを検知します。',
             setup: function() {
+                window.__mb2StopCalled = false;
+                var orig = window.stop;
+                window.stop = function() { window.__mb2StopCalled = true; return orig.apply(this, arguments); };
                 var meta = document.createElement('meta');
                 meta.setAttribute('http-equiv', 'refresh');
-                meta.setAttribute('content', '9999');
+                meta.setAttribute('content', '1');
                 document.head.appendChild(meta);
             },
-            delay: 500,
-            check: function() { return { pass: document.querySelector('meta[http-equiv="refresh" i]') === null }; } });
+            delay: 1300, timeoutMs: 3000,
+            check: function() { return { pass: window.__mb2StopCalled === true }; } });
+
         T({ id: 'scr-replace-node-text', category: CATS[7], filter: '##+js(rpnt, DIV, SECRETWORD, [REDACTED])', manual: true,
             note: '既知の課題: remove-node-textと同じ理由(nodeNameがCSSセレクタではなく実タグ名/正規表現である仕様にMyBrowserが未対応)で、修正までは手動確認項目としています。' });
 
@@ -1154,7 +1180,11 @@
             if (window.__mb2Started) return; // 環境によってはloadが複数回発火し得るための多重実行防止
             window.__mb2Started = true;
             renderAll();
-            TESTS.forEach(function(t) { runOne(t); });
+            // 全テストのsetup()を同一tickで一斉実行すると、MutationObserver/idle
+            // コールバックに依存するスクリプトレット(remove-attr, matches-prop等)が
+            // 大量の同時DOM変更に埋もれて判定が遅れることがあるため、少しずつ
+            // ずらして実行する(実際のページでの読み込まれ方に近づける意味もある)
+            TESTS.forEach(function(t, idx) { setTimeout(function() { runOne(t); }, idx * 25); });
         });
     })();
     </script>
