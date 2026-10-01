@@ -1564,8 +1564,8 @@ function computeAll(ctx){
   };
 }
 
-function formatDamage(d, hp){
-  const capEnabled = $('damageCapEnabled') && $('damageCapEnabled').checked;
+function formatDamage(d, hp, skipCap=false){
+  const capEnabled = !skipCap && $('damageCapEnabled') && $('damageCapEnabled').checked;
   const capped = capEnabled ? Math.min(d, 9999999) : d;
   if(hp >= 1){
     const pct = (capped / hp * 100).toFixed(1);
@@ -1696,7 +1696,7 @@ function flashCopyButton(btn){
   setTimeout(()=>{ btn.textContent = original; btn.disabled = false; }, 1500);
 }
 
-function renderDamageTable(randoms, damages, hp){
+function renderDamageTable(randoms, damages, hp, skipCap=false){
   const body = $('res_table_body');
   body.innerHTML='';
   damages.forEach((d,i)=>{
@@ -1704,7 +1704,7 @@ function renderDamageTable(randoms, damages, hp){
     const tdR=document.createElement('td');
     tdR.textContent = (randoms[i]!==undefined ? randoms[i].toFixed(2) : '-') + '倍';
     const tdD=document.createElement('td');
-    tdD.textContent = formatDamage(applyDamageCap(d), hp);
+    tdD.textContent = formatDamage(skipCap ? d : applyDamageCap(d), hp, skipCap);
     if(i===0){ tdR.classList.add('hl-min'); tdD.classList.add('hl-min'); }
     if(i===damages.length-1){ tdR.classList.add('hl-max'); tdD.classList.add('hl-max'); }
     tr.appendChild(tdR);
@@ -1719,7 +1719,7 @@ function renderSingleResult(result){
   $('res_max').textContent = formatDamage(result.maxDmg, hp);
   $('res_avg').textContent = formatDamage(result.avgDmg, hp);
 
-  renderDamageTable(result.randoms, result.damages, hp);
+  renderDamageTable(result.randoms, result.damages, hp, false);
 
   const bd = $('breakdown_table');
   bd.innerHTML = result.breakdownRows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
@@ -1738,15 +1738,16 @@ function renderSumResult(entryResults){
   // 各項目のダメージをカンスト適用してから合算
   const totalDamages = randoms.map((_,i)=> entryResults.reduce((s,e)=> s + applyDamageCap(e.result.damages[i]), 0));
 
-  const minDmg = applyDamageCap(totalDamages.length ? totalDamages[0] : 0);
-  const maxDmg = applyDamageCap(totalDamages.length ? totalDamages[totalDamages.length-1] : 0);
-  const avgDmg = applyDamageCap(totalDamages.length ? Math.round(totalDamages.reduce((a,b)=>a+b,0)/totalDamages.length) : 0);
+  // 最終合算時はカンスト処理を行わない
+  const minDmg = totalDamages.length ? totalDamages[0] : 0;
+  const maxDmg = totalDamages.length ? totalDamages[totalDamages.length-1] : 0;
+  const avgDmg = totalDamages.length ? Math.round(totalDamages.reduce((a,b)=>a+b,0)/totalDamages.length) : 0;
 
-  $('res_min').textContent = formatDamage(minDmg, hp);
-  $('res_max').textContent = formatDamage(maxDmg, hp);
-  $('res_avg').textContent = formatDamage(avgDmg, hp);
+  $('res_min').textContent = formatDamage(minDmg, hp, true);
+  $('res_max').textContent = formatDamage(maxDmg, hp, true);
+  $('res_avg').textContent = formatDamage(avgDmg, hp, true);
 
-  renderDamageTable(randoms, totalDamages, hp);
+  renderDamageTable(randoms, totalDamages, hp, true);
 
   const bd = $('breakdown_table');
   const rows = entryResults.map(e=>[
