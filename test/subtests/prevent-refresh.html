@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>prevent-refresh 単体テスト</title>
+<!-- 本家の仕組み(preventRefresh)はページのloadイベントで一度だけ判定するため、
+     このmetaタグは動的にJSで挿入せず、最初から静的マークアップとして存在させる
+     必要がある。content値は60秒とし、仮にブロックが効かなかった場合でも
+     本文のJSが数秒以内にこのタグを除去して実際のリロードを防ぐ安全策を入れている -->
+<meta http-equiv="refresh" content="60">
+<style>
+    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px; line-height: 1.7; }
+    .status-ok { color: #1a7f37; font-weight: bold; }
+    .status-ng { color: #cf222e; font-weight: bold; }
+    code { background: #eee; padding: 1px 4px; border-radius: 3px; }
+    .warn { background: #fff8e1; border: 1px solid #e8d074; padding: 10px 14px; border-radius: 6px; }
+    .sub { background: #e8f1ff; border: 1px solid #9bbcf0; padding: 10px 14px; border-radius: 6px; margin: 12px 0; font-size: 0.92em; }
+</style>
+</head>
+<body>
+<h1>##+js(prevent-refresh) 単体テスト</h1>
+<div class="warn">
+    このページには最初から<code>&lt;meta http-equiv="refresh" content="60"&gt;</code>タグが
+    静的に埋め込まれています。<code>prevent-refresh</code>スクリプトレットが効いていれば、
+    ページ読み込みから30秒後(content値×500ms)に<code>window.stop()</code>が呼ばれリロードが
+    止まります。効いていない場合に備え、JS側でも数秒後にタグ自体を取り除く安全策を
+    入れていますが、念のためタブを開いたまま長時間放置しないでください。
+</div>
+<div class="sub">
+    購読するリスト: <strong>test-filters.txt</strong>(メインのリストに含まれています)<br>
+    <a id="sub-link" href="#">🔗 uBlock Originで購読する(abp:subscribe)</a>
+</div>
+<p id="status">判定中(最大32秒ほどかかります)...</p>
+<script>
+    document.getElementById('sub-link').href =
+        'abp:subscribe?location=' + encodeURIComponent(new URL('../test-filters.txt', location.href).href) +
+        '&title=' + encodeURIComponent('test-filters.txt');
+
+    var stopCalled = false;
+    var orig = window.stop;
+    window.stop = function() { stopCalled = true; return orig.apply(this, arguments); };
+
+    // 安全策: ブロックされていない場合に備え、本来のリロードが起きる60秒より
+    // 十分前にタグ自体を除去する(本家の判定猶予である30秒経過後に実施)
+    setTimeout(function() {
+        var meta = document.querySelector('meta[http-equiv="refresh" i]');
+        if (meta) meta.parentNode.removeChild(meta);
+        var st = document.getElementById('status');
+        if (stopCalled) {
+            st.innerHTML = '<span class="status-ok">✅ 成功: window.stop()が呼ばれ、リロードが阻止されました。</span>';
+        } else {
+            st.innerHTML = '<span class="status-ng">❌ 失敗: window.stop()は呼ばれませんでした(安全のためこちらでタグを除去し、実際のリロードは回避しました)。</span>';
+        }
+    }, 31000);
+</script>
+</body>
+</html>
