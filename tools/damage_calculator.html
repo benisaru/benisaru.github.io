@@ -1086,10 +1086,15 @@ function refreshPresetSelect(){
       item.querySelector('[data-action="delete"]').addEventListener('click', ()=>{
         if(!confirm(`「${name}」を削除しますか？`)) return;
         delete presets[name];
-        const newOrder = names.filter(n=>n!==name);
+        // DOMから直接削除して順序を維持
+        item.remove();
+        // 現在のDOM順序で新しいorderを作成
+        const newOrder = [];
+        $('preset_list').querySelectorAll('.sortable-item').forEach(i=>{
+          newOrder.push(i.dataset.name);
+        });
         savePresetsObj({obj:presets, order:newOrder});
-        refreshPresetSelect();
-        renderChartList();
+        refreshChartSourceSelect();
         showToast(`「${name}」を削除しました`);
       });
       list.appendChild(item);
@@ -1188,8 +1193,18 @@ function renderChartList(){
     removeBtn.setAttribute('aria-label','チャートから削除');
     removeBtn.addEventListener('click', (ev)=>{
       ev.stopPropagation();
-      chartEntries = chartEntries.filter(e=>e.id!==entry.id);
-      renderChartList();
+      // DOMから直接削除して順序を維持
+      chip.remove();
+      // 現在のDOM順序でchartEntriesを更新
+      const newEntries = [];
+      $('chartList').querySelectorAll('.chart-chip').forEach(c=>{
+        const entryId = c.dataset.entryId;
+        const existingEntry = chartEntries.find(e=>e.id===entryId);
+        if(existingEntry){
+          newEntries.push(existingEntry);
+        }
+      });
+      chartEntries = newEntries;
     });
 
     chip.appendChild(dragHandle);
@@ -1239,9 +1254,14 @@ function refreshChartPresetSelect(){
     item.querySelector('[data-action="delete"]').addEventListener('click', ()=>{
       if(!confirm(`チャート「${name}」を削除しますか？`)) return;
       delete charts[name];
-      const newOrder = names.filter(n=>n!==name);
+      // DOMから直接削除して順序を維持
+      item.remove();
+      // 現在のDOM順序で新しいorderを作成
+      const newOrder = [];
+      $('chart_preset_list').querySelectorAll('.sortable-item').forEach(i=>{
+        newOrder.push(i.dataset.name);
+      });
       saveChartsObj({obj:charts, order:newOrder});
-      refreshChartPresetSelect();
       showToast(`チャート「${name}」を削除しました`);
     });
     list.appendChild(item);
