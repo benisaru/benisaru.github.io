@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ダメージ計算機EX</title>
+<style>
+  :root{
+    --bg:#12161f;
+    --panel:#1b2130;
+    --panel2:#232a3d;
+    --accent:#5b9dff;
+    --accent2:#ffb454;
+    --text:#e8ecf5;
+    --sub:#9aa5bd;
+    --border:#2e3752;
+    --good:#5be0a0;
+  }
+  *{box-sizing:border-box;max-width:100%;}
+  html,body{overflow-x:hidden;}
+  body{
+    margin:0;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    background:linear-gradient(160deg,#0e111a,#161d2c 60%,#0e111a);
+    color:var(--text);
+    padding:16px;
+  }
+  .container{max-width:1180px;margin:0 auto;}
+  h1{
+    font-size:18px;
+    margin:0 0 4px;
+    letter-spacing:.03em;
+  }
+  .subtitle{color:var(--sub);font-size:11px;margin-bottom:16px;}
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:10px;
+  }
+  .panel{
+    border:1px solid var(--border);
+    background:var(--panel);
+    border-radius:10px;
+    padding:0;
+    min-width:0;
+  }
+  .panel > summary{
+    padding:10px 14px;
+    font-size:13px;
+    font-weight:bold;
+    color:var(--accent);
+    cursor:pointer;
+    list-style:none;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    user-select:none;
+  }
+  .panel > summary::-webkit-details-marker{display:none;}
+  .panel > summary::after{
+    content:'▾';
+    font-size:11px;
+    color:var(--sub);
+    transition:transform .15s ease;
+    flex:0 0 auto;
+  }
+  .panel[open] > summary::after{transform:rotate(180deg);}
+  .panel > summary:hover{color:var(--accent2);}
+  .panel-body{padding:0 12px 12px;}
+  .row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:6px;
+    margin:6px 0;
+    font-size:12px;
+    flex-wrap:wrap;
+  }
+  .row label{flex:1 1 auto;color:var(--sub);min-width:0;}
+  .row .inputs{display:flex;gap:4px;flex:0 1 auto;min-width:0;}
+  .gauss-wrap{display:inline-flex;align-items:center;gap:2px;min-width:0;}
+  .gauss-wrap .bracket{font-weight:700;color:var(--sub);font-size:15px;line-height:1;user-select:none;}
+  .gauss-wrap input{flex:1 1 auto;min-width:0;}
+  input[type=number], input[type=text], select{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:6px;
+    padding:4px 6px;
+    font-size:12px;
+    width:80px;
+    min-width:0;
+  }
+  select{width:auto;min-width:64px;}
+  input.input-error{border-color:#ff6b6b;background:#3a1f24;}
+  .triple select{width:44px;min-width:0;margin-left:2px;padding:4px 2px;}
+  @media (max-width:520px){
+    body{padding:10px;}
+    .grid{grid-template-columns:1fr;gap:8px;}
+    .panel[style]{grid-column:auto !important;}
+    .row{flex-direction:column;align-items:flex-start;gap:4px;}
+    .row .inputs{width:100%;}
+    .row .inputs:not(.triple) input[type=number],
+    .row .inputs:not(.triple) input[type=text],
+    .row .inputs:not(.triple) select{width:100%;}
+    .triple{width:100%;justify-content:space-between;}
+    .triple select{flex:1 1 0;width:auto;}
+    /* 1行1入力の項目はスクロールを短縮するため2列表示にする */
+    .grid .panel-body{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:2px 10px;
+      align-items:start;
+    }
+    .grid .panel-body > .note{grid-column:1 / -1;}
+    .grid .panel-body .row{margin:4px 0;}
+    .grid .panel-body .row.row-full{grid-column:1 / -1;}
+    .row.mult-tera-grid{grid-template-columns:1fr 1fr 1fr;column-gap:6px;}
+    .row.mult-tera-grid .mtg-label{font-size:11px;}
+    table{font-size:10.5px;}
+    th,td{padding:3px 3px;}
+    .summary{gap:6px;}
+    .summary .card{min-width:0;flex:1 1 30%;padding:8px 6px;}
+    .summary .card .value{font-size:16px;}
+    button#calcBtn{width:100%;padding:12px 0;}
+  }
+  .note{
+    font-size:11px;
+    color:var(--sub);
+    margin-top:6px;
+    line-height:1.5;
+    border-top:1px dashed var(--border);
+    padding-top:6px;
+  }
+  .actions{
+    margin:20px 0;
+    text-align:center;
+  }
+  button#calcBtn{
+    background:linear-gradient(135deg,var(--accent),#3d7de0);
+    color:#0e111a;
+    border:none;
+    font-weight:bold;
+    font-size:15px;
+    padding:12px 40px;
+    border-radius:30px;
+    cursor:pointer;
+    box-shadow:0 4px 14px rgba(91,157,255,.35);
+  }
+  button#calcBtn:hover{filter:brightness(1.08);}
+  .panel button{
+    background:var(--panel2);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:7px 10px;
+    font-size:12.5px;
+    cursor:pointer;
+  }
+  .panel button:hover{border-color:var(--accent);color:var(--accent);}
+  .chart-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px 10px;
+    width:100%;
+    max-height:200px;
+    overflow-y:auto;
+    padding:4px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:var(--panel);
+  }
+  .chart-empty-note{color:var(--sub);font-size:12px;}
+  .chart-chip{position:relative;display:inline-flex;}
+  .chart-chip.chip-missing .chip-label{border-color:#ff6b6b;color:#ff9b9b;}
+  .chart-chip .chip-label{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:16px;
+    padding:6px 26px 6px 14px;
+    font-size:12px;
+    cursor:pointer;
+    max-width:220px;
+    overflow-wrap:break-word;
+    word-break:break-word;
+    white-space:normal;
+    text-align:left;
+    line-height:1.4;
+  }
+  .chart-chip .chip-label:hover{border-color:var(--accent);color:var(--accent);}
+  .chart-chip .chip-remove{
+    position:absolute;
+    top:-6px;
+    right:-6px;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:#ff6b6b;
+    color:#12161f;
+    border:none;
+    font-size:11px;
+    line-height:1;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+    font-weight:bold;
+  }
+  .chart-chip .chip-remove:hover{filter:brightness(1.15);}
+  .chart-chip .drag-handle{
+    position:absolute;
+    top:-6px;
+    left:-6px;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:var(--border);
+    color:var(--sub);
+    border:none;
+    font-size:10px;
+    line-height:1;
+    cursor:move;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+  }
+  .chart-chip .drag-handle:hover{background:var(--accent);color:#12161f;}
+  .checkbox-group{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    font-size:12px;
+  }
+  .checkbox-group label{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    color:var(--text);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .checkbox-group input[type=checkbox]{
+    accent-color:var(--accent);
+    width:16px;
+    height:16px;
+    margin:0;
+    cursor:pointer;
+  }
+  .row.mult-tera-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    column-gap:10px;
+    row-gap:6px;
+    align-items:center;
+  }
+  .row.mult-tera-grid > *{min-width:0;}
+  .mtg-label{color:var(--sub);font-size:12px;}
+  .row.mult-tera-grid .checkbox-group{margin:0;}
+  #result{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px 12px;
+    display:none;
+  }
+  #result.show{display:block;}
+  #result table{width:100%;}
+  .summary{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  .summary .card{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:10px 16px;
+    min-width:120px;
+    text-align:center;
+  }
+  .summary .card .label{font-size:11px;color:var(--sub);}
+  .summary .card .value{font-size:20px;font-weight:bold;color:var(--good);margin-top:2px;word-break:break-word;}
+  .copy-btn{
+    display:block;
+    margin:8px auto 0;
+    background:var(--panel);
+    color:var(--sub);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:4px 10px;
+    font-size:11px;
+    cursor:pointer;
+  }
+  .copy-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .copy-btn:disabled{color:var(--good);border-color:var(--good);cursor:default;}
+  .slider-panel{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+    margin-bottom:14px;
+  }
+  .slider-row{margin:8px 0;}
+  .slider-label{
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+    color:var(--sub);
+    margin-bottom:4px;
+  }
+  .slider-label .slider-value{color:var(--accent2);font-weight:bold;}
+  input[type=range]{
+    width:100%;
+    accent-color:var(--accent);
+    cursor:pointer;
+  }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12.5px;
+    margin-top:6px;
+  }
+  th,td{
+    border:1px solid var(--border);
+    padding:5px 6px;
+    text-align:center;
+  }
+  th{background:var(--panel2);color:var(--sub);font-weight:normal;}
+  .breakdown{
+    margin-top:14px;
+    font-size:12px;
+    color:var(--sub);
+  }
+  .breakdown table{font-size:12px;}
+  .breakdown td:first-child{color:var(--text);text-align:left;width:45%;}
+  .hl-min{color:#ff8f8f;}
+  .hl-max{color:var(--accent2);}
+
+  /* 電卓セクションのスタイル */
+  .calc-display-area{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px;
+    margin-bottom:12px;
+  }
+  .calc-history-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:8px;
+  }
+  .calc-history-header span{
+    font-size:12px;
+    color:var(--sub);
+  }
+  .calc-history-header button{
+    padding:4px 8px;
+    font-size:11px;
+    background:var(--panel);
+    color:var(--sub);
+    border:1px solid var(--border);
+    border-radius:4px;
+    cursor:pointer;
+  }
+  .calc-history-header button:hover{
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  #calcHistoryList{
+    max-height:120px;
+    overflow-y:auto;
+    border-top:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+    margin-bottom:8px;
+  }
+  .calc-history-item{
+    display:flex;
+    justify-content:space-between;
+    padding:6px 4px;
+    border-bottom:1px solid var(--border);
+    font-size:12px;
+    cursor:pointer;
+  }
+  .calc-history-item:hover{
+    background:var(--panel);
+  }
+  .calc-history-item .h-expr{
+    color:var(--sub);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    margin-right:10px;
+  }
+  .calc-history-item .h-result{
+    color:var(--accent);
+    font-weight:bold;
+    flex:none;
+  }
+  .calc-history-empty{
+    font-size:12px;
+    color:var(--sub);
+    text-align:center;
+    padding:8px 0;
+  }
+  #calcResult{
+    font-size:24px;
+    font-weight:bold;
+    color:var(--good);
+    word-break:break-all;
+    text-align:right;
+    margin-bottom:4px;
+  }
+  #calcError{
+    color:#ff6b6b;
+    font-size:12px;
+    text-align:right;
+    min-height:16px;
+  }
+  #calcExpr{
+    width:100%;
+    padding:10px;
+    font-size:14px;
+    font-family:inherit;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:6px;
+    margin-bottom:10px;
+    height:80px;
+    resize:none;
+    overflow-y:auto;
+  }
+  #calcExpr:focus{
+    outline:none;
+    border-color:var(--accent);
+  }
+  .calc-btn-row{
+    display:flex;
+    gap:8px;
+  }
+  .calc-btn-row button{
+    flex:1;
+    padding:10px;
+    font-size:13px;
+    border:none;
+    border-radius:6px;
+    font-weight:bold;
+    cursor:pointer;
+  }
+  #calcResetBtn{
+    background:var(--panel);
+    color:var(--text);
+    border:1px solid var(--border);
+  }
+  #calcResetBtn:hover{
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  #calcCopyBtn{
+    background:linear-gradient(135deg,var(--accent),#3d7de0);
+    color:#0e111a;
+  }
+  #calcCopyBtn:hover{
+    filter:brightness(1.08);
+  }
+  .calc-hint{
+    font-size:11px;
+    color:var(--sub);
+    margin-top:8px;
+    text-align:center;
+  }
+  .calc-toast{
+    position:fixed;
+    bottom:30px;
+    left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:rgba(0,0,0,0.8);
+    color:#fff;
+    padding:8px 16px;
+    border-radius:16px;
+    font-size:13px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.25s, transform 0.25s;
+  }
+  .calc-toast.show{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
+  .toast{
+    position:fixed;
+    bottom:30px;
+    left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:rgba(0,0,0,0.8);
+    color:#fff;
+    padding:8px 16px;
+    border-radius:16px;
+    font-size:13px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.25s, transform 0.25s;
+  }
+  .toast.show{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
+  /* ドラッグ並び替え用スタイル */
+  .sortable-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    width:100%;
+    max-height:200px;
+    overflow-y:auto;
+    padding:4px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:var(--panel);
+  }
+  .sortable-item{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:8px 12px;
+    cursor:move;
+    user-select:none;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .sortable-item:hover{
+    border-color:var(--accent);
+  }
+  .sortable-item.sortable-ghost{
+    opacity:0.4;
+    background:var(--panel);
+  }
+  .sortable-item.sortable-drag{
+    opacity:1;
+    background:var(--panel2);
+    box-shadow:0 4px 12px rgba(0,0,0,0.3);
+  }
+  .sortable-item .drag-handle{
+    color:var(--sub);
+    cursor:move;
+    font-size:14px;
+  }
+  .sortable-item .item-name{
+    flex:1;
+    font-size:12px;
+    color:var(--text);
+  }
+  .sortable-item .item-actions{
+    display:flex;
+    gap:4px;
+  }
+  .sortable-item .item-actions button{
+    padding:2px 6px;
+    font-size:11px;
+    border-radius:4px;
+  }
+  /* スクロールバーのカスタマイズ */
+  .sortable-list::-webkit-scrollbar,
+  .chart-list::-webkit-scrollbar{
+    width:8px;
+  }
+  .sortable-list::-webkit-scrollbar-track,
+  .chart-list::-webkit-scrollbar-track{
+    background:var(--panel);
+    border-radius:4px;
+  }
+  .sortable-list::-webkit-scrollbar-thumb,
+  .chart-list::-webkit-scrollbar-thumb{
+    background:var(--border);
+    border-radius:4px;
+  }
+  .sortable-list::-webkit-scrollbar-thumb:hover,
+  .chart-list::-webkit-scrollbar-thumb:hover{
+    background:var(--accent);
+  }
+  /* カンストトグル用スタイル */
+  .cap-toggle-container{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+    font-size:12px;
+    color:var(--sub);
+  }
+  .cap-toggle-container input[type=checkbox]{
+    accent-color:var(--accent);
+    width:18px;
+    height:18px;
+    cursor:pointer;
+  }
+  .cap-toggle-container label{
+    cursor:pointer;
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+</head>
+<body>
+<div class="container">
+  <h1>ダメージ計算機EX</h1>
+  <div class="subtitle">数値を入力して「計算する」を押してください</div>
+
+  <div class="grid">
+
+    <!-- 攻撃力 -->
+    <details class="panel" data-panel-id="atk" open>
+      <summary>攻撃力</summary>
+      <div class="panel-body">
+        <div class="row"><label>攻撃・特攻</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="atk_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
+        <div class="row"><label>装備</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="atk_equip" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
+        <div class="row"><label>フォルムチェンジ倍率</label><div class="inputs"><select id="atk_form"></select></div></div>
+        <div class="row"><label>ボード</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="atk_board" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
+        <div class="row"><label>チームパワー</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="atk_team" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
+        <div class="row"><label>その他補正</label><div class="inputs"><input type="text" inputmode="text" id="atk_correction" value="1" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>攻撃ランク</label><div class="inputs"><select id="atk_rank"></select></div></div>
+        <div class="note">攻撃力 = ((攻撃+装備)×フォルムチェンジ倍率+ボード+チームパワー)×その他補正　</div>
+      </div>
+    </details>
+
+    <!-- 防御力 -->
+    <details class="panel" data-panel-id="def" open>
+      <summary>防御力</summary>
+      <div class="panel-body">
+        <div class="row"><label>防御・特防</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="def_power" value="83" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
+        <div class="row"><label>その他補正</label><div class="inputs"><input type="text" inputmode="text" id="def_correction" value="1" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="row"><label>防御ランク</label><div class="inputs"><select id="def_rank"></select></div></div>
+        <div class="row"><label>防御ダウン耐性</label><div class="inputs"><select id="def_tolerance"></select></div></div>
+        <div class="row"><label>HP</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="enemy_hp" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
+        <div class="note">防御力 = 防御×その他補正</div>
+      </div>
+    </details>
+
+    <!-- 技威力 -->
+    <details class="panel" data-panel-id="move" open>
+      <summary>技威力</summary>
+      <div class="panel-body">
+        <div class="row"><label>威力</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="move_power" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
+        <div class="row"><label>ボード</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="move_board" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
+        <div class="row row-full mult-tera-grid">
+          <div class="mtg-label">効果倍率</div>
+          <div class="mtg-label">範囲減衰</div>
+          <div class="mtg-label">テラスタル</div>
+          <div class="inputs"><input type="text" inputmode="text" id="move_multiplier" value="1" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div>
+          <div class="inputs checkbox-group"><label><input type="checkbox" id="move_falloff"> あり</label></div>
+          <div class="inputs checkbox-group"><label><input type="checkbox" id="terastal"> あり</label></div>
+        </div>
+        <div class="note">技威力 = [(威力+ボード)×威力補正]×効果倍率×テラスタル</div>
+      </div>
+    </details>
+
+    <!-- 威力補正 -->
+    <details class="panel" style="grid-column: span 2;" data-panel-id="powerup" open>
+      <summary>威力補正</summary>
+      <div class="panel-body">
+        <div class="row"><label>ポテンシャル</label><div class="inputs"><select id="potential"></select></div></div>
+        <div class="row row-full"><label>カリスママスパ</label><div class="inputs triple">
+          <select id="charisma1"></select><select id="charisma2"></select><select id="charisma3"></select>
+        </div></div>
+        <div class="row row-full"><label>先導・神話マスパ</label><div class="inputs triple">
+          <select id="lead1"></select><select id="lead2"></select><select id="lead3"></select>
+        </div></div>
+        <div class="row row-full"><label>闘志・信念・EXマスパ</label><div class="inputs triple">
+          <select id="toukon1"></select><select id="toukon2"></select><select id="toukon3"></select>
+        </div></div>
+        <div class="row"><label>ブースト</label><div class="inputs"><select id="boost"></select></div></div>
+        <div class="row"><label>Bブースト</label><div class="inputs"><select id="bboost"></select></div></div>
+        <div class="row row-full"><label>各スキル</label><div class="inputs triple">
+          <select id="skill1"></select><select id="skill2"></select><select id="skill3"></select>
+        </div></div>
+        <div class="row"><label>応援</label><div class="inputs checkbox-group">
+          <label><input type="checkbox" id="ouen"> あり</label>
+        </div></div>
+        <div class="row"><label>その他(小数)</label><div class="inputs"><input type="text" inputmode="text" id="other" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）"></div></div>
+        <div class="note">威力補正 = 1 + (各項目の合計) として計算しています</div>
+      </div>
+    </details>
+
+    <!-- 各種補正 -->
+    <details class="panel" data-panel-id="misc" open>
+      <summary>各種補正</summary>
+      <div class="panel-body">
+        <div class="row"><label>WTZ</label><div class="inputs"><select id="wtz">
+          <option value="1">無し</option><option value="1.5">通常</option><option value="3">EX</option>
+        </select></div></div>
+        <div class="row"><label>タイプ抵抗</label><div class="inputs"><select id="resist"></select></div></div>
+        <div class="row"><label>抜群</label><div class="inputs checkbox-group">
+          <label><input type="checkbox" id="effective"> 抜群</label>
+        </div></div>
+        <div class="row"><label>&nbsp;&nbsp;抜群アップ</label><div class="inputs checkbox-group">
+          <label><input type="checkbox" id="effective_up"> あり</label>
+        </div></div>
+        <div class="row"><label>急所</label><div class="inputs checkbox-group">
+          <label><input type="checkbox" id="critical"> 有効</label>
+        </div></div>
+        <div class="row"><label>ブレイク</label><div class="inputs checkbox-group">
+          <label><input type="checkbox" id="breakcorr"> 有効</label>
+        </div></div>
+        <div class="row row-full"><label>物理・特殊サークル</label><div class="inputs triple">
+          <select id="circle_atk1"></select><select id="circle_atk2"></select><select id="circle_atk3"></select>
+        </div></div>
+        <div class="row row-full"><label>防御サークル</label><div class="inputs triple">
+          <select id="circle_def1"></select><select id="circle_def2"></select><select id="circle_def3"></select>
+        </div></div>
+        <div class="row"><label>スキル装備</label><div class="inputs"><select id="skill_equip"></select></div></div>
+        <div class="row"><label>ボルテージ</label><div class="inputs"><span class="gauss-wrap"><span class="bracket">[</span><input type="text" inputmode="text" id="voltage" value="0" title="数式可（例: 100+50*1.1, 5^2, 5²）計算前に小数点以下切り捨て"><span class="bracket">]</span></span></div></div>
+        <div class="row"><label>軽減</label><div class="inputs"><select id="reduction"></select></div></div>
+        <div class="row"><label>&nbsp;&nbsp;軽減の場</label><div class="inputs checkbox-group">
+          <label><input type="checkbox" id="reduction_field"> あり</label>
+        </div></div>
+      </div>
+    </details>
+
+  </div>
+
+  <details class="panel" style="margin-top:14px;" data-panel-id="save" open>
+    <summary>保存・読み込み</summary>
+    <div class="panel-body">
+      <div class="row">
+        <label>保存名</label>
+        <div class="inputs" style="flex:1 1 auto;">
+          <input type="text" id="preset_name" placeholder="例：始まりの雷_等倍" style="width:100%;">
+        </div>
+      </div>
+      <div class="row">
+        <div class="inputs" style="flex:1 1 auto;">
+          <button id="saveBtn" type="button" style="flex:1;">保存する</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>保存済みデータ</label>
+        <div class="inputs" style="flex:1 1 auto;">
+          <div id="preset_list" class="sortable-list"></div>
+        </div>
+      </div>
+      <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。</div>
+    </div>
+  </details>
+
+  <details class="panel" style="margin-top:14px;" data-panel-id="chart" open>
+    <summary>チャート</summary>
+    <div class="panel-body">
+      <div class="row">
+        <div class="inputs" style="flex:1 1 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <select id="chart_source_select" style="min-width:140px;flex:1 1 auto;max-width:220px;"></select>
+          <button id="chartAddBtn" type="button">追加</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);cursor:pointer;">
+            <input type="checkbox" id="chartSumEnabled" style="accent-color:var(--accent);width:16px;height:16px;margin:0;cursor:pointer;"> 合算
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div id="chartList" class="chart-list"></div>
+      </div>
+      <div class="note">保存済みのデータを選び、「追加」でチャートに追加します。「合算」を有効にして計算すると、チャート内の各項目の結果を合計します。</div>
+
+      <div class="row" style="margin-top:10px;">
+        <label>チャート保存名</label>
+        <div class="inputs" style="flex:1 1 auto;">
+          <input type="text" id="chart_preset_name" placeholder="例：96等倍1枚" style="width:100%;">
+        </div>
+      </div>
+      <div class="row">
+        <div class="inputs" style="flex:1 1 auto;">
+          <button id="chartSaveBtn" type="button" style="flex:1;">チャートを保存する</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>保存済みチャート</label>
+        <div class="inputs" style="flex:1 1 auto;">
+          <div id="chart_preset_list" class="sortable-list"></div>
+        </div>
+      </div>
+      <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。</div>
+    </div>
+  </details>
+
+  <div class="actions">
+    <button id="calcBtn">計算する</button>
+  </div>
+
+  <div id="result">
+    <div class="cap-toggle-container">
+      <input type="checkbox" id="damageCapEnabled">
+      <label for="damageCapEnabled">ダメージカンスト有効（9999999で上限）</label>
+    </div>
+    <div class="summary">
+      <div class="card">
+        <div class="label">最小ダメージ (0.90倍)</div>
+        <div class="value" id="res_min">-</div>
+        <button type="button" id="copyMinBtn" class="copy-btn">計算式コピー</button>
+      </div>
+      <div class="card">
+        <div class="label">最大ダメージ (1.00倍)</div>
+        <div class="value" id="res_max">-</div>
+        <button type="button" id="copyMaxBtn" class="copy-btn">計算式コピー</button>
+      </div>
+      <div class="card"><div class="label">平均ダメージ</div><div class="value" id="res_avg">-</div></div>
+    </div>
+
+    <div class="slider-panel">
+      <div class="slider-row">
+        <div class="slider-label"><span>装備攻撃力</span><span class="slider-value" id="slider_equip_value">0</span></div>
+        <input type="range" id="slider_equip" min="0" max="100" step="1" value="0">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label"><span>装備倍率</span><span class="slider-value" id="slider_skill_equip_value">0</span></div>
+        <input type="range" id="slider_skill_equip" min="0" max="45" step="1" value="0">
+      </div>
+      <div class="note">スライダーを動かすと、その値を一時的に置き換えて計算結果に即反映します。</div>
+    </div>
+
+    <table id="res_table">
+      <thead><tr><th>倍率</th><th>ダメージ</th></tr></thead>
+      <tbody id="res_table_body"></tbody>
+    </table>
+    <div class="breakdown">
+      <table id="breakdown_table"></table>
+    </div>
+  </div>
+
+  <!-- 電卓セクション -->
+  <details class="panel" style="margin-top:14px;" data-panel-id="calculator" open>
+    <summary>テキスト電卓</summary>
+    <div class="panel-body">
+      <div class="calc-display-area">
+      <div class="calc-history-header">
+        <span>計算履歴</span>
+        <button id="calcClearHistoryBtn">全削除</button>
+      </div>
+      <div id="calcHistoryList"></div>
+      <div id="calcResult"></div>
+      <div id="calcError"></div>
+    </div>
+    <textarea id="calcExpr" placeholder="例: 3 + 4 * (2 - 1)" rows="2"></textarea>
+    <div class="calc-btn-row">
+      <button id="calcResetBtn">リセット</button>
+      <button id="calcCopyBtn">結果をコピー</button>
+    </div>
+    <div class="calc-hint">+ − × ÷ ( ) [ ] ^ が使えます。</div>
+    </div>
+  </details>
+
+  <div class="calc-toast" id="calcToast"></div>
+  <div class="toast" id="toast"></div>
+
+</div>
+
+<script>
+// ---------- ユーティリティ ----------
+function addOptions(select, values, {selectedValue=null, labelFn=null}={}){
+  values.forEach(v=>{
+    const opt=document.createElement('option');
+    opt.value=v;
+    opt.textContent = labelFn ? labelFn(v) : v;
+    if(selectedValue!==null && String(v)===String(selectedValue)) opt.selected=true;
+    select.appendChild(opt);
+  });
+}
+function range(a,b){ // inclusive
+  const arr=[];
+  for(let i=a;i<=b;i++) arr.push(i);
+  return arr;
+}
+function $(id){ return document.getElementById(id); }
+
+// 数式（例: 100+50*1.1, 5^2, 5²）を評価する。使用可能な文字は数字と + - * / ^ ( ) . 空白、および上付き数字（⁰¹²³⁴⁵⁶⁷⁸⁹）。
+const SUPERSCRIPT_MAP = {'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9'};
+function evalExpr(str){
+  if(str===null || str===undefined) return NaN;
+  str = String(str).trim();
+  if(str==='') return 0;
+  // 上付き文字（例: ²）を ^数字 に変換（5² → 5^2）
+  str = str.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, (m)=> '^' + m.split('').map(ch=>SUPERSCRIPT_MAP[ch]).join(''));
+  if(!/^[0-9+\-*/^(). ]+$/.test(str)) return NaN;
+  // ^ を JavaScript の累乗演算子 ** に変換
+  const jsExpr = str.replace(/\^/g, '**');
+  try{
+    const result = Function('"use strict"; return (' + jsExpr + ');')();
+    return (typeof result === 'number' && isFinite(result)) ? result : NaN;
+  }catch(e){
+    return NaN;
+  }
+}
+
+function num(id, ctx){
+  const raw = (ctx && Object.prototype.hasOwnProperty.call(ctx, id)) ? ctx[id] : ($(id) ? $(id).value : undefined);
+  const v = evalExpr(raw);
+  return isNaN(v) ? 0 : v;
+}
+// 入力値をガウス記号（floor）で切り捨ててから返す。計算前に整数化したい項目で使用。
+function numFloor(id, ctx){
+  return Math.floor(num(id, ctx));
+}
+function sel(id, ctx){
+  const raw = (ctx && Object.prototype.hasOwnProperty.call(ctx, id)) ? ctx[id] : ($(id) ? $(id).value : undefined);
+  return parseFloat(raw);
+}
+function intC(id, ctx){
+  const raw = (ctx && Object.prototype.hasOwnProperty.call(ctx, id)) ? ctx[id] : ($(id) ? $(id).value : undefined);
+  return parseInt(raw, 10);
+}
+function isChecked(id, ctx){
+  if(ctx && Object.prototype.hasOwnProperty.call(ctx, id)) return !!ctx[id];
+  const el = $(id);
+  return !!(el && el.checked);
+}
+
+// ---------- ランク補正テーブル ----------
+const rankNumerator = {1:125,2:140,3:150,4:160,5:170,6:180}; // 段階nに対応する数値
+function rankCorrection(rank){
+  if(rank===0) return 1;
+  if(rank>0) return rankNumerator[rank]/100;
+  const n=-rank;
+  return 100/rankNumerator[n];
+}
+function defRankCorrectionWithTolerance(rank, tolerance){
+  if(rank>=0) return rankCorrection(rank);
+  const n=-rank;
+  const D=rankNumerator[n];
+  const diff=D-100;
+  const newNum=100 + diff*(tolerance*0.1);
+  return newNum/D;
+}
+// 防御ランク補正を「分数（分子/分母）」の形で返す。rank===0のときは 1/1。
+function defRankFraction(rank, tolerance){
+  if(rank===0) return {num:1, den:1};
+  if(rank>0) return {num:rankNumerator[rank], den:100};
+  const n=-rank;
+  const D=rankNumerator[n];
+  const diff=D-100;
+  const newNum=100 + diff*(tolerance*0.1);
+  return {num:newNum, den:D};
+}
+// 小数点第4位を切り捨て（小数第3位までを残す）
+function truncate3(v){
+  return Math.floor(v*1000)/1000;
+}
+
+// ---------- タイプ抵抗テーブル ----------
+const resistTable = {3:10/16,2:10/15,1:10/13,0:1,'-1':13/10,'-2':15/10,'-3':16/10};
+
+// ---------- セレクトの初期化 ----------
+window.addEventListener('DOMContentLoaded', ()=>{
+  // フォルムチェンジ 1.0〜1.5 (0.1刻み)
+  const forms=[];
+  for(let v=1.0; v<=1.500001; v+=0.1) forms.push(Math.round(v*10)/10);
+  addOptions($('atk_form'), forms, {selectedValue:1.0});
+
+  // 攻撃ランク / 防御ランク -6〜6
+  const ranks=range(-6,6).reverse();
+  addOptions($('atk_rank'), ranks, {selectedValue:0, labelFn:v=>v});
+  addOptions($('def_rank'), ranks, {selectedValue:0, labelFn:v=>v});
+
+  // 防御ダウン耐性 0〜9
+  addOptions($('def_tolerance'), range(0,9), {selectedValue:5});
+
+  // タイプ抵抗 -3〜3
+  addOptions($('resist'), range(-3,3).reverse(), {selectedValue:0});
+
+  // スキル装備 0〜45
+  addOptions($('skill_equip'), range(0,45), {selectedValue:0});
+
+  // 軽減 0〜9
+  addOptions($('reduction'), range(0,9), {selectedValue:0});
+
+  // サークル 0〜3 ×6
+  ['circle_atk1','circle_atk2','circle_atk3','circle_def1','circle_def2','circle_def3'].forEach(id=>{
+    addOptions($(id), range(0,3), {selectedValue:0});
+  });
+
+  // 威力補正内訳
+  addOptions($('potential'), range(0,9), {selectedValue:0});
+  ['charisma1','charisma2','charisma3','lead1','lead2','lead3','toukon1','toukon2','toukon3'].forEach(id=>{
+    addOptions($(id), range(0,3), {selectedValue:0});
+  });
+  addOptions($('boost'), range(0,10), {selectedValue:0});
+  addOptions($('bboost'), range(0,10), {selectedValue:0});
+  ['skill1','skill2','skill3'].forEach(id=>{
+    addOptions($(id), range(0,12), {selectedValue:0});
+  });
+});
+
+// ---------- 保存・読み込み ----------
+const ALL_FIELD_IDS = [
+  'atk_power','atk_equip','atk_form','atk_board','atk_team','atk_correction',
+  'atk_rank',
+  'def_power','def_correction',
+  'def_rank','def_tolerance',
+  'enemy_hp',
+  'move_power','move_board','move_multiplier',
+  'wtz','resist','skill_equip','reduction','voltage',
+  'circle_atk1','circle_atk2','circle_atk3','circle_def1','circle_def2','circle_def3',
+  'potential','charisma1','charisma2','charisma3','lead1','lead2','lead3','toukon1','toukon2','toukon3','boost','bboost','skill1','skill2','skill3','other'
+];
+const CHECKBOX_IDS = ['move_falloff','terastal','effective','effective_up','critical','breakcorr','reduction_field','ouen'];
+const PRESET_KEY = 'pokemasDamageCalcPresets';
+
+function loadPresets(){
+  try{
+    const raw = localStorage.getItem(PRESET_KEY);
+    if(!raw) return {obj:{}, order:[]};
+    const data = JSON.parse(raw);
+    // 配列形式（順序維持用）とオブジェクト形式の両方に対応
+    if(Array.isArray(data)){
+      const obj={};
+      data.forEach(item=> obj[item.name]=item.data);
+      return {obj, order:data.map(d=>d.name)};
+    }
+    // オブジェクト形式の場合、配列形式に変換して保存
+    const order = Object.keys(data);
+    const arrData = order.map(name=>({name, data:data[name]}));
+    localStorage.setItem(PRESET_KEY, JSON.stringify(arrData));
+    return {obj:data, order};
+  }catch(e){ return {obj:{}, order:[]}; }
+}
+function savePresetsObj(objWithOrder){
+  const {obj, order} = objWithOrder;
+  const data = order.map(name=>({name, data:obj[name]}));
+  localStorage.setItem(PRESET_KEY, JSON.stringify(data));
+}
+function getAllValues(){
+  const data={};
+  ALL_FIELD_IDS.forEach(id=>{
+    const el=$(id);
+    if(el) data[id]=el.value;
+  });
+  CHECKBOX_IDS.forEach(id=>{
+    const el=$(id);
+    if(el) data[id]=el.checked;
+  });
+  return data;
+}
+function setAllValues(data){
+  ALL_FIELD_IDS.forEach(id=>{
+    const el=$(id);
+    if(el && Object.prototype.hasOwnProperty.call(data,id)) el.value=data[id];
+  });
+  CHECKBOX_IDS.forEach(id=>{
+    const el=$(id);
+    if(el && Object.prototype.hasOwnProperty.call(data,id)) el.checked=!!data[id];
+  });
+}
+function refreshPresetSelect(){
+  const {obj:presets, order:names}=loadPresets();
+  const list=$('preset_list');
+  list.innerHTML='';
+  if(names.length===0){
+    const empty=document.createElement('div');
+    empty.className='chart-empty-note';
+    empty.textContent='（保存済みデータなし）';
+    list.appendChild(empty);
+  }else{
+    names.forEach(name=>{
+      const item=document.createElement('div');
+      item.className='sortable-item';
+      item.dataset.name=name;
+      item.innerHTML=`
+        <span class="drag-handle">☰</span>
+        <span class="item-name">${name}</span>
+        <div class="item-actions">
+          <button type="button" data-action="load">読込</button>
+          <button type="button" data-action="delete">削除</button>
+        </div>
+      `;
+      item.querySelector('[data-action="load"]').addEventListener('click', ()=>{
+        setAllValues(presets[name]);
+        $('preset_name').value = name;
+        showToast(`「${name}」を読み込みました`);
+      });
+      item.querySelector('[data-action="delete"]').addEventListener('click', ()=>{
+        if(!confirm(`「${name}」を削除しますか？`)) return;
+        delete presets[name];
+        const newOrder = names.filter(n=>n!==name);
+        savePresetsObj({obj:presets, order:newOrder});
+        refreshPresetSelect();
+        renderChartList();
+        showToast(`「${name}」を削除しました`);
+      });
+      list.appendChild(item);
+    });
+  }
+  refreshChartSourceSelect();
+}
+
+// ---------- チャート ----------
+let chartEntries = []; // {id, presetName} … 保存データへの参照
+const CHART_KEY = 'pokemasDamageCalcCharts';
+
+function loadCharts(){
+  try{
+    const raw = localStorage.getItem(CHART_KEY);
+    if(!raw) return {obj:{}, order:[]};
+    const data = JSON.parse(raw);
+    if(Array.isArray(data)){
+      const obj={};
+      data.forEach(item=> obj[item.name]=item.data);
+      return {obj, order:data.map(d=>d.name)};
+    }
+    // オブジェクト形式の場合、配列形式に変換して保存
+    const order = Object.keys(data);
+    const arrData = order.map(name=>({name, data:data[name]}));
+    localStorage.setItem(CHART_KEY, JSON.stringify(arrData));
+    return {obj:data, order};
+  }catch(e){ return {obj:{}, order:[]}; }
+}
+function saveChartsObj(objWithOrder){
+  const {obj, order} = objWithOrder;
+  const data = order.map(name=>({name, data:obj[name]}));
+  localStorage.setItem(CHART_KEY, JSON.stringify(data));
+}
+function makeEntryId(){
+  return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+function refreshChartSourceSelect(){
+  const {obj:presets, order:names}=loadPresets();
+  const sel=$('chart_source_select');
+  sel.innerHTML='';
+  if(names.length===0){
+    const opt=document.createElement('option');
+    opt.value='';
+    opt.textContent='（保存データなし）';
+    sel.appendChild(opt);
+    return;
+  }
+  names.forEach(name=>{
+    const opt=document.createElement('option');
+    opt.value=name;
+    opt.textContent=name;
+    sel.appendChild(opt);
+  });
+}
+function renderChartList(){
+  const list = $('chartList');
+  list.innerHTML='';
+  if(chartEntries.length===0){
+    const empty=document.createElement('div');
+    empty.className='chart-empty-note';
+    empty.textContent='まだ追加された項目はありません';
+    list.appendChild(empty);
+    return;
+  }
+  const {obj:presets} = loadPresets();
+  chartEntries.forEach(entry=>{
+    const chip=document.createElement('span');
+    chip.className='chart-chip';
+    chip.dataset.entryId = entry.id;
+    const exists = Object.prototype.hasOwnProperty.call(presets, entry.presetName);
+    if(!exists) chip.classList.add('chip-missing');
+
+    const dragHandle=document.createElement('button');
+    dragHandle.type='button';
+    dragHandle.className='drag-handle';
+    dragHandle.textContent='☰';
+    dragHandle.setAttribute('aria-label','ドラッグして並び替え');
+
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='chip-label';
+    btn.textContent=entry.presetName;
+    btn.title = exists ? entry.presetName : `${entry.presetName}（保存データが見つかりません）`;
+    btn.addEventListener('click', ()=>{
+      const data = presets[entry.presetName];
+      if(!data){ showToast(`「${entry.presetName}」の保存データが見つかりません`); return; }
+      setAllValues(data);
+      $('preset_name').value = entry.presetName;
+    });
+
+    const removeBtn=document.createElement('button');
+    removeBtn.type='button';
+    removeBtn.className='chip-remove';
+    removeBtn.textContent='×';
+    removeBtn.setAttribute('aria-label','チャートから削除');
+    removeBtn.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      chartEntries = chartEntries.filter(e=>e.id!==entry.id);
+      renderChartList();
+    });
+
+    chip.appendChild(dragHandle);
+    chip.appendChild(btn);
+    chip.appendChild(removeBtn);
+    list.appendChild(chip);
+  });
+}
+function addChartEntry(){
+  const name = $('chart_source_select').value;
+  if(!name){
+    showToast('先に「保存・読み込み」で入力データを保存してください');
+    return;
+  }
+  chartEntries.push({ id: makeEntryId(), presetName: name });
+  renderChartList();
+}
+function refreshChartPresetSelect(){
+  const {obj:charts, order:names}=loadCharts();
+  const list=$('chart_preset_list');
+  list.innerHTML='';
+  if(names.length===0){
+    const empty=document.createElement('div');
+    empty.className='chart-empty-note';
+    empty.textContent='（保存済みチャートなし）';
+    list.appendChild(empty);
+    return;
+  }
+  names.forEach(name=>{
+    const item=document.createElement('div');
+    item.className='sortable-item';
+    item.dataset.name=name;
+    item.innerHTML=`
+      <span class="drag-handle">☰</span>
+      <span class="item-name">${name}</span>
+      <div class="item-actions">
+        <button type="button" data-action="load">読込</button>
+        <button type="button" data-action="delete">削除</button>
+      </div>
+    `;
+    item.querySelector('[data-action="load"]').addEventListener('click', ()=>{
+      chartEntries = charts[name].map(e=>({ id: makeEntryId(), presetName: e.presetName }));
+      renderChartList();
+      $('chart_preset_name').value = name;
+      showToast(`チャート「${name}」を読み込みました`);
+    });
+    item.querySelector('[data-action="delete"]').addEventListener('click', ()=>{
+      if(!confirm(`チャート「${name}」を削除しますか？`)) return;
+      delete charts[name];
+      const newOrder = names.filter(n=>n!==name);
+      saveChartsObj({obj:charts, order:newOrder});
+      refreshChartPresetSelect();
+      showToast(`チャート「${name}」を削除しました`);
+    });
+    list.appendChild(item);
+  });
+}
+
+// ---------- 数式入力欄のバリデーション ----------
+const FORMULA_FIELD_IDS = [
+  'atk_power','atk_equip','atk_board','atk_team','atk_correction',
+  'def_power','def_correction','enemy_hp',
+  'move_power','move_board','move_multiplier','other','voltage'
+];
+function validateFormulaField(el){
+  const v = evalExpr(el.value);
+  if(isNaN(v)){ el.classList.add('input-error'); }
+  else{ el.classList.remove('input-error'); }
+}
+
+// ---------- パネル開閉状態の記憶 ----------
+const PANEL_STATE_KEY = 'dmgcalc_panel_state';
+function loadPanelState(){
+  try{
+    const raw = localStorage.getItem(PANEL_STATE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+function savePanelState(state){
+  try{ localStorage.setItem(PANEL_STATE_KEY, JSON.stringify(state)); }catch(e){}
+}
+function initPanelPersistence(){
+  const panels = document.querySelectorAll('details.panel[data-panel-id]');
+  const state = loadPanelState();
+  panels.forEach(p=>{
+    const id = p.dataset.panelId;
+    if(Object.prototype.hasOwnProperty.call(state, id)){
+      p.open = !!state[id];
+    }
+    p.addEventListener('toggle', ()=>{
+      const s = loadPanelState();
+      s[id] = p.open;
+      savePanelState(s);
+    });
+  });
+}
+
+// ---------- 計算処理 ----------
+document.addEventListener('DOMContentLoaded', ()=>{
+  initPanelPersistence();
+  $('calcBtn').addEventListener('click', calculate);
+
+  FORMULA_FIELD_IDS.forEach(id=>{
+    const el=$(id);
+    if(el) el.addEventListener('input', ()=>validateFormulaField(el));
+  });
+
+  refreshPresetSelect();
+
+  $('saveBtn').addEventListener('click', ()=>{
+    const name = $('preset_name').value.trim();
+    if(!name){ showToast('保存名を入力してください'); return; }
+    const {obj:presets, order:names} = loadPresets();
+    presets[name] = getAllValues();
+    if(!names.includes(name)){
+      names.push(name);
+    }
+    savePresetsObj({obj:presets, order:names});
+    refreshPresetSelect();
+    $('chart_source_select').value = name;
+    renderChartList();
+    showToast(`「${name}」として保存しました`);
+  });
+
+  // ---- 保存データのドラッグ並び替え ----
+  if(typeof Sortable !== 'undefined'){
+    new Sortable($('preset_list'), {
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      dragClass: 'sortable-drag',
+      handle: '.drag-handle',
+      onEnd: function(evt){
+        const {obj:presets, order:names} = loadPresets();
+        const newOrder = [];
+        $('preset_list').querySelectorAll('.sortable-item').forEach(item=>{
+          newOrder.push(item.dataset.name);
+        });
+        savePresetsObj({obj:presets, order:newOrder});
+        refreshChartSourceSelect();
+      }
+    });
+
+    // ---- チャート保存データのドラッグ並び替え ----
+    new Sortable($('chart_preset_list'), {
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      dragClass: 'sortable-drag',
+      handle: '.drag-handle',
+      onEnd: function(evt){
+        const {obj:charts, order:names} = loadCharts();
+        const newOrder = [];
+        $('chart_preset_list').querySelectorAll('.sortable-item').forEach(item=>{
+          newOrder.push(item.dataset.name);
+        });
+        saveChartsObj({obj:charts, order:newOrder});
+      }
+    });
+
+    // ---- チャート内項目のドラッグ並び替え ----
+    new Sortable($('chartList'), {
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      dragClass: 'sortable-drag',
+      onEnd: function(evt){
+        // ドラッグ後の順序でchartEntriesを更新
+        const newEntries = [];
+        $('chartList').querySelectorAll('.chart-chip').forEach(chip=>{
+          const entryId = chip.dataset.entryId;
+          const existingEntry = chartEntries.find(e=>e.id===entryId);
+          if(existingEntry){
+            newEntries.push(existingEntry);
+          }
+        });
+        chartEntries = newEntries;
+      }
+    });
+  }
+
+  // ---- チャート ----
+  renderChartList();
+  refreshChartPresetSelect();
+
+  $('chartAddBtn').addEventListener('click', addChartEntry);
+
+  $('chartSaveBtn').addEventListener('click', ()=>{
+    const name = $('chart_preset_name').value.trim();
+    if(!name){ showToast('チャート保存名を入力してください'); return; }
+    const {obj:charts, order:names} = loadCharts();
+    charts[name] = chartEntries.map(e=>({ presetName: e.presetName }));
+    if(!names.includes(name)){
+      names.push(name);
+    }
+    saveChartsObj({obj:charts, order:names});
+    refreshChartPresetSelect();
+    showToast(`チャート「${name}」を保存しました`);
+  });
+
+  // ---- 計算式コピー ----
+  $('copyMinBtn').addEventListener('click', ()=>{
+    if(!lastMinFormula) return;
+    copyToClipboard(lastMinFormula);
+    flashCopyButton($('copyMinBtn'));
+  });
+  $('copyMaxBtn').addEventListener('click', ()=>{
+    if(!lastMaxFormula) return;
+    copyToClipboard(lastMaxFormula);
+    flashCopyButton($('copyMaxBtn'));
+  });
+
+  // ---- スキル装備調整スライダー ----
+  $('slider_equip').addEventListener('input', onSliderChange);
+  $('slider_skill_equip').addEventListener('input', onSliderChange);
+
+  // ---- ダメージカンストトグル ----
+  $('damageCapEnabled').addEventListener('change', ()=>{
+    if(lastCalcMode==='sum' && lastEntriesSnapshot){
+      const entryResults = lastEntriesSnapshot.map(e=> ({
+        label: e.label,
+        result: computeAll(e.data)
+      }));
+      renderSumResult(entryResults);
+    }else if(lastCalcMode==='single' && lastSingleSnapshot){
+      const result = computeAll(lastSingleSnapshot);
+      renderSingleResult(result);
+    }
+  });
+});
+
+
+function computeAll(ctx){
+  ctx = ctx || null;
+
+  // 攻撃力
+  const atkPowerVal = numFloor('atk_power',ctx);
+  const atkEquipVal = numFloor('atk_equip',ctx);
+  const atkFormVal = sel('atk_form',ctx);
+  const atkBoardVal = numFloor('atk_board',ctx);
+  const atkTeamVal = numFloor('atk_team',ctx);
+  const atkCorrectionVal = num('atk_correction',ctx);
+  const atk = ((atkPowerVal+atkEquipVal)*atkFormVal + atkBoardVal + atkTeamVal) * atkCorrectionVal;
+
+  // 急所判定
+  const isCritical = isChecked('critical', ctx);
+
+  // 攻撃ランク補正（急所時は-1以下を0扱い）
+  let atkRankValue = intC('atk_rank', ctx);
+  if(isCritical && atkRankValue<=-1) atkRankValue=0;
+  const atkRankCorr = rankCorrection(atkRankValue);
+
+  // 防御力
+  const defPowerVal = numFloor('def_power',ctx);
+  const defCorrectionVal = num('def_correction',ctx);
+  const def = defPowerVal * defCorrectionVal;
+
+  // 防御ランク補正（急所時は+1以上を0扱い／小数点第4位を切り捨て）
+  let defRankValue = intC('def_rank', ctx);
+  if(isCritical && defRankValue>=1) defRankValue=0;
+  const defTolerance = intC('def_tolerance', ctx);
+  const defRankFrac = defRankFraction(defRankValue, defTolerance);
+  //小数点第4位を切り捨ては不要かも
+  //const defRankCorr = truncate3(defRankFrac.num / defRankFrac.den);
+  const defRankCorr = (defRankFrac.num / defRankFrac.den);
+
+  // ---- 威力補正 ----
+  const potential = intC('potential',ctx)*0.1;
+  const charismaFn = v => v===0 ? 0 : 0.05 + v*0.05;
+  const charismaSum = ['charisma1','charisma2','charisma3'].reduce((s,id)=> s + charismaFn(intC(id,ctx)), 0);
+  const leadSum = ['lead1','lead2','lead3'].reduce((s,id)=> s + intC(id,ctx)*0.1, 0);
+  const toukonFn = v => v===0 ? 0 : 0.05 + v*0.15;
+  const toukonSum = ['toukon1','toukon2','toukon3'].reduce((s,id)=> s + toukonFn(intC(id,ctx)), 0);
+  const boostVal = intC('boost',ctx)*0.4;
+  const bBoostVal = intC('bboost',ctx)*0.1;
+  const skillSum = ['skill1','skill2','skill3'].reduce((s,id)=> s + intC(id,ctx)*0.1, 0);
+  const ouenVal = isChecked('ouen',ctx) ? 0.5 : 0;
+  const otherVal = num('other',ctx);
+  const powerUpTotal = potential + charismaSum + leadSum + toukonSum + boostVal + bBoostVal + skillSum + ouenVal + otherVal;
+  const powerUpCorr = 1 + powerUpTotal;
+
+  // 技威力
+  const movePowerVal = numFloor('move_power',ctx);
+  const moveBoardVal = numFloor('move_board',ctx);
+  const moveMultiplierVal = num('move_multiplier',ctx);
+  const falloffMult = isChecked('move_falloff',ctx) ? 0.5 : 1;
+  const terastalMult = isChecked('terastal',ctx) ? 1.5 : 1;
+  const movePower = Math.floor( (movePowerVal+moveBoardVal) * powerUpCorr) * moveMultiplierVal *  terastalMult;
+
+
+  // ---- WTZ / タイプ抵抗 / 抜群 / 急所 / ブレイク ----
+  const wtzCorr = sel('wtz',ctx);
+  const resistCorr = resistTable[intC('resist',ctx)];
+  const effectiveBase = isChecked('effective',ctx) ? 2 : 1;
+  const effectiveUp = isChecked('effective_up',ctx) ? 1.5 : 1;
+  const effectiveCorr = effectiveBase===1 ? 1 : effectiveBase*effectiveUp;
+  const criticalCorr = isCritical ? 1.5 : 1;
+  const breakCorr = isChecked('breakcorr',ctx) ? 1.5 : 1;
+
+  // ---- サークル補正 ----
+  function circleAtkFn(v){ return v===0 ? 1 : 1.1 + v*0.1; }
+  function circleDefFn(v){ return v===0 ? 1 : 1.05 + v*0.05; }
+  const circleCorr =
+    circleAtkFn(intC('circle_atk1',ctx)) *
+    circleAtkFn(intC('circle_atk2',ctx)) *
+    circleAtkFn(intC('circle_atk3',ctx)) *
+    circleDefFn(intC('circle_def1',ctx)) *
+    circleDefFn(intC('circle_def2',ctx)) *
+    circleDefFn(intC('circle_def3',ctx));
+
+  // ---- スキル装備補正 ----
+  const skillEquipCorr = 1 + intC('skill_equip',ctx)*0.01;
+
+  // ---- 軽減補正（急所時は軽減の場を無視） ----
+  const reductionCorr = 1 - intC('reduction',ctx)*0.1;
+  const reductionFieldCorr = isCritical ? 1 : (isChecked('reduction_field',ctx) ? 0.6667 : 1);
+  const totalReductionCorr = reductionCorr * reductionFieldCorr;
+
+  // ---- ボルテージ補正 ----
+  const voltageCorr = 1 + numFloor('voltage',ctx)*0.5;
+
+  // ---- 隠し半減補正（常時有効。乱数をかける直前の内部補正として×0.5） ----
+  const hiddenHalfCorr = 0.5;
+
+  // ---- 各種補正 合算（D側：急所補正×WTZ補正×タイプ抵抗補正×サークル補正×ブレイク補正×ボルテージ補正×スキル装備補正×軽減補正×範囲減衰） ----
+  const variousCorr = criticalCorr * wtzCorr * resistCorr * circleCorr * breakCorr * voltageCorr * skillEquipCorr * totalReductionCorr * falloffMult;
+
+  // ---- ランク補正乗算時は切り捨て（攻撃・防御ともにfloor） ----
+  const atkAfterRank = Math.floor(atk * atkRankCorr); // A
+  const defAfterRank = Math.floor(def * defRankCorr); // B
+
+  // ---- C = floor(技威力×抜群補正×隠し補正) ----
+  const moveCorrValue = Math.floor(movePower * effectiveCorr * hiddenHalfCorr); // C
+
+  // ---- 乱数 0.90〜1.00 (0.01刻み) ----
+  const randoms=[];
+  for(let i=90;i<=100;i++) randoms.push(i/100);
+
+  const damages = randoms.map(r=>{
+    // D = C×A÷B×各種補正 ／ damage = floor(D×乱数)
+    const D = moveCorrValue * atkAfterRank / defAfterRank * variousCorr;
+    const raw = D * r;
+    return Math.floor(raw);
+  });
+
+  const minDmg = applyDamageCap(damages[0]);
+  const maxDmg = applyDamageCap(damages[damages.length-1]);
+  const avgDmg = applyDamageCap(Math.round(damages.reduce((a,b)=>a+b,0)/damages.length));
+
+  const breakdownRows = [
+    ['攻撃', atk.toFixed(3)],
+    ['攻撃ランク補正', atkRankCorr.toFixed(4) + (isCritical && intC('atk_rank',ctx)<=-1 ? '（急所により0扱い）':'')],
+    ['防御', def.toFixed(3)],
+    ['防御ランク補正', formatNum(defRankFrac.num,3)+'/'+formatNum(defRankFrac.den,3)+' → '+defRankCorr.toFixed(3) + (isCritical && intC('def_rank',ctx)>=1 ? '（急所により0扱い）':'')],
+    ['技威力', movePower.toFixed(3)],
+    ['威力補正', powerUpCorr.toFixed(4)],
+    ['抜群補正', effectiveCorr.toFixed(4)],
+    ['隠し半減補正', hiddenHalfCorr.toFixed(4)],
+    ['WTZ補正', wtzCorr],
+    ['タイプ抵抗補正', resistCorr.toFixed(4)],
+    ['急所補正', criticalCorr],
+    ['ブレイク補正', breakCorr],
+    ['サークル補正', circleCorr.toFixed(4)],
+    ['スキル装備補正', skillEquipCorr.toFixed(4)],
+    ['軽減補正', totalReductionCorr.toFixed(4) + (isCritical ? '（急所により軽減の場を無視）':'')],
+    ['ボルテージ補正', voltageCorr.toFixed(4)],
+    ['範囲減衰', falloffMult.toFixed(4)],
+  ];
+
+  return {randoms, damages, minDmg, maxDmg, avgDmg, breakdownRows,
+    raw: {
+      atk, atkRankCorr, def, defRankCorr, defRankFrac, movePower, moveCorrValue, variousCorr,
+      atkPowerVal, atkEquipVal, atkFormVal, atkBoardVal, atkTeamVal, atkCorrectionVal,
+      defPowerVal, defCorrectionVal,
+      movePowerVal, moveBoardVal, moveMultiplierVal, falloffMult, terastalMult,
+      powerUpCorr, wtzCorr, resistCorr, effectiveCorr, criticalCorr, breakCorr,
+      circleCorr, skillEquipCorr, totalReductionCorr, voltageCorr, hiddenHalfCorr
+    },
+    enemyHp: numFloor('enemy_hp', ctx)
+  };
+}
+
+function formatDamage(d, hp){
+  const capEnabled = $('damageCapEnabled') && $('damageCapEnabled').checked;
+  const capped = capEnabled ? Math.min(d, 9999999) : d;
+  if(hp >= 1){
+    const pct = (capped / hp * 100).toFixed(1);
+    return `${capped.toLocaleString()}（${pct}%）`;
+  }
+  return capped.toLocaleString();
+}
+
+function applyDamageCap(d){
+  const capEnabled = $('damageCapEnabled') && $('damageCapEnabled').checked;
+  return capEnabled ? Math.min(d, 9999999) : d;
+}
+
+function formatNum(n, digits){
+  if(typeof n !== 'number' || !isFinite(n)) return String(n);
+  const rounded = parseFloat(n.toFixed(digits===undefined?4:digits));
+  return rounded.toString();
+}
+
+// ---------- 計算式の連結ヘルパー（+0 / ×1 を省略） ----------
+// chainAdd: 複数項の加算チェーンを作る。0の項は省略。
+//   戻り値: {str, hasAdd, n}
+//   hasAdd = 最上位に「+」が残っているか（後で掛け算に組み込む際に括弧が要るか判定用）
+//   n = 連結された項の数（除算の分母として使う際、複数項なら括弧が要る）
+function chainAdd(terms){
+  const kept = terms.map(([v,d])=>[v, formatNum(v,d)]).filter(([v])=> v!==0);
+  if(kept.length===0) return {str:'0', hasAdd:false, n:1};
+  let str = kept[0][1];
+  for(let i=1;i<kept.length;i++){
+    const [v,s] = kept[i];
+    str += (v<0 ? s : '+'+s);
+  }
+  return {str, hasAdd: kept.length>1, n: kept.length};
+}
+// 既存の連結（base）に「+val」を追加。valが0なら何もしない。
+function applyAdd(base, val, digits){
+  if(val===0) return base;
+  const s = formatNum(val, digits);
+  return {str: base.str + (val<0 ? s : '+'+s), hasAdd:true, n: base.n+1};
+}
+// 既存の連結（base）に「×val」を追加。valが1なら何もしない（省略）。
+function applyMul(base, val, digits){
+  if(val===1) return base;
+  const s = formatNum(val, digits);
+  const left = base.hasAdd ? `(${base.str})` : base.str;
+  return {str: `${left}×${s}`, hasAdd:false, n: base.n+1};
+}
+// 純粋な掛け算のみのチェーン（各種補正など）。値が1の項は省略。全て1なら'1'。
+function chainMul(terms){
+  const kept = terms.map(([v,d])=>[v, formatNum(v,d)]).filter(([v])=> v!==1);
+  if(kept.length===0) return {str:'1', hasAdd:false, n:1};
+  return {str: kept.map(([,s])=>s).join('×'), hasAdd:false, n:kept.length};
+}
+
+function buildFormulaPart(raw, r){
+  // ---- A = [攻撃×攻撃ランク補正] ----
+  let atk = chainAdd([[raw.atkPowerVal,3],[raw.atkEquipVal,3]]);
+  atk = applyMul(atk, raw.atkFormVal, 2);
+  atk = applyAdd(atk, raw.atkBoardVal, 3);
+  atk = applyAdd(atk, raw.atkTeamVal, 3);
+  atk = applyMul(atk, raw.atkCorrectionVal, 3);
+  atk = applyMul(atk, raw.atkRankCorr, 4);
+  const A = `[${atk.str}]`;
+
+  // ---- B = [防御×防御ランク補正] ----
+  let def = {str: formatNum(raw.defPowerVal,3), hasAdd:false, n:1};
+  def = applyMul(def, raw.defCorrectionVal, 3);
+  let defTerm = def.str;
+  if(!(raw.defRankFrac.num === raw.defRankFrac.den)){
+    defTerm += `×${formatNum(raw.defRankFrac.num,3)}/${formatNum(raw.defRankFrac.den,3)}`;
+  }
+  const B = `[${defTerm}]`;
+
+  // ---- [技威力 × 威力補正]----
+  let move = chainAdd([[raw.movePowerVal,3],[raw.moveBoardVal,3]]);
+  move = applyMul(move, raw.powerUpCorr, 4);
+  move.str = `[${move.str}]`;
+
+  // ---- C = [技威力×威力倍率×テラスタル補正×抜群補正×隠し補正] ----
+  let cChain = applyMul(move, raw.moveMultiplierVal, 3);
+  cChain = applyMul(cChain, raw.terastalMult, 2);
+  cChain = applyMul(cChain, raw.effectiveCorr, 4);
+  cChain = applyMul(cChain, raw.hiddenHalfCorr, 4);
+  const C = `[${cChain.str}]`;
+
+  // ---- 各種補正（D側・純積：急所×WTZ×タイプ抵抗×サークル×ブレイク×ボルテージ×スキル装備×軽減×範囲減衰） ----
+  const various = chainMul([
+    [raw.criticalCorr,4],[raw.wtzCorr,4],[raw.resistCorr,4],[raw.circleCorr,4],
+    [raw.breakCorr,4],[raw.voltageCorr,4],[raw.skillEquipCorr,4],[raw.totalReductionCorr,4],
+    [raw.falloffMult,2]
+  ]);
+
+  // ---- D = C×A÷B×各種補正 ／ damage = [D×乱数] ----
+  let formula = `${C}×${A}÷${B}`;
+  if(various.str !== '1') formula += `×${various.str}`;
+  if(r !== 1){
+    formula += `×${r.toFixed(2)}`;
+  }
+  return `[${formula}]`;
+}
+
+let lastMinFormula = '';
+let lastMaxFormula = '';
+
+function copyToClipboard(text){
+  function fallbackCopy(){
+    const ta=document.createElement('textarea');
+    ta.value=text;
+    ta.style.position='fixed';
+    ta.style.left='-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    document.body.removeChild(ta);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).catch(()=>{ fallbackCopy(); });
+  }else{
+    fallbackCopy();
+  }
+}
+function flashCopyButton(btn){
+  if(!btn) return;
+  const original = btn.textContent;
+  btn.textContent = 'コピーしました';
+  btn.disabled = true;
+  setTimeout(()=>{ btn.textContent = original; btn.disabled = false; }, 1500);
+}
+
+function renderDamageTable(randoms, damages, hp){
+  const body = $('res_table_body');
+  body.innerHTML='';
+  damages.forEach((d,i)=>{
+    const tr=document.createElement('tr');
+    const tdR=document.createElement('td');
+    tdR.textContent = (randoms[i]!==undefined ? randoms[i].toFixed(2) : '-') + '倍';
+    const tdD=document.createElement('td');
+    tdD.textContent = formatDamage(applyDamageCap(d), hp);
+    if(i===0){ tdR.classList.add('hl-min'); tdD.classList.add('hl-min'); }
+    if(i===damages.length-1){ tdR.classList.add('hl-max'); tdD.classList.add('hl-max'); }
+    tr.appendChild(tdR);
+    tr.appendChild(tdD);
+    body.appendChild(tr);
+  });
+}
+
+function renderSingleResult(result){
+  const hp = result.enemyHp;
+  $('res_min').textContent = formatDamage(result.minDmg, hp);
+  $('res_max').textContent = formatDamage(result.maxDmg, hp);
+  $('res_avg').textContent = formatDamage(result.avgDmg, hp);
+
+  renderDamageTable(result.randoms, result.damages, hp);
+
+  const bd = $('breakdown_table');
+  bd.innerHTML = result.breakdownRows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+
+  const rMin = result.randoms[0];
+  const rMax = result.randoms[result.randoms.length-1];
+  lastMinFormula = `${buildFormulaPart(result.raw, rMin)} = `;
+  lastMaxFormula = `${buildFormulaPart(result.raw, rMax)} = `;
+
+  $('result').classList.add('show');
+}
+
+function renderSumResult(entryResults){
+  const hp = entryResults.length ? entryResults[0].result.enemyHp : 0;
+  const randoms = entryResults.length ? entryResults[0].result.randoms : [];
+  // 各項目のダメージをカンスト適用してから合算
+  const totalDamages = randoms.map((_,i)=> entryResults.reduce((s,e)=> s + applyDamageCap(e.result.damages[i]), 0));
+
+  const minDmg = applyDamageCap(totalDamages.length ? totalDamages[0] : 0);
+  const maxDmg = applyDamageCap(totalDamages.length ? totalDamages[totalDamages.length-1] : 0);
+  const avgDmg = applyDamageCap(totalDamages.length ? Math.round(totalDamages.reduce((a,b)=>a+b,0)/totalDamages.length) : 0);
+
+  $('res_min').textContent = formatDamage(minDmg, hp);
+  $('res_max').textContent = formatDamage(maxDmg, hp);
+  $('res_avg').textContent = formatDamage(avgDmg, hp);
+
+  renderDamageTable(randoms, totalDamages, hp);
+
+  const bd = $('breakdown_table');
+  const rows = entryResults.map(e=>[
+    e.label,
+    `${applyDamageCap(e.result.minDmg).toLocaleString()} 〜 ${applyDamageCap(e.result.maxDmg).toLocaleString()}（平均 ${applyDamageCap(e.result.avgDmg).toLocaleString()}）`
+  ]);
+  rows.push(['合算項目数', entryResults.length + '件']);
+  bd.innerHTML = rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+
+  if(entryResults.length){
+    const rMin = entryResults[0].result.randoms[0];
+    const rMax = entryResults[0].result.randoms[entryResults[0].result.randoms.length-1];
+    const minParts = entryResults.map(e=> buildFormulaPart(e.result.raw, rMin));
+    const maxParts = entryResults.map(e=> buildFormulaPart(e.result.raw, rMax));
+    lastMinFormula = `${minParts.join(' + ')} = ${minDmg.toLocaleString()}`;
+    lastMaxFormula = `${maxParts.join(' + ')} = ${maxDmg.toLocaleString()}`;
+  }else{
+    lastMinFormula = '';
+    lastMaxFormula = '';
+  }
+
+  $('result').classList.add('show');
+}
+
+// ---------- スキル装備調整スライダー ----------
+let lastCalcMode = null; // 'single' | 'sum'
+let lastSingleSnapshot = null;
+let lastEntriesSnapshot = null;
+
+function syncSliders(ctx){
+  const equip = Math.min(100, Math.max(0, Math.round(num('atk_equip', ctx))));
+  const skillEq = Math.min(45, Math.max(0, Math.round(intC('skill_equip', ctx))));
+  $('slider_equip').value = equip;
+  $('slider_equip_value').textContent = equip;
+  $('slider_skill_equip').value = skillEq;
+  $('slider_skill_equip_value').textContent = skillEq;
+}
+
+function onSliderChange(){
+  const equipVal = $('slider_equip').value;
+  const skillVal = $('slider_skill_equip').value;
+  $('slider_equip_value').textContent = equipVal;
+  $('slider_skill_equip_value').textContent = skillVal;
+
+  const overrides = { atk_equip: equipVal, skill_equip: skillVal };
+
+  if(lastCalcMode==='sum' && lastEntriesSnapshot){
+    const entryResults = lastEntriesSnapshot.map(e=> ({
+      label: e.label,
+      result: computeAll(Object.assign({}, e.data, overrides))
+    }));
+    renderSumResult(entryResults);
+  }else if(lastCalcMode==='single' && lastSingleSnapshot){
+    const result = computeAll(Object.assign({}, lastSingleSnapshot, overrides));
+    renderSingleResult(result);
+  }
+}
+
+function calculate(){
+  const sumEnabled = $('chartSumEnabled') && $('chartSumEnabled').checked;
+  if(sumEnabled && chartEntries.length>0){
+    lastCalcMode = 'sum';
+    const {obj:presets} = loadPresets();
+    const resolved = chartEntries
+      .map(e=> ({ label: e.presetName, data: presets[e.presetName] }))
+      .filter(e=> !!e.data);
+    if(resolved.length < chartEntries.length){
+      showToast('チャート内の一部の保存データが見つからないため、除外して計算しました。「保存・読み込み」を確認してください');
+    }
+    lastEntriesSnapshot = resolved.map(e=> ({ label: e.label, data: Object.assign({}, e.data) }));
+    syncSliders(lastEntriesSnapshot.length ? lastEntriesSnapshot[0].data : null);
+    const entryResults = lastEntriesSnapshot.map(e=> ({label:e.label, result: computeAll(e.data)}));
+    renderSumResult(entryResults);
+  }else{
+    lastCalcMode = 'single';
+    lastSingleSnapshot = getAllValues();
+    syncSliders(lastSingleSnapshot);
+    const result = computeAll(lastSingleSnapshot);
+    renderSingleResult(result);
+  }
+}
+
+// ---------- 共通トースト機能 ----------
+function showToast(msg) {
+  const toastEl = document.getElementById('toast');
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  setTimeout(() => toastEl.classList.remove('show'), 2000);
+}
+
+// ---------- 電卓機能 ----------
+const calcExprInput = document.getElementById('calcExpr');
+const calcResultEl = document.getElementById('calcResult');
+const calcErrorEl = document.getElementById('calcError');
+const calcResetBtn = document.getElementById('calcResetBtn');
+const calcCopyBtn = document.getElementById('calcCopyBtn');
+const calcToastEl = document.getElementById('calcToast');
+const calcHistoryListEl = document.getElementById('calcHistoryList');
+const calcClearHistoryBtn = document.getElementById('calcClearHistoryBtn');
+
+let calcLastResult = '';
+let calcLastExpr = '';
+const CALC_STORAGE_KEY = 'calc_history_v1';
+let calcStorageAvailable = true;
+
+function checkCalcStorageAvailable() {
+  try {
+    const testKey = '__storage_test__';
+    localStorage.setItem(testKey, '1');
+    localStorage.removeItem(testKey);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function loadCalcHistory() {
+  try {
+    const raw = localStorage.getItem(CALC_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveCalcHistory(list) {
+  try {
+    localStorage.setItem(CALC_STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {
+    // 保存できない場合は何もしない
+  }
+}
+
+function addCalcHistory(expr, result) {
+  if (!calcStorageAvailable) return;
+  const list = loadCalcHistory();
+  list.push({ expr, result });
+  if (list.length > 50) list.shift();
+  saveCalcHistory(list);
+  renderCalcHistory();
+  calcHistoryListEl.scrollTop = calcHistoryListEl.scrollHeight;
+}
+
+function renderCalcHistory() {
+  const list = calcStorageAvailable ? loadCalcHistory() : [];
+  calcHistoryListEl.innerHTML = '';
+  if (list.length === 0) {
+    calcHistoryListEl.innerHTML = '<div class="calc-history-empty">履歴はまだありません</div>';
+    return;
+  }
+  list.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'calc-history-item';
+    row.innerHTML =
+      '<span class="h-expr"></span><span class="h-result"></span>';
+    row.querySelector('.h-expr').textContent = item.expr;
+    row.querySelector('.h-result').textContent = '= ' + item.result;
+    row.addEventListener('click', () => {
+      calcExprInput.value = item.expr;
+      calculateCalc();
+      calcExprInput.focus();
+    });
+    calcHistoryListEl.appendChild(row);
+  });
+}
+
+function calculateCalc() {
+  let raw = calcExprInput.value;
+  calcErrorEl.textContent = '';
+
+  raw = raw.replace(/[\s\r\n,、]+/g, '').replace(/=+$/, '');
+
+  if (!raw) {
+    calcResultEl.textContent = '';
+    calcLastResult = '';
+    return;
+  }
+
+  let expr = raw
+    .replace(/[×✕]/g, '*')
+    .replace(/[÷]/g, '/')
+    .replace(/[−ー]/g, '-')
+    .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+    .replace(/[（]/g, '(')
+    .replace(/[）]/g, ')')
+    .replace(/\^/g, '**')
+    .replace(/[\[［]/g, 'floor(')
+    .replace(/[\]］]/g, ')');
+
+  const checkStr = expr.replace(/floor|ceil|round/gi, '');
+  if (!/^[0-9+\-*/().\s]+$/.test(checkStr)) {
+    calcErrorEl.textContent = '使用できない文字が含まれています';
+    calcResultEl.textContent = '';
+    calcLastResult = '';
+    calcLastExpr = '';
+    return;
+  }
+
+  expr = expr
+    .replace(/floor/gi, 'Math.floor')
+    .replace(/ceil/gi, 'Math.ceil')
+    .replace(/round/gi, 'Math.round');
+
+  try {
+    const value = Function('"use strict"; return (' + expr + ')')();
+    if (typeof value !== 'number' || !isFinite(value)) {
+      throw new Error('計算できません');
+    }
+    const rounded = Math.round(value * 1e10) / 1e10;
+    calcResultEl.textContent = '= ' + rounded;
+    calcLastResult = String(rounded);
+    calcLastExpr = raw;
+  } catch (e) {
+    calcErrorEl.textContent = '式が正しくありません';
+    calcResultEl.textContent = '';
+    calcLastResult = '';
+    calcLastExpr = '';
+  }
+}
+
+
+
+calcExprInput.addEventListener('input', calculateCalc);
+calcExprInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    calculateCalc();
+    if (calcLastResult && calcLastExpr) {
+      addCalcHistory(calcLastExpr, calcLastResult);
+    }
+  }
+});
+
+calcResetBtn.addEventListener('click', () => {
+  calcExprInput.value = '';
+  calcResultEl.textContent = '';
+  calcErrorEl.textContent = '';
+  calcLastResult = '';
+  calcLastExpr = '';
+  calcExprInput.focus();
+});
+
+calcClearHistoryBtn.addEventListener('click', () => {
+  if (!calcStorageAvailable) return;
+  saveCalcHistory([]);
+  renderCalcHistory();
+  showToast('履歴を削除しました');
+});
+
+calcStorageAvailable = checkCalcStorageAvailable();
+renderCalcHistory();
+calcHistoryListEl.scrollTop = calcHistoryListEl.scrollHeight;
+
+calcCopyBtn.addEventListener('click', async () => {
+  if (!calcLastResult) {
+    showToast('コピーする結果がありません');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(calcLastResult);
+    showToast('コピーしました');
+  } catch (e) {
+    const tmp = document.createElement('textarea');
+    tmp.value = calcLastResult;
+    document.body.appendChild(tmp);
+    tmp.select();
+    document.execCommand('copy');
+    document.body.removeChild(tmp);
+    showToast('コピーしました');
+  }
+});
+</script>
+</body>
+</html>
