@@ -987,19 +987,8 @@
         T({ id: 'scr-spoof-css', category: CATS[7], filter: '##+js(spoof-css, .mbt-spoofcss-target, display, block)',
             setup: function() { spawn('<div class="mbt-spoofcss-target" style="display:none;">spoof-css対象</div>'); },
             check: function() { return { pass: getComputedStyle(document.querySelector('.mbt-spoofcss-target')).display === 'block' }; } });
-        T({ id: 'scr-prevent-refresh', category: CATS[7], filter: '##+js(prevent-refresh)',
-            note: '本家はmetaタグ自体は削除せず、ページのloadイベントから(content値[秒]×500)ms後にwindow.stop()を呼ぶ仕様です。content=1として500ms後の呼び出しを検知します。',
-            setup: function() {
-                window.__mb2StopCalled = false;
-                var orig = window.stop;
-                window.stop = function() { window.__mb2StopCalled = true; return orig.apply(this, arguments); };
-                var meta = document.createElement('meta');
-                meta.setAttribute('http-equiv', 'refresh');
-                meta.setAttribute('content', '1');
-                document.head.appendChild(meta);
-            },
-            delay: 1300, timeoutMs: 3000,
-            check: function() { return { pass: window.__mb2StopCalled === true }; } });
+        T({ id: 'scr-prevent-refresh', category: CATS[7], filter: '##+js(prevent-refresh)', manual: true,
+            note: '【重要】このテストは実際に動作する&lt;meta http-equiv="refresh"&gt;タグを必要とするため、メインページ上で自動実行すると(本家の仕組みはload後に一度だけ判定するため、動的に後から挿入したタグは間に合わず、ブラウザ側のリロード機能だけが素通しで動いてしまい)ページが繰り返しリロードされる事故を起こします(実際に発生し修正しました)。専用の隔離ページで確認してください: <a href="./subtests/prevent-refresh.html">subtests/prevent-refresh.html</a>' });
 
         T({ id: 'scr-replace-node-text', category: CATS[7], filter: '##+js(rpnt, DIV, SECRETWORD, [REDACTED])', manual: true,
             note: '既知の課題: remove-node-textと同じ理由(nodeNameがCSSセレクタではなく実タグ名/正規表現である仕様にMyBrowserが未対応)で、修正までは手動確認項目としています。' });
@@ -1172,7 +1161,8 @@
             });
             html += '</ul><small>専用ページ: <a href="./subtests/generichide.html">generichide</a> / ' +
                     '<a href="./subtests/specifichide.html">specifichide</a> / ' +
-                    '<a href="./subtests/others.html">:others()</a> / <a href="./subtests/responseheader.html">##^responseheader()</a></small>';
+                    '<a href="./subtests/others.html">:others()</a> / <a href="./subtests/responseheader.html">##^responseheader()</a> / ' +
+                    '<a href="./subtests/prevent-refresh.html">prevent-refresh</a></small>';
             document.getElementById('mb2-sublist').innerHTML = html;
         })();
 
