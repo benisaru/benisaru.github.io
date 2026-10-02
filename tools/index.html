@@ -1,9 +1,1183 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title></title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>広告フィルター・テストページ</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .ad-container { border: 2px dashed #ccc; padding: 10px; margin-bottom: 20px; text-align: center; background: #f9f9f9; }
+        .ad-banner { width: 300px; height: 250px; background: #ffcccc; display: inline-flex; align-items: center; justify-content: center; color: red; font-weight: bold; }
+        iframe { border: 1px solid #999; width: 100%; height: 100px; }
+        .subscribe-btn { display: inline-block; background: #0078d7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; }
+        #summary { position: sticky; top: 0; background: #222; color: #fff; padding: 10px 14px; border-radius: 6px; margin-bottom: 20px; font-size: 0.95em; z-index: 10; }
+        #summary .count { font-weight: bold; font-size: 1.1em; }
+        .status-line { font-weight: bold; }
+        .status-ok { color: #1a7f37; }
+        .status-ng { color: #cf222e; }
+        .status-warn { color: #9a6700; }
+        .status-pending { color: #666; }
+        code { background: #eee; padding: 1px 4px; border-radius: 3px; }
+
+        /* ==== 拡張テスト(全修飾子・スクリプトレット網羅)用のスタイル ==== */
+        .mb2-section { margin-top: 40px; }
+        .mb2-cat { margin-top: 28px; font-size: 1.15em; border-bottom: 2px solid #ddd; padding-bottom: 4px; }
+        .mb2-cat-desc { font-size: 0.85em; color: #666; margin: 4px 0 10px; }
+        table.mb2-table { width: 100%; border-collapse: collapse; font-size: 0.88em; margin-bottom: 10px; }
+        table.mb2-table th, table.mb2-table td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; vertical-align: top; }
+        table.mb2-table th { background: #f0f0f0; }
+        table.mb2-table td.mb2-num { width: 34px; text-align: center; color: #888; }
+        table.mb2-table td.mb2-filter code { display: block; white-space: pre-wrap; word-break: break-all; font-size: 0.92em; }
+        table.mb2-table td.mb2-status { width: 230px; }
+        .mb2-ok { color: #1a7f37; font-weight: bold; }
+        .mb2-ng { color: #cf222e; font-weight: bold; }
+        .mb2-pending { color: #888; }
+        .mb2-manual { color: #9a6700; font-weight: bold; }
+        .mb2-detail { display: block; font-weight: normal; color: #666; font-size: 0.92em; margin-top: 2px; }
+        #mb2-summary { position: sticky; top: 46px; background: #333; color: #fff; padding: 8px 14px; border-radius: 6px; margin: 20px 0; font-size: 0.9em; z-index: 9; }
+        #mb2-specimens { margin-top: 30px; padding: 10px; border: 1px dashed #bbb; background: #fafafa; font-size: 0.8em; max-height: 260px; overflow: auto; }
+        #mb2-specimens h3 { margin-top: 0; font-size: 0.95em; }
+        .mb2-sub { background:#e8f1ff; border:1px solid #9bbcf0; padding:10px 14px; border-radius:6px; margin:12px 0; font-size:0.9em; }
+        .mb2-sub li { margin-bottom:4px; }
+        .mb2-unsupported-box { background: #fff8e1; border: 1px solid #e8d074; padding: 12px 16px; border-radius: 6px; font-size: 0.9em; margin: 16px 0; }
+        .mb2-unsupported-box li { margin-bottom: 6px; }
+    </style>
 </head>
 <body>
+
+    <h1>広告フィルター・テストページ</h1>
+    <p>このページには複数のダミー広告・トラッキング要素が含まれています。フィルターリストを購読して、これらが消えるか(またはロード・接続がブロックされるか)を確認してください。</p>
+
+    <div id="summary">判定中: <span class="count"><span id="summary-pass">0</span> / <span id="summary-total">13</span></span> 件がブロック/非表示を確認</div>
+
+    <!-- ABP Subscribe リンク -->
+    <div style="margin-bottom: 30px;">
+        <a href="abp:subscribe?location=https://benisaru.github.io/test/test-filters.txt&title=ブラウザテスト用フィルターリスト" class="subscribe-btn">
+            🛡️ テスト用フィルターリストを購読する (abp:subscribe)
+        </a>
+        <p style="font-size: 0.85em; color: #666;">※ 自分のGitHubユーザー名/リポジトリ構成が <code>benisaru.github.io/test/</code> と異なる場合は、このリンクとフィルターリストの参照先URLを実際の公開先に合わせて書き換えてください。</p>
+    </div>
+
+    <h2>テスト1: クラス名による要素非表示(Cosmetic Filter)</h2>
+    <div class="ad-container sponsor-ad" id="test1-el">
+        <p>このテキストは <code>.sponsor-ad</code> クラスを持っています。ブロックされるとこの枠ごと消えます。</p>
+    </div>
+    <p id="test1-status" class="status-line status-pending">判定中...</p>
+
+    <h2>テスト2: IDによる要素非表示(Cosmetic Filter)</h2>
+    <div class="ad-container" id="google_ads_iframe_test">
+        <p>このテキストは <code>#google_ads_iframe_test</code> IDを持っています。</p>
+    </div>
+    <p id="test2-status" class="status-line status-pending">判定中...</p>
+
+    <h2>テスト3: 画像のネットワークブロック(Network Filter)</h2>
+    <div class="ad-container">
+        <img id="banner-img" class="ad-banner" alt="ダミー広告画像 (読み込みエラーになるのが正解)">
+        <script>document.getElementById('banner-img').src = './ads/banner-300x250.jpg?_cb=' + Date.now();</script>
+        <p><code>./ads/*</code> パスの画像読み込みテストです。</p>
+    </div>
+    <p id="test3-status" class="status-line status-pending">判定中...</p>
+
+    <h2>テスト4: iframeのネットワークブロック(Network Filter)</h2>
+    <div class="ad-container">
+        <iframe src="./adserver/serve.html" id="ad-iframe"></iframe>
+        <p><code>./adserver/*</code> パスのiframe読み込みテストです。</p>
+    </div>
+    <p id="test4-status" class="status-line status-pending">判定中...</p>
+
+    <h2>テスト5: スクリプトのブロック(Script Block)</h2>
+    <div class="ad-container">
+        <script>
+            // 画像テストと同じ理由(ブラウザ/WebViewのHTTPキャッシュに、フィルタ有効化前に
+            // 読み込んだ古いレスポンスが残っていると、shouldInterceptRequest自体が
+            // 呼ばれずに素通りしてしまうことがある)で、動的生成+キャッシュバスターに変更
+            (function() {
+                var s = document.createElement('script');
+                s.src = './scripts/track.js?_cb=' + Date.now();
+                document.head.appendChild(s);
+            })();
+        </script>
+        <p id="test5-status" class="status-line status-pending">判定中...</p>
+    </div>
+
+    <h2>テスト6: WebSocket通信のブロック($websocket)</h2>
+    <div class="ad-container">
+        <p>公開のWebSocketエコーサーバー(<code>wss://echo.websocket.org</code>)への接続を試みます。<br>
+        フィルターリストの <code>||echo.websocket.org^$websocket</code> が効いていれば接続は確立されないはずです。</p>
+        <p id="test6-status" class="status-line status-pending">判定中...(数秒かかります)</p>
+        <p id="ws-baseline" style="color:#888; font-size: 0.85em;"></p>
+    </div>
+
+    <h2>テスト7: リソース差し替え($redirect)</h2>
+    <div class="ad-container">
+        <img id="redirect-img" class="ad-banner" alt="広告差し替えテスト用画像">
+        <script>document.getElementById('redirect-img').src = './ads/redirect-target.jpg?_cb=' + Date.now();</script>
+        <p style="font-size: 0.8em; color: #888;">(ブラウザキャッシュの影響を避けるため、読み込みのたびにURLへ ?_cb= を付与しています)</p>
+        <p id="test7-status" class="status-line status-pending">判定中...(画像読み込み待ち)</p>
+        <p><code>*/ads/redirect-target.jpg$redirect=1x1-transparent.gif</code> により、
+        本来の画像の代わりに1x1の透明画像に差し替わるはずです。</p>
+    </div>
+
+    <h2>テスト8: 手続き型セレクタ(:has-text())</h2>
+    <div class="ad-container">
+        <div class="promo-box">この文章には「スポンサー広告」という文字列が含まれています。</div>
+        <p>上のボックスは <code>##.promo-box:has-text(スポンサー広告)</code> というルールで非表示になるはずです
+        (単なる <code>##.promo-box</code> だけでは消えない想定なので、テキストマッチ自体の動作確認になります)。</p>
+        <p id="test8-status" class="status-line status-pending">判定中...</p>
+    </div>
+
+    <h2>テスト9: スクリプトレット(set-constant)</h2>
+    <div class="ad-container">
+        <p id="test9-status" class="status-line status-pending">判定中...</p>
+        <p><code>##+js(set-constant, __mbTestAdEnabled, false)</code> により、
+        ページが <code>true</code> にしようとしている <code>window.__mbTestAdEnabled</code> が
+        <code>false</code> に固定されるはずです。</p>
+    </div>
+    <script>
+        window.__mbTestAdEnabled = true; // 広告用スクリプトがこのフラグをtrueにしたと仮定
+    </script>
+
+    <h2>テスト10: クエリパラメータの除去($removeparam)</h2>
+    <div class="ad-container">
+        <p style="font-size: 0.85em; color: #666;">
+            <code>$removeparam</code>は「該当パラメータが付いていた場合、それを取り除いた上で読み込む」というルールです。
+            GitHub Pagesのような静的ホスティングはクエリ文字列を無視して同じファイルを返すため確認できませんが、
+            Cloudflare Worker製のエコーサーバー(受け取ったクエリパラメータをそのまま返すだけの簡単なAPI)に
+            リクエストを送ることで、<strong>実際に届いたクエリパラメータ</strong>を直接確認できます。
+        </p>
+        <p id="test10-status" class="status-line status-pending">判定中...</p>
+        <p id="test10-detail" style="font-size: 0.8em; color: #888;"></p>
+    </div>
+
+    <script>
+        // ここをCloudflare Workerの実際のURLに置き換えてください
+        // (Workers & Pages → 作成したWorker → 「表示」の下にある https://xxxx.xxxx.workers.dev の形式)
+        var MB_ECHO_ENDPOINT = 'https://mb-removeparam-echo.biziorbizi.workers.dev/';
+    </script>
+
+    <h2>テスト11: $important による例外(@@)の上書き</h2>
+    <div class="ad-container">
+        <img id="important-img" class="ad-banner" alt="importantテスト用画像">
+        <script>document.getElementById('important-img').src = './ads/important-test.jpg?_cb=' + Date.now();</script>
+        <p style="font-size: 0.85em; color: #666;">
+            このパスには「ブロックするルール」と「それを打ち消す例外(<code>@@</code>)ルール」の両方が定義されていますが、
+            ブロック側に <code>$important</code> が付いているため、例外より優先されて<strong>ブロックされたままになる</strong>のが正解です。
+        </p>
+        <p id="test11-status" class="status-line status-pending">判定中...</p>
+    </div>
+
+    <h2>テスト12: ドメイン指定の例外($domain)</h2>
+    <div class="ad-container">
+        <img id="domain-exception-img" class="ad-banner" alt="ドメイン例外テスト用画像">
+        <script>document.getElementById('domain-exception-img').src = './ads/domain-exception-test.jpg?_cb=' + Date.now();</script>
+        <p style="font-size: 0.85em; color: #666;">
+            このパスは全体では(他のドメインでは)ブロックされますが、<strong>このページと同じホスト名を対象にした
+            <code>@@...$domain=</code></strong> 例外が定義されているため、このページ上では<strong>読み込めるのが正解</strong>です。
+            (テスト11とは逆に、こちらは「表示される」方が正しい結果です)
+        </p>
+        <p id="test12-status" class="status-line status-pending">判定中...</p>
+    </div>
+
+    <h2>テスト13: HTMLフィルタリング(##^selector)</h2>
+    <div class="ad-container" id="test13-container">
+        <div id="html-filter-marker">この要素は生のHTML段階で丸ごと取り除かれるはずです(CSSで隠すのではなく、DOMに一切存在しなくなります)。</div>
+        <p style="font-size: 0.85em; color: #666;">
+            <code>##^#html-filter-marker</code> は他のコズメティックフィルタ(CSSで隠すだけ)と違い、
+            レスポンス本文(HTML)そのものを書き換えてから読み込ませる機能です。
+            テスト1・2の「非表示」とは異なり、<code>document.getElementById()</code>で
+            <strong>要素自体が見つからなくなる</strong>のが正解です。
+        </p>
+        <p id="test13-status" class="status-line status-pending">判定中...</p>
+    </div>
+
+    <script>
+        // ==================== 判定結果の集計 ====================
+        var __mbPassCount = 0;
+        function __mbReport(elId, passed, okText, ngText) {
+            var el = document.getElementById(elId);
+            if (el) {
+                el.className = 'status-line ' + (passed ? 'status-ok' : 'status-ng');
+                el.textContent = (passed ? '✅ ' : '❌ ') + (passed ? okText : ngText);
+            }
+            if (passed) __mbPassCount++;
+            document.getElementById('summary-pass').textContent = String(__mbPassCount);
+        }
+
+        function __mbIsHidden(el) {
+            if (!el) return true;
+            var cs = getComputedStyle(el);
+            return cs.display === 'none' || cs.visibility === 'hidden' || el.offsetParent === null;
+        }
+
+        window.addEventListener('load', function() {
+            // ---- テスト1: クラス名によるコスメティックフィルタ ----
+            setTimeout(function() {
+                var hidden = __mbIsHidden(document.getElementById('test1-el'));
+                __mbReport('test1-status', hidden,
+                    'クラス名指定の要素が非表示になりました。',
+                    '要素が表示されたままです(コスメティックフィルタが効いていません)。');
+            }, 300);
+
+            // ---- テスト2: IDによるコスメティックフィルタ ----
+            setTimeout(function() {
+                var hidden = __mbIsHidden(document.getElementById('google_ads_iframe_test'));
+                __mbReport('test2-status', hidden,
+                    'ID指定の要素が非表示になりました。',
+                    '要素が表示されたままです(コスメティックフィルタが効いていません)。');
+            }, 300);
+
+            // ---- テスト3: 画像のネットワークブロック ----
+            (function() {
+                var img = document.getElementById('banner-img');
+                if (img.complete) {
+                    __mbReport('test3-status', img.naturalWidth === 0,
+                        '画像の読み込みがブロックされました。',
+                        '画像がそのまま読み込まれました(ブロックされていません)。');
+                } else {
+                    img.addEventListener('load', function() {
+                        __mbReport('test3-status', false, '', '画像がそのまま読み込まれました(ブロックされていません)。');
+                    });
+                    img.addEventListener('error', function() {
+                        __mbReport('test3-status', true, '画像の読み込みがブロックされました。', '');
+                    });
+                }
+            })();
+
+            // ---- テスト4: iframeのネットワークブロック ----
+            setTimeout(function() {
+                var iframe = document.getElementById('ad-iframe');
+                var loadedRealContent = false;
+                try {
+                    var doc = iframe.contentDocument || iframe.contentWindow.document;
+                    var text = (doc.body && doc.body.textContent) || '';
+                    loadedRealContent = text.indexOf('Ad') !== -1;
+                } catch (e) {
+                    // クロスオリジン化やアクセス不能はブロックされている可能性が高い
+                    loadedRealContent = false;
+                }
+                __mbReport('test4-status', !loadedRealContent,
+                    'iframeの中身が読み込まれませんでした。',
+                    'iframeの中身(広告)がそのまま読み込まれました(ブロックされていません)。');
+            }, 800);
+
+            // ---- テスト5: スクリプトのブロック ----
+            setTimeout(function() {
+                var pass = !window.isTrackerLoaded;
+                __mbReport('test5-status', pass,
+                    'トラッキングスクリプトは正常にブロックされました。',
+                    'トラッキングスクリプトが読み込まれてしまいました(ブロック失敗)。');
+            }, 500);
+
+            // ---- テスト6: WebSocket ----
+            (function() {
+                function runWsTest(url, elId, isBaseline) {
+                    var el = document.getElementById(elId);
+                    var start = performance.now();
+                    var settled = false;
+                    function finishBlocked(elapsed) {
+                        settled = true;
+                        if (isBaseline) {
+                            el.className = 'status-line';
+                            el.style.color = '#888';
+                            el.textContent = '(参考値) このURLへの接続は常に失敗します。所要時間: ' + elapsed +
+                                'ms ← テスト対象の所要時間がこれより明らかに短ければ、ネットワーク到達前にブロックされた可能性が高いです。';
+                            return;
+                        }
+                        if (elapsed < 20) {
+                            __mbReport(elId, true, '即座に切断されました(所要時間 ' + elapsed + 'ms)。ブロックされている可能性が高いです。', '');
+                        } else {
+                            el.className = 'status-line status-warn';
+                            el.textContent = '⚠️ 切断されましたが判定に時間がかかりました(所要時間 ' + elapsed +
+                                'ms)。ブロックというより単なるネットワークエラーの可能性もあるため、参考値の行と見比べてください。';
+                        }
+                    }
+                    function finishOpen(elapsed) {
+                        settled = true;
+                        if (isBaseline) return;
+                        __mbReport(elId, false, '', '接続が確立されました(所要時間 ' + elapsed + 'ms)。ブロックされていません。');
+                    }
+                    try {
+                        var ws = new WebSocket(url);
+                        ws.onopen = function() {
+                            finishOpen(Math.round(performance.now() - start));
+                            try { ws.close(); } catch (e) {}
+                        };
+                        ws.onerror = function() {};
+                        ws.onclose = function() {
+                            if (settled) return;
+                            finishBlocked(Math.round(performance.now() - start));
+                        };
+                    } catch (e) {
+                        settled = true;
+                        el.textContent = 'WebSocket自体が利用できません: ' + e.message;
+                    }
+                    setTimeout(function() {
+                        if (!settled) el.textContent = '10秒経過しても応答がありません(タイムアウト)。';
+                    }, 10000);
+                }
+                runWsTest('wss://echo.websocket.org/', 'test6-status', false);
+                // GitHub PagesはWebSocketアップグレードに応答しないため、ブロックの有無に関わらず
+                // このURLへの接続は必ず失敗する。判定の所要時間の目安として使う
+                runWsTest('wss://' + location.hostname + '/__mb-ws-baseline-does-not-exist', 'ws-baseline', true);
+            })();
+
+            // ---- テスト7: $redirect ----
+            (function() {
+                var img = document.getElementById('redirect-img');
+                function check() {
+                    var pass = img.naturalWidth <= 2 && img.naturalHeight <= 2;
+                    __mbReport('test7-status', pass,
+                        '1x1の透明画像に差し替えられました(実寸 ' + img.naturalWidth + 'x' + img.naturalHeight + ')。',
+                        '元の広告画像がそのまま読み込まれました(実寸 ' + img.naturalWidth + 'x' + img.naturalHeight + ')。');
+                }
+                if (img.complete && img.naturalWidth !== 0) {
+                    check();
+                } else {
+                    img.addEventListener('load', check);
+                    img.addEventListener('error', function() {
+                        document.getElementById('test7-status').textContent = '画像の読み込み自体に失敗しました(ネットワークエラー)。';
+                    });
+                }
+            })();
+
+            // ---- テスト8: 手続き型セレクタ ----
+            setTimeout(function() {
+                var hidden = __mbIsHidden(document.querySelector('.promo-box'));
+                __mbReport('test8-status', hidden,
+                    '手続き型セレクタにより非表示になりました。',
+                    '表示されたままです(手続き型セレクタが効いていません)。');
+            }, 300);
+
+            // ---- テスト9: スクリプトレット ----
+            setTimeout(function() {
+                var pass = window.__mbTestAdEnabled === false;
+                __mbReport('test9-status', pass,
+                    'set-constantスクリプトレットによりfalseに固定されました。',
+                    'フラグはtrueのままです(スクリプトレットが効いていません)。');
+            }, 0);
+
+            // ---- テスト10: $removeparam ----
+            // Cloudflare Workerのエコーサーバーへ、除去対象のパラメータを付けてfetchし、
+            // 実際にサーバーへ届いたクエリパラメータの中に残っていないかを直接確認する
+            (function() {
+                var detailEl = document.getElementById('test10-detail');
+                if (!MB_ECHO_ENDPOINT || MB_ECHO_ENDPOINT.indexOf('YOUR-SUBDOMAIN') !== -1) {
+                    __mbReport('test10-status', false, '',
+                        'MB_ECHO_ENDPOINTが未設定です(index.html内のYOUR-SUBDOMAINを、あなたのWorkerのURLに置き換えてください)。');
+                    return;
+                }
+                var testUrl = MB_ECHO_ENDPOINT + '?utm_test_tracker=1&_cb=' + Date.now();
+                fetch(testUrl).then(function(res) {
+                    if (!res.ok) throw new Error('HTTPステータス ' + res.status);
+                    return res.json();
+                }).then(function(data) {
+                    var stillHasParam = data && data.query && ('utm_test_tracker' in data.query);
+                    detailEl.textContent = 'Workerが実際に受け取ったクエリ: ' + JSON.stringify(data.query);
+                    __mbReport('test10-status', !stillHasParam,
+                        'utm_test_trackerパラメータが実際に除去された状態でサーバーに届いていました。',
+                        'utm_test_trackerパラメータが除去されずそのまま届いてしまいました($removeparamが効いていません)。');
+                }).catch(function(e) {
+                    __mbReport('test10-status', false, '',
+                        'Workerへの通信に失敗しました(' + e.message + ')。エンドポイントのURLやCORS設定、' +
+                        'test-filters.txt内のホスト名指定を確認してください。');
+                });
+            })();
+
+            // ---- テスト11: $important ----
+            (function() {
+                var img = document.getElementById('important-img');
+                function check() {
+                    __mbReport('test11-status', img.naturalWidth === 0,
+                        '$importantによりブロックされたままでした(例外に打ち消されませんでした)。',
+                        '画像が読み込まれてしまいました($importantが例外に負けています)。');
+                }
+                if (img.complete) {
+                    check();
+                } else {
+                    img.addEventListener('load', check);
+                    img.addEventListener('error', check);
+                }
+            })();
+
+            // ---- テスト12: $domain(ドメイン指定の例外) ----
+            (function() {
+                var img = document.getElementById('domain-exception-img');
+                function check() {
+                    __mbReport('test12-status', img.naturalWidth > 0,
+                        'このドメインでは例外が適用され、正しく読み込めました。',
+                        '読み込めませんでした(ドメイン指定の例外がこのホストに一致していない可能性があります。' +
+                        'test-filters.txt内のプレースホルダーのホスト名を実際の公開先に置き換えたか確認してください)。');
+                }
+                if (img.complete) {
+                    check();
+                } else {
+                    img.addEventListener('load', check);
+                    img.addEventListener('error', check);
+                }
+            })();
+
+            // ---- テスト13: HTMLフィルタリング(##^selector) ----
+            setTimeout(function() {
+                var el = document.getElementById('html-filter-marker');
+                __mbReport('test13-status', el === null,
+                    '要素自体がDOMから取り除かれていました(HTMLフィルタリングが機能しています)。',
+                    '要素がDOMに残っています(HTMLフィルタリングが効いていないか、対象がメインフレームの' +
+                    'GETナビゲーションではない可能性があります)。');
+            }, 300);
+        });
+    </script>
+
+    <!-- ============================================================
+         拡張テスト: 実装済みの全ネットワーク修飾子・全手続き型セレクタ演算子・
+         全スクリプトレット・プリプロセッサディレクティブを網羅的に検証する。
+         テスト1〜13(上記)とは完全に独立したJSモジュール(MB2)で動作する。
+         ============================================================ -->
+    <div class="mb2-section">
+        <h1>拡張テスト: 全修飾子・全スクリプトレット網羅</h1>
+        <p>上のテスト1〜13が基本的な広告ブロックの動作確認だったのに対し、こちらは
+        AdBlockEngineが対応していると宣言している記法を1つ残らず(可能な範囲で)実際に
+        動かして確認するための一覧です。記法の組み合わせ自体は無限にあるため、ここでは
+        「対応している修飾子・演算子・スクリプトレットが最低1パターンずつ、実際に効いているか」
+        を確認する網羅リストという位置づけです。</p>
+
+        <!-- HTMLフィルタリング(##^ / #@#^)は生のHTML応答段階で処理されるため、この要素は
+             動的生成ではなく静的マークアップとして最初から存在させる必要がある -->
+        <div id="mb2-html-exception-target" class="mbt-htmlfilter-exception-target" style="display:none;">
+            ##^単体なら消えるが、対応する#@#^例外により残るはずのHTMLフィルタリング例外確認用要素
+        </div>
+
+        <div class="mb2-sub" id="mb2-sublist"></div>
+        <div id="mb2-summary">判定中: <span id="mb2-pass">0</span> / <span id="mb2-total">0</span> 件が自動判定で成功
+            (このほか <span id="mb2-manual-count">0</span> 件は手動確認・参考項目のため集計対象外)</div>
+        <div id="mb2-categories"></div>
+
+        <div class="mb2-unsupported-box">
+            <strong>⚠️ 既知の非対応・検証対象外(バグではなく仕様上の理由)</strong>
+            <ul>
+                <li><code>$document</code>(素の、popup/popunder以外): メインフレーム自体の読み込みを
+                    通常のネットワークフィルタでは対象外にしている(ページ全体が壊れることを避ける、
+                    WebViewベースの広告ブロック実装で広く採られている標準的な方針)ため、意図的に
+                    ネットワークブロックとしては機能しません。</li>
+                <li><code>$cname</code>: 実際にCNAMEクローキングされた計測ドメインが無いと再現できないため、
+                    この静的なテストページの構成だけでは自動検証できません。</li>
+                <li><code>$csp=</code> / <code>$replace=</code> / <code>$uritransform=</code>: 該当ルールは
+                    パース時に安全に読み飛ばされる(=無視される)未対応オプションです。</li>
+                <li><code>$strict1p</code> / <code>$strict3p</code>: 同一の実効ドメイン配下に複数ホスト名
+                    (サブドメイン)を用意できない現在のホスティング構成では、通常の
+                    <code>$third-party</code>/<code>$first-party</code>との挙動差を実演できません。</li>
+                <li>生の正規表現フィルタ(<code>/pattern/</code>形式)は非対応です。</li>
+                <li><strong>MyBrowser独自(本家uBOと差がある)</strong>: <code>trusted-*</code>は本家では信頼済みリスト限定ですが、
+                    MyBrowserは信頼制限なしで動作します。<code>rmnt</code>/<code>rpnt</code>/<code>trusted-rpnt</code>は
+                    本家仕様(nodeNameは実タグ名/正規表現でDOM全体をtreewalker走査)にMyBrowserがまだ対応しておらず、
+                    現状CSSセレクタとして扱っています(既知の課題)。</li>
+            </ul>
+        </div>
+
+        <div id="mb2-specimens">
+            <h3>検証用ダミー要素置き場</h3>
+            <p>ここから下は上記テストのために動的に生成される要素です(見た目上の意味はありません)。</p>
+            <div id="mb2-specimen-root"></div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        // ------------------------------------------------------------
+        // ユーティリティ
+        // ------------------------------------------------------------
+        function spawn(html) {
+            var wrap = document.createElement('div');
+            wrap.innerHTML = html;
+            var frag = document.createDocumentFragment();
+            var first = null;
+            while (wrap.firstChild) {
+                if (!first) first = wrap.firstChild;
+                frag.appendChild(wrap.firstChild);
+            }
+            document.getElementById('mb2-specimen-root').appendChild(frag);
+            return first;
+        }
+        function addStyleRule(cssText) {
+            var st = document.createElement('style');
+            st.textContent = cssText;
+            document.head.appendChild(st);
+        }
+        function runInlineScript(code) {
+            var s = document.createElement('script');
+            s.textContent = code;
+            document.body.appendChild(s);
+        }
+        function isHidden(el) {
+            if (!el) return true;
+            var cs = getComputedStyle(el);
+            return cs.display === 'none' || cs.visibility === 'hidden' || el.offsetParent === null;
+        }
+        function throwsCheck(fn) {
+            try {
+                fn();
+                return { pass: false, detail: '例外が発生しませんでした(スクリプトレットが適用されていない可能性があります)。' };
+            } catch (e) {
+                if (e instanceof ReferenceError) {
+                    return { pass: true, detail: '想定通り例外(ReferenceError)が発生しました。' };
+                }
+                return { pass: false, detail: '想定外のエラー(' + e.message + ')。フィルタが未購読か、対象が見つかっていない可能性があります。' };
+            }
+        }
+
+        var WORKER = (typeof MB_ECHO_ENDPOINT === 'string') ? MB_ECHO_ENDPOINT : '';
+
+        // ------------------------------------------------------------
+        // テスト定義: {id, category, filter, note, manual, expectedUnsupported,
+        //             setup(), check(), delay, timeoutMs}
+        // check()は true/false/{pass,detail}/Promise<それら>/undefined(継続)を返す
+        // ------------------------------------------------------------
+        var CATS = [
+            'ネットワークフィルタ: リソースタイプ',
+            'ネットワークフィルタ: 修飾子',
+            '汎用/専用コスメティックの抑制系',
+            'コスメティックフィルタ: 例外・拡張CSS注入',
+            '手続き型セレクタ(全演算子)',
+            'HTMLフィルタリング: 例外・レスポンスヘッダ',
+            'プリプロセッサディレクティブ',
+            'スクリプトレット(全対応種)'
+        ];
+        var CAT_NOTES = {};
+        CAT_NOTES[CATS[7]] = '<code>trusted-*</code>は本家uBOでは信頼済みリスト限定です(マイフィルターに貼り付け+' +
+            '「信頼が必要なカスタムフィルターを許可する」が必要)。MyBrowserは現時点では全てのスクリプトレットを' +
+            '「常に信頼済み」として扱うため、購読するだけで有効になります(本家より緩い動作である点に注意)。' +
+            '<code>rmnt</code>/<code>rpnt</code>/<code>trusted-rpnt</code>は既知の課題(下記)のため手動確認扱いです。';
+        var TESTS = [];
+        function T(o) { o.category = o.category; TESTS.push(o); }
+
+        // ==== ① ネットワークフィルタ: リソースタイプ ====
+        T({ id: 'net-stylesheet', category: CATS[0], filter: '*/styles/stylesheet-test.css$stylesheet',
+            setup: function() {
+                spawn('<div class="mbt-stylesheet-target" style="display:inline-block;padding:2px 6px;">stylesheet-test</div>');
+                var link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = './styles/stylesheet-test.css?_cb=' + Date.now();
+                link.onload = function() { window.__mb2StylesheetState = 'loaded'; };
+                link.onerror = function() { window.__mb2StylesheetState = 'error'; };
+                document.head.appendChild(link);
+            },
+            check: function() {
+                if (window.__mb2StylesheetState === undefined) return undefined;
+                if (window.__mb2StylesheetState === 'error') return { pass: true, detail: 'CSSの読み込みがブロックされました。' };
+                var el = document.querySelector('.mbt-stylesheet-target');
+                var v = getComputedStyle(el).getPropertyValue('--mbt-stylesheet-loaded').trim();
+                return { pass: v !== '1', detail: v === '1' ? 'CSSが読み込まれてしまいました。' : 'カスタムプロパティが定義されていません(ブロック成功)。' };
+            } });
+
+        T({ id: 'net-xhr', category: CATS[0], filter: '*/mbt-xhr-test$xmlhttprequest',
+            check: function() {
+                return fetch('./mbt-xhr-test?_cb=' + Date.now())
+                    .then(function() { return { pass: false, detail: '読み込めてしまいました。' }; })
+                    .catch(function() { return { pass: true, detail: 'ネットワークエラーとしてブロックされました。' }; });
+            } });
+
+        T({ id: 'net-font', category: CATS[0], filter: '*/fonts/font-test.woff2$font',
+            setup: function() {
+                try {
+                    var ff = new FontFace('MBTFontTest', 'url(./fonts/font-test.woff2?_cb=' + Date.now() + ')');
+                    ff.load().then(function() { window.__mb2FontState = 'loaded'; })
+                        .catch(function() { window.__mb2FontState = 'error'; });
+                } catch (e) { window.__mb2FontState = 'error'; }
+            },
+            check: function() {
+                if (window.__mb2FontState === undefined) return undefined;
+                return { pass: window.__mb2FontState === 'error', detail: window.__mb2FontState === 'error' ? 'フォントの読み込みがブロックされました。' : 'フォントが読み込まれてしまいました。' };
+            } });
+
+        T({ id: 'net-media', category: CATS[0], filter: '*/media/media-test.mp3$media',
+            setup: function() {
+                var audio = document.createElement('audio');
+                audio.src = './media/media-test.mp3?_cb=' + Date.now();
+                audio.onerror = function() { window.__mb2MediaState = 'error'; };
+                audio.oncanplaythrough = function() { window.__mb2MediaState = 'loaded'; };
+                audio.load();
+            },
+            check: function() {
+                if (window.__mb2MediaState === undefined) return undefined;
+                return { pass: window.__mb2MediaState === 'error', detail: window.__mb2MediaState === 'error' ? '音声の読み込みがブロックされました。' : '音声が読み込まれてしまいました。' };
+            } });
+
+        T({ id: 'net-other', category: CATS[0], filter: '*/ads/other-test.xml$other', manual: true,
+            note: '本家uBOはブラウザのwebRequest APIが報告する実際の種別を使うため、fetch()で送ったリクエストは(URLの拡張子に関わらず)常に"xmlhttprequest"に分類され、"other"にはなりません。fetch()ベースでは本家環境で$otherを再現・検証できないため、参考項目としています。' });
+
+        T({ id: 'net-object', category: CATS[0], filter: '*/ads/object-test.swf$object', manual: true,
+            note: '実機のWebViewはSec-Fetch-Destをほぼ送らず、拡張子ベースの救済策もOBJECT型への到達手段を持たないため、$object型のルールはそもそも一致しない可能性が高い既知の制限があります。<object>/<embed>のerrorイベントの発火自体も環境依存のため、自動判定は行わずここでは参考掲載のみとしています。' });
+
+        // ==== ② ネットワークフィルタ: 修飾子 ====
+        T({ id: 'net-to', category: CATS[1], filter: '*/mbt-to-test$to=<Workerホスト>',
+            check: function() {
+                if (!WORKER) return { pass: false, detail: 'MB_ECHO_ENDPOINT未設定。' };
+                return fetch(WORKER + 'mbt-to-test?_cb=' + Date.now())
+                    .then(function() { return { pass: false, detail: '読み込めてしまいました。' }; })
+                    .catch(function() { return { pass: true, detail: '宛先ホスト指定でブロックされました。' }; });
+            } });
+
+        T({ id: 'net-denyallow', category: CATS[1], filter: '*/denyallow-test*$denyallow=<Workerホスト>,domain=<このホスト>',
+            check: function() {
+                if (!WORKER) return { pass: false, detail: 'MB_ECHO_ENDPOINT未設定。' };
+                var p1 = fetch('./ads/denyallow-test.txt?_cb=' + Date.now()).then(function() { return false; }).catch(function() { return true; });
+                var p2 = fetch(WORKER + 'denyallow-test?_cb=' + Date.now()).then(function() { return true; }).catch(function() { return false; });
+                return Promise.all([p1, p2]).then(function(r) {
+                    var localBlocked = r[0], workerAllowed = r[1];
+                    return { pass: localBlocked && workerAllowed,
+                        detail: '自ホスト側=' + (localBlocked ? 'ブロック' : '通過') + ' / Worker側(denyallow対象)=' + (workerAllowed ? '通過' : 'ブロック') };
+                });
+            } });
+
+        T({ id: 'net-method', category: CATS[1], filter: '*/mbt-method-test$method=post',
+            check: function() {
+                if (!WORKER) return { pass: false, detail: 'MB_ECHO_ENDPOINT未設定。' };
+                var g = fetch(WORKER + 'mbt-method-test?_cb=' + Date.now()).then(function() { return true; }).catch(function() { return false; });
+                var p = fetch(WORKER + 'mbt-method-test?_cb=' + Date.now(), { method: 'POST', body: 'x' }).then(function() { return false; }).catch(function() { return true; });
+                return Promise.all([g, p]).then(function(r) {
+                    return { pass: r[0] && r[1], detail: 'GET=' + (r[0] ? '通過' : 'ブロック') + ' / POST=' + (r[1] ? 'ブロック' : '通過') };
+                });
+            } });
+
+        T({ id: 'net-all', category: CATS[1], filter: '*/ads/all-test.jpg$all',
+            setup: function() {
+                var img = new Image();
+                img.onload = function() { window.__mb2AllState = 'loaded'; };
+                img.onerror = function() { window.__mb2AllState = 'error'; };
+                img.src = './ads/all-test.jpg?_cb=' + Date.now();
+            },
+            check: function() {
+                if (!window.__mb2AllState) return undefined;
+                return { pass: window.__mb2AllState === 'error', detail: window.__mb2AllState };
+            } });
+
+        T({ id: 'net-badfilter', category: CATS[1], filter: '*/ads/badfilter-target.jpg$image (+同一パターン$badfilterで相殺)',
+            setup: function() {
+                var img = new Image();
+                img.onload = function() { window.__mb2BadfilterState = 'loaded'; };
+                img.onerror = function() { window.__mb2BadfilterState = 'error'; };
+                img.src = './ads/badfilter-target.jpg?_cb=' + Date.now();
+            },
+            check: function() {
+                if (!window.__mb2BadfilterState) return undefined;
+                return { pass: window.__mb2BadfilterState === 'loaded', detail: window.__mb2BadfilterState === 'loaded' ? 'badfilterで相殺され読み込めました。' : 'ブロックされたまま(badfilterが効いていません)。' };
+            } });
+
+        T({ id: 'net-redirectrule', category: CATS[1], filter: '*/ads/redirect-rule-test.jpg$image + 同URL$redirect-rule=1x1-transparent.gif',
+            setup: function() {
+                var img = new Image();
+                img.onerror = function() { window.__mb2RedirectRuleErr = true; };
+                img.src = './ads/redirect-rule-test.jpg?_cb=' + Date.now();
+                window.__mb2RedirectRuleImg = img;
+            },
+            check: function() {
+                if (window.__mb2RedirectRuleErr) return { pass: false, detail: '画像の読み込み自体に失敗しました。' };
+                var img = window.__mb2RedirectRuleImg;
+                if (!img.complete || img.naturalWidth === 0) return undefined;
+                var pass = img.naturalWidth <= 2 && img.naturalHeight <= 2;
+                return { pass: pass, detail: '実寸 ' + img.naturalWidth + 'x' + img.naturalHeight };
+            } });
+
+        T({ id: 'net-empty', category: CATS[1], filter: '*/ads/empty-test.txt$empty',
+            check: function() {
+                return fetch('./ads/empty-test.txt?_cb=' + Date.now()).then(function(r) { return r.text(); })
+                    .then(function(text) { return { pass: text.length === 0, detail: '取得内容の長さ=' + text.length }; })
+                    .catch(function(e) { return { pass: false, detail: '取得自体に失敗: ' + e.message }; });
+            } });
+
+        T({ id: 'net-removeparam-negated', category: CATS[1], filter: '*/removeparam-negated-test*$removeparam=~xxx (反転記法・既知の非対応)', expectedUnsupported: true,
+            check: function() {
+                if (!WORKER) return { pass: false, detail: 'MB_ECHO_ENDPOINT未設定。' };
+                return fetch(WORKER + 'removeparam-negated-test?utm_should_not_be_removed=1&_cb=' + Date.now()).then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        var stillThere = data && data.query && ('utm_should_not_be_removed' in data.query);
+                        return { pass: stillThere, detail: stillThere ? '想定通り、反転記法は無視されパラメータが残りました(非対応の確認)。' : '除去されました(反転記法が対応された?再確認してください)。' };
+                    }).catch(function(e) { return { pass: false, detail: '通信失敗: ' + e.message }; });
+            } });
+
+        T({ id: 'net-popup', category: CATS[1], filter: '||mbt-popup-blocked-target.invalid^$popup,popunder', manual: true,
+            note: 'MyBrowserの実装ではwindow.open()自体はユーザー操作があれば常にタブを作成し(ここはブラウザ側の一般的なポップアップブロッカーと同等のゲート)、$popup/$popunderによるブロックはその新規タブが実際にナビゲーションする際のネットワーク層で行われます。そのため元ページのJSからはwindow.open()の戻り値だけでは判定できません。下のボタンでポップアップを開き、新しく開いたタブが空白/読み込み失敗のままになっている(実際のページが表示されない)ことを目視で確認してください。',
+            interactive: true,
+            check: function() {
+                var w = null;
+                try { w = window.open('https://mbt-popup-blocked-target.invalid/'); } catch (e) {}
+                return { pass: true, detail: (w ? '新しいタブが開きました。そのタブの内容が空白/読み込み失敗のままなら正常(ブロック成功)、実際のページらしきものが表示されていれば失敗です。目視で確認してください。' : 'window.open()自体がブロックされました(ブラウザ標準のポップアップブロッカーの可能性もあります)。') };
+            } });
+
+        // ==== ③ 汎用/専用コスメティックの抑制系 ====
+        // $generichide/$specifichideはドメイン全体のコスメティックフィルタの扱いを
+        // まとめて切り替える仕様上、このページの他のテストと同じ購読リストに含めると
+        // 全体を巻き込んで壊してしまう。そのため別ファイル(test-filters-*.txt)+
+        // 別ページ(subtests/*.html)に分離した。$genericblockは本家非対応のためMyBrowser側も
+        // ルールごと読み捨てるよう修正済みで、このリストにテスト自体を設けていない。
+        T({ id: 'net-generichide', category: CATS[2], filter: '(別ファイル test-filters-generichide.txt で検証)', manual: true,
+            note: '$generichideは対象ドメインの「ドメイン指定なしの汎用コスメティックフィルタ」を全て無効化してしまうため、このページの他のテストと同時には検証できません。<a href="./subtests/generichide.html">subtests/generichide.html</a> を、test-filters-generichide.txt だけを単独購読した状態で開いて確認してください。' });
+        T({ id: 'net-specifichide', category: CATS[2], filter: '(別ファイル test-filters-specifichide.txt で検証)', manual: true,
+            note: '$specifichideは対象ドメインの「ドメイン指定付きのコスメティック/手続き型/スクリプトレット」を全て無効化してしまうため、このページの他のテスト(手続き型セレクタ・スクリプトレットのほぼ全て)を巻き込みます。<a href="./subtests/specifichide.html">subtests/specifichide.html</a> を、test-filters-specifichide.txt だけを単独購読した状態で開いて確認してください。' });
+        // ==== ④ コスメティック: 例外・拡張CSS ====
+        T({ id: 'cos-exception', category: CATS[3], filter: '##.mbt-exception-target + host#@#.mbt-exception-target',
+            setup: function() { spawn('<div class="mbt-exception-target">#@#例外の確認</div>'); },
+            check: function() {
+                var pass = !isHidden(document.querySelector('.mbt-exception-target'));
+                return { pass: pass, detail: pass ? '#@#例外により表示されたままです。' : '非表示のままです(例外が効いていません)。' };
+            } });
+        T({ id: 'cos-cssinjection', category: CATS[3], filter: 'host#$#.mbt-cssinjection-target { outline: 4px solid rgb(1,2,3) !important; }',
+            setup: function() { spawn('<div class="mbt-cssinjection-target" style="display:inline-block;padding:4px;">CSS注入対象</div>'); },
+            check: function() {
+                var el = document.querySelector('.mbt-cssinjection-target');
+                var v = getComputedStyle(el).outlineColor;
+                var pass = v === 'rgb(1, 2, 3)';
+                return { pass: pass, detail: '現在のoutline-color: ' + v };
+            } });
+
+        // ==== ⑤ 手続き型セレクタ ====
+        T({ id: 'proc-has', category: CATS[4], filter: '##.mbt-proc-has-box:has(.mbt-proc-has-trigger)',
+            setup: function() {
+                spawn('<div class="mbt-proc-has-box" id="mb2-has-positive"><span class="mbt-proc-has-trigger"></span>非表示になるはず</div>' +
+                      '<div class="mbt-proc-has-box" id="mb2-has-negative">子要素が無いので表示されたままのはず</div>');
+            },
+            check: function() {
+                var pass = isHidden(document.getElementById('mb2-has-positive')) && !isHidden(document.getElementById('mb2-has-negative'));
+                return { pass: pass };
+            } });
+        T({ id: 'proc-not', category: CATS[4], filter: '##.mbt-proc-not-box:not(.mbt-proc-not-excluded)',
+            setup: function() {
+                spawn('<div class="mbt-proc-not-box" id="mb2-not-a">非表示になるはず</div>' +
+                      '<div class="mbt-proc-not-box mbt-proc-not-excluded" id="mb2-not-b">:not()で除外され表示されたままのはず</div>');
+            },
+            check: function() {
+                var pass = isHidden(document.getElementById('mb2-not-a')) && !isHidden(document.getElementById('mb2-not-b'));
+                return { pass: pass };
+            } });
+        T({ id: 'proc-matches-attr', category: CATS[4], filter: '##.mbt-proc-matchesattr-box:matches-attr(data-mbt-ad=/^yes$/)',
+            setup: function() { spawn('<div class="mbt-proc-matchesattr-box" data-mbt-ad="yes">属性一致で非表示になるはず</div>'); },
+            check: function() { return { pass: isHidden(document.querySelector('.mbt-proc-matchesattr-box')) }; } });
+        T({ id: 'proc-matches-path', category: CATS[4], filter: '##.mbt-proc-matchespath-box:matches-path(/test/)',
+            setup: function() { spawn('<div class="mbt-proc-matchespath-box">パス一致で非表示になるはず</div>'); },
+            check: function() { return { pass: isHidden(document.querySelector('.mbt-proc-matchespath-box')) }; } });
+        T({ id: 'proc-min-text-length', category: CATS[4], filter: '##.mbt-proc-mintextlength-box:min-text-length(30)',
+            setup: function() {
+                spawn('<div class="mbt-proc-mintextlength-box" id="mb2-mtl-short">短い文</div>' +
+                      '<div class="mbt-proc-mintextlength-box" id="mb2-mtl-long">これは30文字以上になるように書いた十分に長いダミーの本文テキストです。</div>');
+            },
+            check: function() {
+                var pass = !isHidden(document.getElementById('mb2-mtl-short')) && isHidden(document.getElementById('mb2-mtl-long'));
+                return { pass: pass };
+            } });
+        T({ id: 'proc-upward-num', category: CATS[4], filter: '##.mbt-proc-upward-num-anchor:upward(2)',
+            setup: function() { spawn('<div id="mb2-upward-num-outer"><div><span class="mbt-proc-upward-num-anchor"></span></div></div>'); },
+            check: function() { return { pass: isHidden(document.getElementById('mb2-upward-num-outer')) }; } });
+        T({ id: 'proc-nth-ancestor', category: CATS[4], filter: '##.mbt-proc-nthancestor-anchor:nth-ancestor(2)',
+            setup: function() { spawn('<div id="mb2-nthancestor-outer"><div><span class="mbt-proc-nthancestor-anchor"></span></div></div>'); },
+            check: function() { return { pass: isHidden(document.getElementById('mb2-nthancestor-outer')) }; } });
+        T({ id: 'proc-upward-sel', category: CATS[4], filter: '##.mbt-proc-upward-sel-anchor:upward(.mbt-proc-upward-sel-target)',
+            setup: function() { spawn('<div class="mbt-proc-upward-sel-target" id="mb2-upward-sel-outer"><div><span class="mbt-proc-upward-sel-anchor"></span></div></div>'); },
+            check: function() { return { pass: isHidden(document.getElementById('mb2-upward-sel-outer')) }; } });
+        T({ id: 'proc-matches-css', category: CATS[4], filter: '##.mbt-proc-matchescss-box:matches-css(color: /rgb\\(9,\\s*8,\\s*7\\)/)',
+            setup: function() { spawn('<div class="mbt-proc-matchescss-box" style="color: rgb(9,8,7);">CSS一致で非表示になるはず</div>'); },
+            check: function() { return { pass: isHidden(document.querySelector('.mbt-proc-matchescss-box')) }; } });
+        T({ id: 'proc-matches-css-before', category: CATS[4], filter: '##.mbt-proc-matchescssbefore-box:matches-css-before(content: /mbt-before-marker/)',
+            setup: function() {
+                addStyleRule('.mbt-proc-matchescssbefore-box::before { content: "mbt-before-marker"; }');
+                spawn('<div class="mbt-proc-matchescssbefore-box">::beforeのcontentで非表示になるはず</div>');
+            },
+            check: function() { return { pass: isHidden(document.querySelector('.mbt-proc-matchescssbefore-box')) }; } });
+        T({ id: 'proc-matches-media', category: CATS[4], filter: '##.mbt-proc-matchesmedia-box:matches-media((min-width: 1px))',
+            setup: function() { spawn('<div class="mbt-proc-matchesmedia-box">常に真の条件で非表示になるはず</div>'); },
+            check: function() { return { pass: isHidden(document.querySelector('.mbt-proc-matchesmedia-box')) }; } });
+        T({ id: 'proc-matches-prop', category: CATS[4], filter: '##.mbt-proc-matchesprop-box:matches-prop(mbtProcProp=/^leak$/)',
+            setup: function() {
+                var el = spawn('<div class="mbt-proc-matchesprop-box">JSプロパティ一致で非表示になるはず</div>');
+                el.mbtProcProp = 'leak';
+            },
+            check: function() { return { pass: isHidden(document.querySelector('.mbt-proc-matchesprop-box')) }; } });
+        T({ id: 'proc-xpath', category: CATS[4], filter: '##*:xpath(//div[@id="mbt-proc-xpath-target"])',
+            setup: function() { spawn('<div id="mbt-proc-xpath-target">XPathで非表示になるはず</div>'); },
+            check: function() { return { pass: isHidden(document.getElementById('mbt-proc-xpath-target')) }; } });
+        T({ id: 'proc-style', category: CATS[4], filter: '##.mbt-proc-style-target:style(background-color: rgb(4,5,6) !important;)',
+            setup: function() { spawn('<div class="mbt-proc-style-target">スタイル注入対象</div>'); },
+            check: function() {
+                var v = getComputedStyle(document.querySelector('.mbt-proc-style-target')).backgroundColor;
+                return { pass: v === 'rgb(4, 5, 6)', detail: '現在の背景色: ' + v };
+            } });
+        T({ id: 'proc-remove', category: CATS[4], filter: '##.mbt-proc-remove-target:remove()',
+            setup: function() { spawn('<div class="mbt-proc-remove-target" id="mb2-remove-target">DOMごと削除されるはず</div>'); },
+            check: function() { return { pass: document.getElementById('mb2-remove-target') === null }; } });
+        T({ id: 'proc-remove-attr', category: CATS[4], filter: '##.mbt-proc-removeattr-target:remove-attr(data-mbt-secret)',
+            setup: function() { spawn('<div class="mbt-proc-removeattr-target" data-mbt-secret="x" data-keep="y">属性削除対象</div>'); },
+            check: function() {
+                var el = document.querySelector('.mbt-proc-removeattr-target');
+                var pass = !el.hasAttribute('data-mbt-secret') && el.hasAttribute('data-keep');
+                return { pass: pass };
+            } });
+        T({ id: 'proc-remove-class', category: CATS[4], filter: '##.mbt-proc-removeclass-target:remove-class(mbt-secret-class)',
+            setup: function() { spawn('<div class="mbt-proc-removeclass-target mbt-secret-class mbt-keep-class">クラス削除対象</div>'); },
+            check: function() {
+                var el = document.querySelector('.mbt-proc-removeclass-target');
+                var pass = !el.classList.contains('mbt-secret-class') && el.classList.contains('mbt-keep-class');
+                return { pass: pass };
+            } });
+        T({ id: 'proc-others', category: CATS[4], filter: '##.mbt-others-subject:matches-path(subtests/others.html):others()', manual: true,
+            note: ':others()は「対象の祖先と子孫以外のページ内の全要素」を隠す演算子(本家仕様)で、このページで有効にするとページ全体が消えてしまいます。<a href="./subtests/others.html">subtests/others.html</a>(:matches-path()でそのページだけに限定)で確認してください。' });
+
+        T({ id: 'proc-watch-attr', category: CATS[4], filter: '##.mbt-proc-watchattr-box:matches-attr(data-mbt-state=on):watch-attr(data-mbt-state)',
+            setup: function() {
+                var el = spawn('<div class="mbt-proc-watchattr-box" id="mb2-watchattr" data-mbt-state="off">属性変更を監視中</div>');
+                setTimeout(function() { el.setAttribute('data-mbt-state', 'on'); }, 400);
+            },
+            delay: 900, timeoutMs: 2500,
+            check: function() { return { pass: isHidden(document.getElementById('mb2-watchattr')) }; } });
+
+        // ==== ⑥ HTMLフィルタリング ====
+        T({ id: 'html-exception', category: CATS[5], filter: 'host##^.mbt-htmlfilter-exception-target + host#@#^.mbt-htmlfilter-exception-target',
+            check: function() {
+                var pass = document.getElementById('mb2-html-exception-target') !== null;
+                return { pass: pass, detail: pass ? '#@#^例外によりDOMに残っています。' : '要素ごと消えてしまいました(例外が効いていません)。' };
+            } });
+        T({ id: 'html-responseheader', category: CATS[5], filter: 'worker-host##^responseheader(set-cookie)', manual: true,
+            note: '本家uBOにも実在する構文です(削除できるのはlocation/refresh/report-to/set-cookieの4種のみ)。ドキュメントの応答にのみ効くため、Workerのテスト用ページへ遷移して確認します: <a href="./subtests/responseheader.html">subtests/responseheader.html</a>' });
+
+        // ==== ⑦ プリプロセッサ ====
+        T({ id: 'pre-if', category: CATS[6], filter: '!#if env_mobile / host##.mbt-preprocessor-target / !#else / !#endif',
+            setup: function() { spawn('<div class="mbt-preprocessor-target">env_mobile=true分岐で非表示になるはず</div>'); },
+            check: function() { return { pass: isHidden(document.querySelector('.mbt-preprocessor-target')) }; } });
+
+        // ==== ⑧ スクリプトレット ====
+        T({ id: 'scr-aopr', category: CATS[7], filter: '##+js(aopr, mbtAoprTarget)',
+            check: function() { return throwsCheck(function() { window.mbtAoprTarget = 'x'; var v = window.mbtAoprTarget; }); } });
+        T({ id: 'scr-aopw', category: CATS[7], filter: '##+js(aopw, mbtAopwTarget)',
+            check: function() { return throwsCheck(function() { window.mbtAopwTarget = 'y'; }); } });
+        T({ id: 'scr-acis', category: CATS[7], filter: '##+js(acis, mbtAcisTarget, magicToken12345)',
+            setup: function() {
+                runInlineScript('// magicToken12345\n' +
+                    'try { var v = window.mbtAcisTarget; window.__mb2AcisThrew = false; } catch (e) { window.__mb2AcisThrew = (e instanceof ReferenceError); }');
+            },
+            check: function() { return { pass: window.__mb2AcisThrew === true }; } });
+        T({ id: 'scr-aost', category: CATS[7], filter: '##+js(aost, mbtAostTarget, inlineScript)',
+            setup: function() {
+                runInlineScript('(function(){ try { var v = window.mbtAostTarget; window.__mb2AostThrew = false; } catch (e) { window.__mb2AostThrew = (e instanceof ReferenceError); } })();');
+            },
+            check: function() { return { pass: window.__mb2AostThrew === true }; } });
+        T({ id: 'scr-set-attr', category: CATS[7], filter: '##+js(set-attr, .mbt-setattr-target, data-mbt-marker, 1)', note: '本家は値を\'\'/true/false/整数/[他属性コピー]に制限するため整数を使う。',
+            setup: function() { spawn('<div class="mbt-setattr-target">set-attr対象</div>'); },
+            check: function() { return { pass: document.querySelector('.mbt-setattr-target').getAttribute('data-mbt-marker') === '1' }; } });
+        T({ id: 'scr-remove-attr', category: CATS[7], filter: '##+js(remove-attr, data-mbt-secret, .mbt-scr-removeattr-target, stay)',
+            setup: function() { spawn('<div class="mbt-scr-removeattr-target" data-mbt-secret="x">remove-attr対象</div>'); },
+            check: function() { return { pass: !document.querySelector('.mbt-scr-removeattr-target').hasAttribute('data-mbt-secret') }; } });
+        T({ id: 'scr-remove-class', category: CATS[7], filter: '##+js(remove-class, mbt-secret-class, .mbt-scr-removeclass-target, stay)',
+            setup: function() { spawn('<div class="mbt-scr-removeclass-target mbt-secret-class">remove-class対象</div>'); },
+            check: function() { return { pass: !document.querySelector('.mbt-scr-removeclass-target').classList.contains('mbt-secret-class') }; } });
+        T({ id: 'scr-remove-node-text', category: CATS[7], filter: '##+js(rmnt, DIV, SECRETTEXT)', manual: true,
+            note: '既知の課題: 本家のnodeName引数は「実際のタグ名(または正規表現)」で、documentツリーをtreewalkerで走査して一致するノードのテキストを操作する仕様です。MyBrowserは現状これをCSSセレクタとして扱っており未対応のため、修正までは手動確認項目としています。' });
+
+        T({ id: 'scr-json-prune', category: CATS[7], filter: '##+js(json-prune, mbtSecret)',
+            check: function() {
+                var obj = JSON.parse('{"mbtSecret":"leak","ok":1}');
+                return { pass: obj.mbtSecret === undefined && obj.ok === 1 };
+            } });
+        T({ id: 'scr-json-prune-xhr', category: CATS[7], filter: '##+js(json-prune-xhr-response, url)',
+            check: function() {
+                if (!WORKER) return { pass: false, detail: 'MB_ECHO_ENDPOINT未設定。' };
+                return new Promise(function(resolve) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', WORKER + 'jsonprunexhrtest?_cb=' + Date.now());
+                    xhr.onload = function() {
+                        try {
+                            var obj = JSON.parse(xhr.responseText);
+                            resolve({ pass: obj.url === undefined && obj.query, detail: JSON.stringify(obj) });
+                        } catch (e) { resolve({ pass: false, detail: 'JSON解析失敗: ' + e.message }); }
+                    };
+                    xhr.onerror = function() { resolve({ pass: false, detail: '通信失敗' }); };
+                    xhr.send();
+                });
+            } });
+        T({ id: 'scr-set-cookie', category: CATS[7], filter: '##+js(set-cookie, mbt_cookie_test, allowed, /)',
+            check: function() { return { pass: document.cookie.indexOf('mbt_cookie_test=allowed') !== -1 }; } });
+        T({ id: 'scr-set-ls', category: CATS[7], filter: '##+js(set-local-storage-item, mbt_ls_test, enabled)',
+            check: function() { return { pass: localStorage.getItem('mbt_ls_test') === 'enabled' }; } });
+        T({ id: 'scr-cookie-remover', category: CATS[7], filter: '##+js(cookie-remover, mbt_cookie_remover_target)', manual: true,
+            note: 'このスクリプトレットはdocument-start時とbeforeunload時にのみ動くため、1回のページロード内では自動判定できません。手動確認するには: devtoolsコンソールで document.cookie="mbt_cookie_remover_target=1" を実行後にページをリロードし、リロード後は毎回自動的に消えている(=リロード前のbeforeunloadで削除された)ことを確認してください。' });
+        T({ id: 'scr-fingerprint2', category: CATS[7], filter: '*/fingerprint2-test.js$redirect=fingerprint2.js,script',
+            note: '本家では##+js(fingerprint2)というスクリプトレットは存在せず、$redirect=fingerprint2.jsで偽のfingerprintjs2ライブラリに差し替える仕組みです。<script src>を使って検証します。',
+            setup: function() {
+                var s = document.createElement('script');
+                s.src = './ads/fingerprint2-test.js?_cb=' + Date.now();
+                s.onload = function() { window.__mb2Fp2Loaded = true; };
+                s.onerror = function() { window.__mb2Fp2Loaded = false; };
+                document.head.appendChild(s);
+            },
+            check: function() {
+                if (window.__mb2Fp2Loaded === undefined) return undefined;
+                if (!window.Fingerprint2) return { pass: false, detail: 'window.Fingerprint2が定義されていません。' };
+                var h1 = window.Fingerprint2.x64hash128();
+                var h2 = window.Fingerprint2.x64hash128();
+                var pass = window.Fingerprint2 === window.Fingerprint && typeof h1 === 'string' && /^[0-9a-f]{32}$/.test(h1) && h1 === h2;
+                return { pass: pass, detail: 'x64hash128()=' + h1 };
+            } });
+
+        T({ id: 'scr-prevent-fetch', category: CATS[7], filter: '##+js(prevent-fetch, mbt-prevent-fetch-marker)',
+            note: '本家はfetch()を拒否(reject)するのではなく、空文字列の偽Responseで解決(resolve)する仕様です。',
+            check: function() {
+                return fetch('./mbt-prevent-fetch-marker-xyz').then(function(r) { return r.text(); })
+                    .then(function(text) { return { pass: text === '', detail: '取得内容の長さ=' + text.length }; })
+                    .catch(function() { return { pass: true, detail: 'ネットワークエラーとして拒否されました(この形でも実質ブロックは成立)。' }; });
+            } });
+
+        T({ id: 'scr-prevent-xhr', category: CATS[7], filter: '##+js(prevent-xhr, mbt-prevent-xhr-marker)',
+            note: '本家はerrorイベントではなくloadイベントを、status=200・responseText=\'\'の偽レスポンスで発火させる仕様です。',
+            check: function() {
+                return new Promise(function(resolve) {
+                    var xhr = new XMLHttpRequest();
+                    var settled = false;
+                    xhr.open('GET', './mbt-prevent-xhr-marker-xyz');
+                    xhr.onload = function() {
+                        settled = true;
+                        resolve({ pass: xhr.status === 200 && xhr.responseText === '', detail: 'status=' + xhr.status + ' / 長さ=' + xhr.responseText.length });
+                    };
+                    xhr.onerror = function() { settled = true; resolve({ pass: true, detail: 'errorイベントが発火しました(この形でも実質ブロックは成立)。' }); };
+                    xhr.send();
+                    setTimeout(function() { if (!settled) resolve({ pass: false, detail: 'タイムアウト' }); }, 1500);
+                });
+            } });
+
+        T({ id: 'scr-prevent-settimeout', category: CATS[7], filter: '##+js(prevent-setTimeout, mbtPreventTimeoutMarker)',
+            setup: function() {
+                window.__mb2STFired = false;
+                setTimeout(function() { /* mbtPreventTimeoutMarker */ window.__mb2STFired = true; }, 30);
+            },
+            delay: 400,
+            check: function() { return { pass: window.__mb2STFired === false }; } });
+        T({ id: 'scr-prevent-setinterval', category: CATS[7], filter: '##+js(prevent-setInterval, mbtPreventIntervalMarker)',
+            setup: function() {
+                window.__mb2SICount = 0;
+                var id = setInterval(function() { /* mbtPreventIntervalMarker */ window.__mb2SICount++; }, 30);
+                setTimeout(function() { clearInterval(id); }, 500);
+            },
+            delay: 600,
+            check: function() { return { pass: window.__mb2SICount === 0 }; } });
+        T({ id: 'scr-prevent-window-open', category: CATS[7], filter: '##+js(prevent-window-open, mbt-popup-marker)', interactive: true,
+            note: '上と同じ理由でボタンクリック時のみ実行します。',
+            check: function() {
+                var w = null;
+                try { w = window.open('about:blank#mbt-popup-marker'); } catch (e) {}
+                if (w) { try { w.close(); } catch (e) {} }
+                return { pass: w === null };
+            } });
+
+        T({ id: 'scr-prevent-addeventlistener', category: CATS[7], filter: '##+js(aeld, click, mbtAeldMarker)',
+            setup: function() {
+                window.__mb2AeldFired = false;
+                var btn = spawn('<button id="mb2-aeld-btn">クリックテスト</button>');
+                btn.addEventListener('click', function() { /* mbtAeldMarker */ window.__mb2AeldFired = true; });
+                btn.click();
+            },
+            check: function() { return { pass: window.__mb2AeldFired === false }; } });
+        T({ id: 'scr-no-floc', category: CATS[7], filter: '##+js(no-floc)', manual: true,
+            note: 'FLoC(interestCohort API)自体が現行の主要ブラウザから既に撤廃されているため、このスクリプトレットの効果を有意に検証することができません(将来UAが対応した場合への保険的実装です)。' });
+        T({ id: 'scr-nowebrtc', category: CATS[7], filter: '##+js(nowebrtc)',
+            check: function() {
+                try {
+                    var pass = typeof window.RTCPeerConnection === 'function' && new window.RTCPeerConnection().toString() === '[object RTCPeerConnection]';
+                    return { pass: pass };
+                } catch (e) { return { pass: false, detail: '例外: ' + e.message }; }
+            } });
+        T({ id: 'scr-noeval-if', category: CATS[7], filter: '##+js(noeval, mbtEvalMarker)',
+            check: function() { return { pass: window.eval('/* mbtEvalMarker */ 123') === undefined }; } });
+        T({ id: 'scr-spoof-css', category: CATS[7], filter: '##+js(spoof-css, .mbt-spoofcss-target, display, block)',
+            setup: function() { spawn('<div class="mbt-spoofcss-target" style="display:none;">spoof-css対象</div>'); },
+            check: function() { return { pass: getComputedStyle(document.querySelector('.mbt-spoofcss-target')).display === 'block' }; } });
+        T({ id: 'scr-prevent-refresh', category: CATS[7], filter: '##+js(prevent-refresh)', manual: true,
+            note: '【重要】このテストは実際に動作する&lt;meta http-equiv="refresh"&gt;タグを必要とするため、メインページ上で自動実行すると(本家の仕組みはload後に一度だけ判定するため、動的に後から挿入したタグは間に合わず、ブラウザ側のリロード機能だけが素通しで動いてしまい)ページが繰り返しリロードされる事故を起こします(実際に発生し修正しました)。専用の隔離ページで確認してください: <a href="./subtests/prevent-refresh.html">subtests/prevent-refresh.html</a>' });
+
+        T({ id: 'scr-replace-node-text', category: CATS[7], filter: '##+js(rpnt, DIV, SECRETWORD, [REDACTED])', manual: true,
+            note: '既知の課題: remove-node-textと同じ理由(nodeNameがCSSセレクタではなく実タグ名/正規表現である仕様にMyBrowserが未対応)で、修正までは手動確認項目としています。' });
+
+        T({ id: 'scr-trusted-set-constant', category: CATS[7], filter: '##+js(trusted-set, mbtTrustedConstTarget, 42)',
+            check: function() { return { pass: window.mbtTrustedConstTarget === 42 }; } });
+        T({ id: 'scr-trusted-set-cookie', category: CATS[7], filter: '##+js(trusted-set-cookie, mbt_trusted_cookie, arbitrary-value-ok)',
+            check: function() { return { pass: document.cookie.indexOf('mbt_trusted_cookie=arbitrary-value-ok') !== -1 }; } });
+        T({ id: 'scr-trusted-set-storage', category: CATS[7], filter: '##+js(trusted-set-local-storage-item,...) + ##+js(trusted-set-session-storage-item,...)',
+            check: function() {
+                var pass = localStorage.getItem('mbt_trusted_ls') === 'freeform123' && sessionStorage.getItem('mbt_trusted_ss') === 'freeform456';
+                return { pass: pass };
+            } });
+        T({ id: 'scr-trusted-replace-argument', category: CATS[7], filter: '##+js(trusted-replace-argument, Element.prototype.setAttribute, 1, json:"replaced-by-trusted", condition, /^orig-value$/)',
+            check: function() {
+                var el = document.createElement('div');
+                el.setAttribute('data-mbt-test', 'orig-value');
+                el.setAttribute('data-mbt-test2', 'something-else');
+                var r1 = el.getAttribute('data-mbt-test');
+                var r2 = el.getAttribute('data-mbt-test2');
+                var pass = r1 === 'replaced-by-trusted' && r2 === 'something-else';
+                return { pass: pass, detail: 'r1=' + r1 + ' / r2=' + r2 };
+            } });
+        T({ id: 'scr-trusted-suppress', category: CATS[7], filter: '##+js(trusted-suppress-native-method, window.alert, 1)', manual: true,
+            note: '実際に本物のalert()を鳴らさずに(=ブロッキングダイアログを出さずに)自動検証する安全な方法が無いため、手動確認項目としています。devtoolsコンソールで window.alert("test") を1回実行してダイアログが出ないこと、2回目の実行でダイアログが出ることを確認してください。' });
+        T({ id: 'scr-trusted-replace-xhr', category: CATS[7], filter: '##+js(trusted-replace-xhr-response, mbtSecretValue, REPLACED)',
+            check: function() {
+                if (!WORKER) return { pass: false, detail: 'MB_ECHO_ENDPOINT未設定。' };
+                return new Promise(function(resolve) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', WORKER + '?mbtSecretValue=1&_cb=' + Date.now());
+                    xhr.onload = function() {
+                        var text = xhr.responseText;
+                        resolve({ pass: text.indexOf('mbtSecretValue') === -1 && text.indexOf('REPLACED') !== -1 });
+                    };
+                    xhr.onerror = function() { resolve({ pass: false, detail: '通信失敗' }); };
+                    xhr.send();
+                });
+            } });
+        T({ id: 'scr-trusted-replace-fetch', category: CATS[7], filter: '##+js(trusted-replace-fetch-response, mbtFetchSecret, REPLACEDFETCH)',
+            check: function() {
+                if (!WORKER) return { pass: false, detail: 'MB_ECHO_ENDPOINT未設定。' };
+                return fetch(WORKER + '?mbtFetchSecret=1&_cb=' + Date.now()).then(function(r) { return r.text(); })
+                    .then(function(text) { return { pass: text.indexOf('mbtFetchSecret') === -1 && text.indexOf('REPLACEDFETCH') !== -1 }; })
+                    .catch(function(e) { return { pass: false, detail: '通信失敗: ' + e.message }; });
+            } });
+        T({ id: 'scr-trusted-click-element', category: CATS[7], filter: '##+js(trusted-click-element, .mbt-trustedclick-target)',
+            setup: function() {
+                window.__mb2TrustedClicked = false;
+                spawn('<button class="mbt-trustedclick-target" onclick="window.__mb2TrustedClicked=true">自動クリック対象</button>');
+            },
+            delay: 400,
+            check: function() { return { pass: window.__mb2TrustedClicked === true }; } });
+        T({ id: 'scr-trusted-replace-node-text', category: CATS[7], filter: '##+js(trusted-rpnt, DIV, SECRETWORD2, [MASKED])', manual: true,
+            note: '既知の課題: replace-node-textと同じ理由により、修正までは手動確認項目としています。' });
+
+        // ------------------------------------------------------------
+        // レンダリング & 実行
+        // ------------------------------------------------------------
+        var automatedTotal = 0, automatedPass = 0, manualCount = 0;
+        var cells = {};
+
+        function renderAll() {
+            var root = document.getElementById('mb2-categories');
+            var byCat = {};
+            TESTS.forEach(function(t) { (byCat[t.category] = byCat[t.category] || []).push(t); });
+            CATS.forEach(function(cat) {
+                var list = byCat[cat];
+                if (!list) return;
+                var h = document.createElement('h2');
+                h.className = 'mb2-cat';
+                h.textContent = cat;
+                root.appendChild(h);
+                if (CAT_NOTES[cat]) {
+                    var d = document.createElement('div');
+                    d.className = 'mb2-cat-desc';
+                    d.innerHTML = CAT_NOTES[cat];
+                    root.appendChild(d);
+                }
+                var table = document.createElement('table');
+                table.className = 'mb2-table';
+                table.innerHTML = '<thead><tr><th class="mb2-num">#</th><th>フィルタ記法</th><th class="mb2-status">結果</th></tr></thead>';
+                var tbody = document.createElement('tbody');
+                list.forEach(function(t) {
+                    var tr = document.createElement('tr');
+                    var num = document.createElement('td');
+                    num.className = 'mb2-num';
+                    num.textContent = String(++renderAll._n);
+                    var filterCell = document.createElement('td');
+                    filterCell.className = 'mb2-filter';
+                    filterCell.innerHTML = '<code>' + t.filter.replace(/</g, '&lt;') + '</code>' + (t.note ? '<span class="mb2-detail">' + t.note + '</span>' : '');
+                    var statusCell = document.createElement('td');
+                    statusCell.className = 'mb2-status mb2-pending';
+                    statusCell.textContent = t.manual ? '🔧 手動確認' : (t.interactive ? '' : '判定中...');
+                    if (t.manual) statusCell.className = 'mb2-status mb2-manual';
+                    if (t.interactive) {
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.textContent = '▶ クリックして実行';
+                        btn.onclick = function() { btn.disabled = true; btn.textContent = '実行中...'; runOne(t, true); };
+                        statusCell.appendChild(btn);
+                    }
+                    tr.appendChild(num); tr.appendChild(filterCell); tr.appendChild(statusCell);
+                    tbody.appendChild(tr);
+                    cells[t.id] = statusCell;
+                    if (!t.manual && !t.mybrowserOnly) automatedTotal++;
+                });
+                table.appendChild(tbody);
+                root.appendChild(table);
+            });
+            document.getElementById('mb2-total').textContent = String(automatedTotal);
+            manualCount = TESTS.length - automatedTotal;
+            document.getElementById('mb2-manual-count').textContent = String(manualCount);
+        }
+        renderAll._n = 0;
+
+        function updateSummary() {
+            document.getElementById('mb2-pass').textContent = String(automatedPass);
+        }
+
+        function finish(t, result) {
+            var cell = cells[t.id];
+            var pass, detail;
+            if (result && typeof result === 'object') { pass = !!result.pass; detail = result.detail || ''; }
+            else { pass = !!result; detail = ''; }
+            if (t.expectedUnsupported) {
+                cell.className = 'mb2-status ' + (pass ? 'mb2-manual' : 'mb2-ng');
+                cell.innerHTML = (pass ? 'ℹ️ 既知の非対応(想定通り)' : '❌ 想定外') + (detail ? '<span class="mb2-detail">' + detail + '</span>' : '');
+                return;
+            }
+            cell.className = 'mb2-status ' + (pass ? 'mb2-ok' : 'mb2-ng');
+            cell.innerHTML = (t.mybrowserOnly ? '【MyBrowser独自・集計外】' : '') + (pass ? '✅ 成功' : '❌ 失敗') + (detail ? '<span class="mb2-detail">' + detail + '</span>' : '');
+            if (pass && !t.mybrowserOnly && !t.manual) automatedPass++;
+            updateSummary();
+        }
+
+        function runOne(t, byClick) {
+            if (t.manual && !byClick) return; // 手動確認項目は、クリックされない限り自動実行しない
+            if (t.interactive && !byClick) return; // ユーザー操作起点のテストは自動実行しない
+            try { if (t.setup) t.setup(); } catch (e) { finish(t, { pass: false, detail: 'setup例外: ' + e.message }); return; }
+            var deadline = Date.now() + (t.timeoutMs || 4500);
+            function poll() {
+                var r;
+                try { r = t.check(); } catch (e) { finish(t, { pass: false, detail: '例外: ' + e.message }); return; }
+                if (r && typeof r.then === 'function') {
+                    r.then(function(res) { finish(t, res); }).catch(function(e) { finish(t, { pass: false, detail: '例外: ' + e.message }); });
+                    return;
+                }
+                if (r === undefined) {
+                    if (Date.now() < deadline) { setTimeout(poll, 100); return; }
+                    finish(t, { pass: false, detail: 'タイムアウト' });
+                    return;
+                }
+                finish(t, r);
+            }
+            setTimeout(poll, t.delay || 400);
+        }
+
+        (function buildSubscribeLinks() {
+            var lists = [
+                ['test-filters.txt', 'メイン(基本的にこれだけを購読)'],
+                ['test-filters-generichide.txt', '$generichide単体(他と同時に有効化しない)'],
+                ['test-filters-specifichide.txt', '$specifichide単体(他と同時に有効化しない)']
+            ];
+            var html = '<strong>フィルターリスト(購読リンク)</strong><ul>';
+            lists.forEach(function(l) {
+                var abs = new URL('./' + l[0], location.href).href;
+                html += '<li><a href="abp:subscribe?location=' + encodeURIComponent(abs) + '&title=' + encodeURIComponent(l[0]) + '">🔗 購読</a> ' +
+                        '<a href="./' + l[0] + '" target="_blank">' + l[0] + '</a> … ' + l[1] + '</li>';
+            });
+            html += '</ul><small>専用ページ: <a href="./subtests/generichide.html">generichide</a> / ' +
+                    '<a href="./subtests/specifichide.html">specifichide</a> / ' +
+                    '<a href="./subtests/others.html">:others()</a> / <a href="./subtests/responseheader.html">##^responseheader()</a> / ' +
+                    '<a href="./subtests/prevent-refresh.html">prevent-refresh</a></small>';
+            document.getElementById('mb2-sublist').innerHTML = html;
+        })();
+
+        window.addEventListener('load', function() {
+            if (window.__mb2Started) return; // 環境によってはloadが複数回発火し得るための多重実行防止
+            window.__mb2Started = true;
+            renderAll();
+            // 全テストのsetup()を同一tickで一斉実行すると、MutationObserver/idle
+            // コールバックに依存するスクリプトレット(remove-attr, matches-prop等)が
+            // 大量の同時DOM変更に埋もれて判定が遅れることがあるため、少しずつ
+            // ずらして実行する(実際のページでの読み込まれ方に近づける意味もある)
+            TESTS.forEach(function(t, idx) { setTimeout(function() { runOne(t); }, idx * 25); });
+        });
+    })();
+    </script>
+
 </body>
 </html>

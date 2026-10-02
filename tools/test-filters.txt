@@ -1,0 +1,289 @@
+[Adblock Plus 2.0]
+! Title: ブラウザテスト用フィルターリスト(完全版)
+! Description: 自作ブラウザのフィルターエンジンが対応する全記法(ネットワーク修飾子・
+!   コスメティック/手続き型セレクタ・HTMLフィルタリング・スクリプトレット・
+!   プリプロセッサ)を網羅的に検証するためのリスト。
+! Version: 20260929.1
+! Expires: 1 days
+!
+! 【重要】このファイル中の benisaru.github.io は実際に公開するホスト名に、
+! mb-removeparam-echo.biziorbizi.workers.dev は実際のCloudflare WorkerのURLに
+! 置き換えてください(手続き型セレクタ・スクリプトレット・HTMLフィルタリングは
+! uBO仕様上ドメイン指定必須のため、置き換えないと該当テストは動作しません)。
+!
+! 【注意】$generichide / $specifichide はドメイン全体のコスメティックフィルタの
+! 扱いをまとめて切り替えてしまう仕様上、単体テストが行いにくいため、このファイル
+! には含めていません。test-filters-generichide.txt / test-filters-specifichide.txt
+! として別ファイルに分離し、それぞれ単独で(このファイルとは同時に有効化せず)
+! 購読して確認してください。対応するテストページも test/subtests/ 以下に分離してあります。
+!
+! 【MyBrowserと本家の仕様統一について】$genericblockと$match-caseは、本家uBOの
+! 仕様(前者は非対応、後者は正規表現フィルタ専用)にMyBrowser側を合わせたため、
+! どちらのルールも読み込み時に読み捨てられます。このリストにはそもそも含めて
+! いません(以前のバージョンにあった専用テスト・分割ファイルは削除しました)。
+!
+! 各ルールの説明・対応するindex.htmlのテスト項目([id: xxx])は、
+! ルールの直前に単独のコメント行として記載しています(ルールと同じ行に
+! コメントを続けて書くと、コメントとして無視されず行全体が壊れるため)。
+
+! ============================================================
+! 1〜13: 基本セット(既存)
+! ============================================================
+##.sponsor-ad
+###google_ads_iframe_test
+*/ads/banner-*.jpg
+*/adserver/serve.html
+*/scripts/track.js$script
+||echo.websocket.org^$websocket
+*/ads/redirect-target.jpg$redirect=1x1-transparent.gif
+benisaru.github.io##.promo-box:has-text(スポンサー広告)
+benisaru.github.io##+js(set-constant, __mbTestAdEnabled, false)
+||mb-removeparam-echo.biziorbizi.workers.dev^$removeparam=utm_test_tracker
+*/ads/important-test.jpg$image
+@@*/ads/important-test.jpg$image
+*/ads/important-test.jpg$image,important
+*/ads/domain-exception-test.jpg$image
+@@*/ads/domain-exception-test.jpg$image,domain=benisaru.github.io
+benisaru.github.io##^#html-filter-marker
+
+! ============================================================
+! ネットワークフィルタ: リソースタイプ修飾子
+! ============================================================
+! [id: net-stylesheet]
+*/styles/stylesheet-test.css$stylesheet
+! [id: net-xhr] 拡張子無しパス。Accept不明瞭+拡張子無しの救済ロジックにより
+! 既定でもXHR判定になるが、明示指定でも確認する
+*/mbt-xhr-test$xmlhttprequest
+! [id: net-font]
+*/fonts/font-test.woff2$font
+! [id: net-media]
+*/media/media-test.mp3$media
+! [id: net-other] 参考: fetch()は実ブラウザのwebRequest APIでは常に"xmlhttprequest"
+! に分類され、URLの拡張子に関わらず"other"型にはならないため、fetch()ベースでは
+! 本家環境で検証できない
+*/ads/other-test.xml$other
+! [id: net-object] 参考: 実機でSec-Fetch-Destが得られない場合、拡張子ベースの
+! 救済策がOBJECT型に倒す手段を持たないため判定されない可能性が高い既知の制限
+*/ads/object-test.swf$object
+
+! ============================================================
+! ネットワークフィルタ: 修飾子
+! ============================================================
+! [id: net-to] $domainと違いリクエスト"先"のホストを見る
+*/mbt-to-test$to=mb-removeparam-echo.biziorbizi.workers.dev
+! [id: net-denyallow] denyallowで指定した宛先だけは除外される。
+! 本家uBOでは domain= が必須(無いとエラー)のため必ず併記する
+*/denyallow-test*$denyallow=mb-removeparam-echo.biziorbizi.workers.dev,domain=benisaru.github.io
+! [id: net-method] GETは通り、POSTだけブロックされるはず
+*/mbt-method-test$method=post
+! [id: net-all]
+*/ads/all-test.jpg$all
+! [id: net-badfilter] 下の$badfilter行で相殺され、最終的にはブロックされない
+! (=読み込めるのが正解)
+*/ads/badfilter-target.jpg$image
+*/ads/badfilter-target.jpg$image,badfilter
+
+! [id: net-redirectrule] この単独ブロックと、下の$redirect-ruleが
+! 組み合わさって初めて差し替えが発動する
+*/ads/redirect-rule-test.jpg$image
+*/ads/redirect-rule-test.jpg$redirect-rule=1x1-transparent.gif
+
+! [id: net-empty] $redirect=nooptextの別名。中身が空文字列になるはず
+*/ads/empty-test.txt$empty
+
+! $removeparamの反転記法(除外指定、uBO本家では特定パラメータ"以外"除去などに
+! 使う拡張構文)は、このエンジンでは非対応であることをそのまま確認する項目
+! ([id: net-removeparam-negated])。「非対応=期待通りの結果」であり、
+! バグではないことをページ側でも明記している
+*/removeparam-negated-test*$removeparam=~utm_should_not_be_removed
+
+! [id: net-popup] window.open()等で開かれたタブの最初のメインフレーム
+! 読み込みに対してだけ判定される。分かりやすいダミーホストを対象にする
+||mbt-popup-blocked-target.invalid^$popup,popunder
+
+! ============================================================
+! コスメティックフィルタ: 例外・拡張CSS注入
+! ============================================================
+! [id: cos-exception] #@# 基本の例外: 汎用ルールで隠される要素を、
+! ドメイン指定の#@#で個別に復活させる
+##.mbt-exception-target
+benisaru.github.io#@#.mbt-exception-target
+
+! [id: cos-cssinjection] #$# (AdGuard CSS注入構文)。内部的に:style()へ
+! 変換される。非表示にするのではなく任意のCSS宣言を適用する点が##との違い
+benisaru.github.io#$#.mbt-cssinjection-target { outline: 4px solid rgb(1, 2, 3) !important; }
+
+! ============================================================
+! 手続き型セレクタ(全演算子)
+! ============================================================
+! [id: proc-has]
+benisaru.github.io##.mbt-proc-has-box:has(.mbt-proc-has-trigger)
+! [id: proc-not]
+benisaru.github.io##.mbt-proc-not-box:not(.mbt-proc-not-excluded)
+! [id: proc-matches-attr]
+benisaru.github.io##.mbt-proc-matchesattr-box:matches-attr(data-mbt-ad=/^yes$/)
+! [id: proc-matches-path]
+benisaru.github.io##.mbt-proc-matchespath-box:matches-path(/test/)
+! [id: proc-min-text-length]
+benisaru.github.io##.mbt-proc-mintextlength-box:min-text-length(30)
+! [id: proc-upward-num]
+benisaru.github.io##.mbt-proc-upward-num-anchor:upward(2)
+! [id: proc-nth-ancestor]
+benisaru.github.io##.mbt-proc-nthancestor-anchor:nth-ancestor(2)
+! [id: proc-upward-sel]
+benisaru.github.io##.mbt-proc-upward-sel-anchor:upward(.mbt-proc-upward-sel-target)
+! [id: proc-matches-css]
+benisaru.github.io##.mbt-proc-matchescss-box:matches-css(color: /^rgb\(9,\s*8,\s*7\)$/)
+! [id: proc-matches-css-before]
+benisaru.github.io##.mbt-proc-matchescssbefore-box:matches-css-before(content: /mbt-before-marker/)
+! [id: proc-matches-media]
+benisaru.github.io##.mbt-proc-matchesmedia-box:matches-media((min-width: 1px))
+! [id: proc-matches-prop]
+benisaru.github.io##.mbt-proc-matchesprop-box:matches-prop(mbtProcProp=/^leak$/)
+! [id: proc-xpath]
+benisaru.github.io##*:xpath(//div[@id="mbt-proc-xpath-target"])
+! [id: proc-style]
+benisaru.github.io##.mbt-proc-style-target:style(background-color: rgb(4, 5, 6) !important;)
+! [id: proc-remove]
+benisaru.github.io##.mbt-proc-remove-target:remove()
+! [id: proc-remove-attr]
+benisaru.github.io##.mbt-proc-removeattr-target:remove-attr(data-mbt-secret)
+! [id: proc-remove-class]
+benisaru.github.io##.mbt-proc-removeclass-target:remove-class(mbt-secret-class)
+! [id: proc-others] :others() は「対象の祖先と子孫以外のページ内の全要素」を
+! 隠す演算子(本家仕様)。index.html上で有効にするとページ全体が消えるため、
+! :matches-path()で subtests/others.html だけに限定している
+benisaru.github.io##.mbt-others-subject:matches-path(subtests/others.html):others()
+! [id: proc-watch-attr]
+benisaru.github.io##.mbt-proc-watchattr-box:matches-attr(data-mbt-state=on):watch-attr(data-mbt-state)
+
+! ============================================================
+! HTMLフィルタリング: 例外・レスポンスヘッダ削除
+! ============================================================
+! [id: html-exception] ##^だけなら消えるはずの要素が、#@#^により残るのが正解
+benisaru.github.io##^.mbt-htmlfilter-exception-target
+benisaru.github.io#@#^.mbt-htmlfilter-exception-target
+
+! [id: html-responseheader] ##^responseheader() は本家uBOにも実在する構文
+! (uBO 1.35.0〜)。ただし削除できるヘッダは location / refresh / report-to /
+! set-cookie の4種のみ(MyBrowserも同じ制限)。テスト用のWorkerページ
+! (mb-removeparam-echo.js の /responseheader-test)が Set-Cookie を返すので、
+! それが除去されるかを確認する(subtests/responseheader.html から開く)
+mb-removeparam-echo.biziorbizi.workers.dev##^responseheader(set-cookie)
+
+! ============================================================
+! プリプロセッサディレクティブ
+! ============================================================
+! [id: pre-if]
+!#if env_mobile
+benisaru.github.io##.mbt-preprocessor-target
+!#else
+! env_mobile=falseならこちらが有効になり、上の非表示ルールは効かないはず
+! (このエンジンではPREPROCESSOR_ENV上env_mobile=trueなので、通常は上の分岐が使われる)
+!#endif
+
+! ============================================================
+! スクリプトレット(全対応種)
+! ============================================================
+! [id: scr-aopr]
+benisaru.github.io##+js(aopr, mbtAoprTarget)
+! [id: scr-aopw]
+benisaru.github.io##+js(aopw, mbtAopwTarget)
+! [id: scr-acis]
+benisaru.github.io##+js(acis, mbtAcisTarget, magicToken12345)
+! [id: scr-aost]
+benisaru.github.io##+js(aost, mbtAostTarget, inlineScript)
+! [id: scr-set-attr] 本家は値を''/true/false/整数/[他属性コピー]に制限するため整数を使う
+benisaru.github.io##+js(set-attr, .mbt-setattr-target, data-mbt-marker, 1)
+! [id: scr-remove-attr] 本家は(属性名/クラス名, selector, behavior)の引数順。
+! 本家のremove-attrはstayを付けないとrun-at時点で1回走るだけでObserverも張らないため、
+! 後からDOMに追加されるテスト要素にはstayが必須
+benisaru.github.io##+js(remove-attr, data-mbt-secret, .mbt-scr-removeattr-target, stay)
+! [id: scr-remove-class] remove-classもstay無しだと、ページがcomplete状態になった後の
+! 最初の処理でObserverをdisconnectするため、後から追加される要素にはstayが必須
+benisaru.github.io##+js(remove-class, mbt-secret-class, .mbt-scr-removeclass-target, stay)
+! [id: scr-remove-node-text] 既知の課題: 本家のnodeNameは実タグ名/正規表現でDOM全体を
+! treewalker走査する仕様。MyBrowserは現状CSSセレクタとして扱っており未対応
+benisaru.github.io##+js(rmnt, DIV, SECRETTEXT)
+! [id: scr-json-prune]
+benisaru.github.io##+js(json-prune, mbtSecret)
+! [id: scr-json-prune-xhr]
+benisaru.github.io##+js(json-prune-xhr-response, url)
+! [id: scr-set-cookie]
+benisaru.github.io##+js(set-cookie, mbt_cookie_test, allowed, /)
+! [id: scr-set-ls]
+benisaru.github.io##+js(set-local-storage-item, mbt_ls_test, enabled)
+! [id: scr-cookie-remover] 手動確認。document-start時+beforeunload時のみ
+! 動くため単発ロードでは自動判定できない
+benisaru.github.io##+js(cookie-remover, mbt_cookie_remover_target)
+! [id: scr-fingerprint2] 本家には##+js(fingerprint2)というスクリプトレットは無く、
+! $redirect=fingerprint2.jsで偽のfingerprintjs2ライブラリに差し替える仕組みが正しい
+*/fingerprint2-test.js$redirect=fingerprint2.js,script
+! [id: scr-prevent-fetch]
+benisaru.github.io##+js(prevent-fetch, mbt-prevent-fetch-marker)
+! [id: scr-prevent-xhr]
+benisaru.github.io##+js(prevent-xhr, mbt-prevent-xhr-marker)
+! [id: scr-prevent-settimeout]
+benisaru.github.io##+js(prevent-setTimeout, mbtPreventTimeoutMarker)
+! [id: scr-prevent-setinterval]
+benisaru.github.io##+js(prevent-setInterval, mbtPreventIntervalMarker)
+! [id: scr-prevent-window-open]
+benisaru.github.io##+js(prevent-window-open, mbt-popup-marker)
+! [id: scr-prevent-addeventlistener]
+benisaru.github.io##+js(aeld, click, mbtAeldMarker)
+! [id: scr-no-floc] 参考: FLoC自体が現行ブラウザに存在しないため有意な検証にならない
+benisaru.github.io##+js(no-floc)
+! [id: scr-nowebrtc]
+benisaru.github.io##+js(nowebrtc)
+! [id: scr-noeval-if]
+benisaru.github.io##+js(noeval, mbtEvalMarker)
+! [id: scr-spoof-css]
+benisaru.github.io##+js(spoof-css, .mbt-spoofcss-target, display, block)
+! [id: scr-prevent-refresh]
+benisaru.github.io##+js(prevent-refresh)
+
+! ============================================================
+! ============================================================
+! (rpnt / trusted-* は現時点ではMyBrowser側で「常に信頼済み」として扱うため、
+! 通常のスクリプトレットと同じくここに含めている)
+
+! [id: scr-trusted-set-constant]
+benisaru.github.io##+js(trusted-set, mbtTrustedConstTarget, 42)
+! [id: scr-trusted-set-cookie]
+benisaru.github.io##+js(trusted-set-cookie, mbt_trusted_cookie, arbitrary-value-ok)
+! [id: scr-trusted-set-storage] (local-storage分)
+benisaru.github.io##+js(trusted-set-local-storage-item, mbt_trusted_ls, freeform123)
+! [id: scr-trusted-set-storage] (session-storage分)
+benisaru.github.io##+js(trusted-set-session-storage-item, mbt_trusted_ss, freeform456)
+! [id: scr-trusted-replace-argument] 値は本家のvalidateConstantFn仕様上、素の文字列は
+! 常にundefinedへ解決されるため、json:"..."でJSON文字列として明示する必要がある
+benisaru.github.io##+js(trusted-replace-argument, Element.prototype.setAttribute, 1, json:"replaced-by-trusted", condition, /^orig-value$/)
+! [id: scr-trusted-suppress] 手動確認。実際のalert()を鳴らさずに検証する
+! 安全な自動判定方法が無いため
+benisaru.github.io##+js(trusted-suppress-native-method, window.alert, 1)
+! [id: scr-trusted-replace-xhr]
+benisaru.github.io##+js(trusted-replace-xhr-response, mbtSecretValue, REPLACED)
+! [id: scr-trusted-replace-fetch]
+benisaru.github.io##+js(trusted-replace-fetch-response, mbtFetchSecret, REPLACEDFETCH)
+! [id: scr-trusted-click-element]
+benisaru.github.io##+js(trusted-click-element, .mbt-trustedclick-target)
+! rpnt/trusted-rpntも同じ理由(nodeNameが実タグ名/正規表現でありCSSセレクタでは
+! ない仕様にMyBrowserが未対応)で既知の課題。参考として行だけは記載しておく
+! [id: scr-replace-node-text]
+benisaru.github.io##+js(rpnt, DIV, SECRETWORD, [REDACTED])
+! [id: scr-trusted-replace-node-text]
+benisaru.github.io##+js(trusted-rpnt, DIV, SECRETWORD2, [MASKED])
+
+! 既知の非対応(バグではなく仕様上の制限。ページ側にも解説を掲載)
+! ============================================================
+! - $csp= / $replace= / $uritransform= は該当ルールごと安全に読み飛ばされる(無視される)
+! - 生の正規表現フィルタ( /pattern/ 形式)は非対応
+! - $document(素の, popup/popunder以外)はメインフレーム読み込み自体を壊さないため、
+!   このエンジンでは意図的にネットワークブロックとしては機能しない(WebViewベースの
+!   広告ブロック実装で広く採られている標準的な方針)
+! - $cname はCNAMEクローキングされた実際のドメインが無いと再現できないため、この
+!   静的テストページの構成では自動検証できない
+! - $strict1p/$strict3p は、同一の実効ドメイン配下に複数ホスト名(サブドメイン)を
+!   用意できない現在のホスティング構成では、通常の$third-party/$first-partyとの
+!   違いを実演できない
+*/mbt-unsupported-csp-test$csp=script-src 'self'
