@@ -206,9 +206,10 @@ benisaru.github.io##+js(remove-attr, data-mbt-secret, .mbt-scr-removeattr-target
 ! [id: scr-remove-class] remove-classもstay無しだと、ページがcomplete状態になった後の
 ! 最初の処理でObserverをdisconnectするため、後から追加される要素にはstayが必須
 benisaru.github.io##+js(remove-class, mbt-secret-class, .mbt-scr-removeclass-target, stay)
-! [id: scr-remove-node-text] 既知の課題: 本家のnodeNameは実タグ名/正規表現でDOM全体を
-! treewalker走査する仕様。MyBrowserは現状CSSセレクタとして扱っており未対応
-benisaru.github.io##+js(rmnt, DIV, SECRETTEXT)
+! [id: scr-remove-node-text] 本家のnodeNameは実タグ名(#textも可、文字列は完全一致・大文字小文字無視)で、
+! documentツリーをtreewalkerで走査して一致ノードのテキストを処理する。DIVを指定すると祖先のDIVも
+! 一致するため、subtests/node-text.html(DIVをbody直下だけに置いた専用ページ)で確認する
+benisaru.github.io##+js(rmnt, DIV, MBT_RMNT_TEXT)
 ! [id: scr-json-prune]
 benisaru.github.io##+js(json-prune, mbtSecret)
 ! [id: scr-json-prune-xhr]
@@ -217,9 +218,11 @@ benisaru.github.io##+js(json-prune-xhr-response, url)
 benisaru.github.io##+js(set-cookie, mbt_cookie_test, allowed, /)
 ! [id: scr-set-ls]
 benisaru.github.io##+js(set-local-storage-item, mbt_ls_test, enabled)
-! [id: scr-cookie-remover] 手動確認。document-start時+beforeunload時のみ
-! 動くため単発ロードでは自動判定できない
+! [id: scr-cookie-remover] document-start時+beforeunload時のみ動くため、メインページの
+! ボタンで複数Cookieを作成→リロード→残ったCookieを判定する。文字列パターンは非アンカーの
+! 正規表現(部分一致)、/.../形式は正規表現として扱われる
 benisaru.github.io##+js(cookie-remover, mbt_cookie_remover_target)
+benisaru.github.io##+js(cookie-remover, /^mbt_cookie_rx_\d$/)
 ! [id: scr-fingerprint2] 本家には##+js(fingerprint2)というスクリプトレットは無く、
 ! $redirect=fingerprint2.jsで偽のfingerprintjs2ライブラリに差し替える仕組みが正しい
 */fingerprint2-test.js$redirect=fingerprint2.js,script
@@ -262,9 +265,11 @@ benisaru.github.io##+js(trusted-set-session-storage-item, mbt_trusted_ss, freefo
 ! [id: scr-trusted-replace-argument] 値は本家のvalidateConstantFn仕様上、素の文字列は
 ! 常にundefinedへ解決されるため、json:"..."でJSON文字列として明示する必要がある
 benisaru.github.io##+js(trusted-replace-argument, Element.prototype.setAttribute, 1, json:"replaced-by-trusted", condition, /^orig-value$/)
-! [id: scr-trusted-suppress] 手動確認。実際のalert()を鳴らさずに検証する
-! 安全な自動判定方法が無いため
-benisaru.github.io##+js(trusted-suppress-native-method, window.alert, 1)
+! [id: scr-trusted-suppress] 引数は(メソッドパス, 引数シグネチャ, 動作)の順。第3引数を省略すると
+! 抑止は黙って undefined を返すだけで、alert()は元々undefinedを返すため見分けがつかない
+! (以前の「, 1」はシグネチャとして解釈されず、全alertを抑止していた)。シグネチャは
+! "..." で囲んでも引用符が外されてしまうため /正規表現/ で書き、abort で抑止時にReferenceErrorを投げさせる
+benisaru.github.io##+js(trusted-suppress-native-method, window.alert, /^mbt-suppress-test$/, abort)
 ! [id: scr-trusted-replace-xhr]
 benisaru.github.io##+js(trusted-replace-xhr-response, mbtSecretValue, REPLACED)
 ! [id: scr-trusted-replace-fetch] 本家のパターンは/g無しだと最初の1箇所しか置換しない。
@@ -272,12 +277,13 @@ benisaru.github.io##+js(trusted-replace-xhr-response, mbtSecretValue, REPLACED)
 benisaru.github.io##+js(trusted-replace-fetch-response, /mbtFetchSecret/g, REPLACEDFETCH)
 ! [id: scr-trusted-click-element]
 benisaru.github.io##+js(trusted-click-element, .mbt-trustedclick-target)
-! rpnt/trusted-rpntも同じ理由(nodeNameが実タグ名/正規表現でありCSSセレクタでは
-! ない仕様にMyBrowserが未対応)で既知の課題。参考として行だけは記載しておく
+! rpnt/trusted-rpntもnodeNameは実タグ名(rmntと同じ仕様)。subtests/node-text.htmlで確認する。
+! 本家ではrpntとtrusted-rpntは同じスクリプトレットの別名。マーカーは互いに部分文字列にならない
+! よう分けている(部分一致だと一方がもう一方の対象テキストを先に書き換えてしまう)
 ! [id: scr-replace-node-text]
-benisaru.github.io##+js(rpnt, DIV, SECRETWORD, [REDACTED])
+benisaru.github.io##+js(rpnt, DIV, MBT_RPNT_WORD, [REDACTED])
 ! [id: scr-trusted-replace-node-text]
-benisaru.github.io##+js(trusted-rpnt, DIV, SECRETWORD2, [MASKED])
+benisaru.github.io##+js(trusted-rpnt, DIV, MBT_TRPNT_WORD, [MASKED])
 
 ! 既知の非対応(バグではなく仕様上の制限。ページ側にも解説を掲載)
 ! ============================================================

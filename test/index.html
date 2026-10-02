@@ -547,7 +547,7 @@
         CAT_NOTES[CATS[7]] = '<code>trusted-*</code>は本家uBOでは信頼済みリスト限定です(マイフィルターに貼り付け+' +
             '「信頼が必要なカスタムフィルターを許可する」が必要)。MyBrowserは現時点では全てのスクリプトレットを' +
             '「常に信頼済み」として扱うため、購読するだけで有効になります(本家より緩い動作である点に注意)。' +
-            '<code>rmnt</code>/<code>rpnt</code>/<code>trusted-rpnt</code>は既知の課題(下記)のため手動確認扱いです。';
+            '<code>rmnt</code>/<code>rpnt</code>/<code>trusted-rpnt</code>は専用ページ(subtests/node-text.html)で手動確認します。';
         var TESTS = [];
         function T(o) { o.category = o.category; TESTS.push(o); }
 
@@ -874,8 +874,8 @@
         T({ id: 'scr-remove-class', category: CATS[7], filter: '##+js(remove-class, mbt-secret-class, .mbt-scr-removeclass-target, stay)',
             setup: function() { spawn('<div class="mbt-scr-removeclass-target mbt-secret-class">remove-class対象</div>'); },
             check: function() { return { pass: !document.querySelector('.mbt-scr-removeclass-target').classList.contains('mbt-secret-class') }; } });
-        T({ id: 'scr-remove-node-text', category: CATS[7], filter: '##+js(rmnt, DIV, SECRETTEXT)', manual: true,
-            note: '既知の課題: 本家のnodeName引数は「実際のタグ名(または正規表現)」で、documentツリーをtreewalkerで走査して一致するノードのテキストを操作する仕様です。MyBrowserは現状これをCSSセレクタとして扱っており未対応のため、修正までは手動確認項目としています。' });
+        T({ id: 'scr-remove-node-text', category: CATS[7], filter: '##+js(rmnt, DIV, MBT_RMNT_TEXT)', manual: true,
+            note: '本家のnodeName引数は実際のタグ名(#textも可、大文字小文字は無視、文字列は完全一致の正規表現扱い)で、一致するノードのうちテキストに第2引数を含むものの内容を空にします。子孫のDIVも祖先のDIVも一致対象になるため、このメインページでは実行できません。専用ページで確認してください: <a href="./subtests/node-text.html">subtests/node-text.html</a>' });
 
         T({ id: 'scr-json-prune', category: CATS[7], filter: '##+js(json-prune, mbtSecret)',
             check: function() {
@@ -902,8 +902,45 @@
             check: function() { return { pass: document.cookie.indexOf('mbt_cookie_test=allowed') !== -1 }; } });
         T({ id: 'scr-set-ls', category: CATS[7], filter: '##+js(set-local-storage-item, mbt_ls_test, enabled)',
             check: function() { return { pass: localStorage.getItem('mbt_ls_test') === 'enabled' }; } });
-        T({ id: 'scr-cookie-remover', category: CATS[7], filter: '##+js(cookie-remover, mbt_cookie_remover_target)', manual: true,
-            note: 'このスクリプトレットはdocument-start時とbeforeunload時にのみ動くため、1回のページロード内では自動判定できません。手動確認するには: devtoolsコンソールで document.cookie="mbt_cookie_remover_target=1" を実行後にページをリロードし、リロード後は毎回自動的に消えている(=リロード前のbeforeunloadで削除された)ことを確認してください。' });
+        // cookie-remover: document-start時とbeforeunload時に、名前が一致するCookieを削除する。
+        // 1回のロード内では判定できないため「Cookie作成→リロード→残ったCookieを検証」の2段階にしている
+        var COOKIE_CASES = [
+            { name: 'mbt_cookie_remover_target', removed: true, why: '文字列パターンと完全一致' },
+            { name: 'pre_mbt_cookie_remover_target_post', removed: true, why: '文字列パターンは非アンカーの正規表現なので前後に文字があっても一致' },
+            { name: 'mbt_cookie_rx_1', removed: true, why: '/^mbt_cookie_rx_\\d$/ に一致' },
+            { name: 'mbt_cookie_rx_2', removed: true, why: '/^mbt_cookie_rx_\\d$/ に一致' },
+            { name: 'mbt_cookie_rx_12', removed: false, why: '\\d は1桁のみなので不一致(残るのが正解)' },
+            { name: 'mbt_cookie_remover_targe', removed: false, why: 'パターンより1文字短いので不一致(残るのが正解)' },
+            { name: 'mbt_cookie_keep', removed: false, why: 'どのパターンにも一致しない(残るのが正解)' }
+        ];
+        var COOKIE_FLAG = 'mb2_cookie_remover_armed';
+        function cookieArmed() { try { return localStorage.getItem(COOKIE_FLAG) === '1'; } catch (e) { return false; } }
+        T({ id: 'scr-cookie-remover', category: CATS[7], filter: '##+js(cookie-remover, mbt_cookie_remover_target) + ##+js(cookie-remover, /^mbt_cookie_rx_\\d$/)', manual: true, interactive: true,
+            buttonLabel: '🍪 Cookieを作成してリロード', delay: 300,
+            note: '「ボタンでCookieを7個作成→自動リロード→リロード後に削除されるべきCookieだけが消え、残るべきCookieが残っているか」を自動判定します。リロード後は自動で結果が表示されます(作成したCookieは判定後に片付けます)。',
+            autoRun: cookieArmed,
+            setup: function() {
+                if (cookieArmed()) return;
+                COOKIE_CASES.forEach(function(c) { document.cookie = c.name + '=1; path=/; max-age=600; SameSite=Lax'; });
+                try { localStorage.setItem(COOKIE_FLAG, '1'); } catch (e) {}
+                window.__mb2CookieReloading = true;
+                location.reload();
+            },
+            check: function() {
+                if (window.__mb2CookieReloading) return new Promise(function() {}); // リロードで破棄されるまで待つ
+                var present = {};
+                document.cookie.split(';').forEach(function(p) { var n = p.split('=')[0].trim(); if (n) present[n] = true; });
+                var allOk = true, lines = [];
+                COOKIE_CASES.forEach(function(c) {
+                    var isRemoved = !present[c.name];
+                    var ok = isRemoved === c.removed;
+                    if (!ok) allOk = false;
+                    lines.push((ok ? '✅ ' : '❌ ') + c.name + ': ' + (isRemoved ? '削除された' : '残っている') + ' (期待: ' + (c.removed ? '削除' : '残る') + ' / ' + c.why + ')');
+                    document.cookie = c.name + '=; path=/; max-age=0'; // 後片付け
+                });
+                try { localStorage.removeItem(COOKIE_FLAG); } catch (e) {}
+                return { pass: allOk, detail: lines.join('<br>') };
+            } });
         T({ id: 'scr-fingerprint2', category: CATS[7], filter: '*/fingerprint2-test.js$redirect=fingerprint2.js,script',
             note: '本家では##+js(fingerprint2)というスクリプトレットは存在せず、$redirect=fingerprint2.jsで偽のfingerprintjs2ライブラリに差し替える仕組みです。<script src>を使って検証します。',
             setup: function() {
@@ -994,10 +1031,10 @@
             setup: function() { spawn('<div class="mbt-spoofcss-target" style="display:none;">spoof-css対象</div>'); },
             check: function() { return { pass: getComputedStyle(document.querySelector('.mbt-spoofcss-target')).display === 'block' }; } });
         T({ id: 'scr-prevent-refresh', category: CATS[7], filter: '##+js(prevent-refresh)', manual: true,
-            note: '【重要】このテストは実際に動作する&lt;meta http-equiv="refresh"&gt;タグを必要とするため、メインページ上で自動実行すると(本家の仕組みはload後に一度だけ判定するため、動的に後から挿入したタグは間に合わず、ブラウザ側のリロード機能だけが素通しで動いてしまい)ページが繰り返しリロードされる事故を起こします(実際に発生し修正しました)。専用の隔離ページで確認してください: <a href="./subtests/prevent-refresh.html">subtests/prevent-refresh.html</a>' });
+            note: '【重要】このテストは実際に動作する&lt;meta http-equiv="refresh"&gt;タグを必要とするうえ、本家はload後に一度だけ判定するため、動的に挿入したタグは対象外です(メインページ上で自動実行するとページが繰り返しリロードされます)。専用ページで確認してください(約10秒かかります): <a href="./subtests/prevent-refresh.html">subtests/prevent-refresh.html</a>' });
 
-        T({ id: 'scr-replace-node-text', category: CATS[7], filter: '##+js(rpnt, DIV, SECRETWORD, [REDACTED])', manual: true,
-            note: '既知の課題: remove-node-textと同じ理由(nodeNameがCSSセレクタではなく実タグ名/正規表現である仕様にMyBrowserが未対応)で、修正までは手動確認項目としています。' });
+        T({ id: 'scr-replace-node-text', category: CATS[7], filter: '##+js(rpnt, DIV, MBT_RPNT_WORD, [REDACTED])', manual: true,
+            note: 'remove-node-textと同じ仕様です(一致したDIVのテキスト内の第2引数に一致する部分が第3引数に置換されます)。専用ページで確認してください: <a href="./subtests/node-text.html">subtests/node-text.html</a>' });
 
         T({ id: 'scr-trusted-set-constant', category: CATS[7], filter: '##+js(trusted-set, mbtTrustedConstTarget, 42)',
             check: function() { return { pass: window.mbtTrustedConstTarget === 42 }; } });
@@ -1018,8 +1055,21 @@
                 var pass = r1 === 'replaced-by-trusted' && r2 === 'something-else';
                 return { pass: pass, detail: 'r1=' + r1 + ' / r2=' + r2 };
             } });
-        T({ id: 'scr-trusted-suppress', category: CATS[7], filter: '##+js(trusted-suppress-native-method, window.alert, 1)', manual: true,
-            note: '実際に本物のalert()を鳴らさずに(=ブロッキングダイアログを出さずに)自動検証する安全な方法が無いため、手動確認項目としています。devtoolsコンソールで window.alert("test") を1回実行してダイアログが出ないこと、2回目の実行でダイアログが出ることを確認してください。' });
+        T({ id: 'scr-trusted-suppress', category: CATS[7], filter: '##+js(trusted-suppress-native-method, window.alert, /^mbt-suppress-test$/, abort)', manual: true, interactive: true,
+            buttonLabel: '▶ alert()を実行', delay: 100,
+            note: '引数は(メソッドパス, 引数シグネチャ, 動作)の順です。シグネチャに一致する呼び出しだけが抑止され、動作に abort を指定すると抑止された呼び出しが ReferenceError を投げるので、ダイアログを出さずに判定できます(動作を省略すると黙って undefined を返すだけで、alert()は元々undefinedを返すため見分けがつきません)。クリックすると ① alert(\'mbt-suppress-test\')(抑止されダイアログは出ない) ② alert(\'mbt-through-test\')(素通しなのでダイアログが1回出る。OKを押す)の順に実行します。①のダイアログが出た場合は失敗です。',
+            setup: function() {
+                var r = { suppressed: false, through: false, e1: '', e2: '' };
+                try { window.alert('mbt-suppress-test'); } catch (e) { r.suppressed = e instanceof ReferenceError; r.e1 = e.name; }
+                try { window.alert('mbt-through-test'); r.through = true; } catch (e) { r.e2 = e.name; }
+                window.__mb2SuppressResult = r;
+            },
+            check: function() {
+                var r = window.__mb2SuppressResult;
+                var d1 = r.suppressed ? '✅ 対象引数: 抑止された(ReferenceError)' : '❌ 対象引数: 抑止されずダイアログが出た' + (r.e1 ? '(別の例外: ' + r.e1 + ')' : '');
+                var d2 = r.through ? '✅ 非対象引数: 素通しでダイアログが出た' : '❌ 非対象引数まで抑止された(' + r.e2 + ')';
+                return { pass: r.suppressed && r.through, detail: d1 + '<br>' + d2 };
+            } });
         T({ id: 'scr-trusted-replace-xhr', category: CATS[7], filter: '##+js(trusted-replace-xhr-response, mbtSecretValue, REPLACED)',
             check: function() {
                 if (!WORKER) return { pass: false, detail: 'MB_ECHO_ENDPOINT未設定。' };
@@ -1048,8 +1098,8 @@
             },
             delay: 400,
             check: function() { return { pass: window.__mb2TrustedClicked === true }; } });
-        T({ id: 'scr-trusted-replace-node-text', category: CATS[7], filter: '##+js(trusted-rpnt, DIV, SECRETWORD2, [MASKED])', manual: true,
-            note: '既知の課題: replace-node-textと同じ理由により、修正までは手動確認項目としています。' });
+        T({ id: 'scr-trusted-replace-node-text', category: CATS[7], filter: '##+js(trusted-rpnt, DIV, MBT_TRPNT_WORD, [MASKED])', manual: true,
+            note: '本家ではrpntとtrusted-rpntは同じスクリプトレット(別名)で、どちらも信頼済みリスト限定です。専用ページで確認してください: <a href="./subtests/node-text.html">subtests/node-text.html</a>' });
 
         // ------------------------------------------------------------
         // レンダリング & 実行
@@ -1093,7 +1143,7 @@
                     if (t.interactive) {
                         var btn = document.createElement('button');
                         btn.type = 'button';
-                        btn.textContent = '▶ クリックして実行';
+                        btn.textContent = t.buttonLabel || '▶ クリックして実行';
                         btn.onclick = function() { btn.disabled = true; btn.textContent = '実行中...'; runOne(t, true); };
                         statusCell.appendChild(btn);
                     }
@@ -1132,8 +1182,10 @@
         }
 
         function runOne(t, byClick) {
-            if (t.manual && !byClick) return; // 手動確認項目は、クリックされない限り自動実行しない
-            if (t.interactive && !byClick) return; // ユーザー操作起点のテストは自動実行しない
+            // autoRun(): リロードをまたぐテスト用。trueを返す間はクリック無しでも実行する
+            var auto = !!(t.autoRun && t.autoRun());
+            if (t.manual && !byClick && !auto) return; // 手動確認項目は、クリックされない限り自動実行しない
+            if (t.interactive && !byClick && !auto) return; // ユーザー操作起点のテストは自動実行しない
             try { if (t.setup) t.setup(); } catch (e) { finish(t, { pass: false, detail: 'setup例外: ' + e.message }); return; }
             var deadline = Date.now() + (t.timeoutMs || 4500);
             function poll() {
@@ -1168,7 +1220,7 @@
             html += '</ul><small>専用ページ: <a href="./subtests/generichide.html">generichide</a> / ' +
                     '<a href="./subtests/specifichide.html">specifichide</a> / ' +
                     '<a href="./subtests/others.html">:others()</a> / <a href="./subtests/responseheader.html">##^responseheader()</a> / ' +
-                    '<a href="./subtests/prevent-refresh.html">prevent-refresh</a></small>';
+                    '<a href="./subtests/prevent-refresh.html">prevent-refresh</a> / <a href="./subtests/node-text.html">rmnt・rpnt</a></small>';
             document.getElementById('mb2-sublist').innerHTML = html;
         })();
 
