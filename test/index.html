@@ -862,10 +862,10 @@
         T({ id: 'scr-set-attr', category: CATS[7], filter: '##+js(set-attr, .mbt-setattr-target, data-mbt-marker, 1)', note: '本家は値を\'\'/true/false/整数/[他属性コピー]に制限するため整数を使う。',
             setup: function() { spawn('<div class="mbt-setattr-target">set-attr対象</div>'); },
             check: function() { return { pass: document.querySelector('.mbt-setattr-target').getAttribute('data-mbt-marker') === '1' }; } });
-        T({ id: 'scr-remove-attr', category: CATS[7], filter: '##+js(remove-attr, data-mbt-secret, .mbt-scr-removeattr-target)',
+        T({ id: 'scr-remove-attr', category: CATS[7], filter: '##+js(remove-attr, data-mbt-secret, .mbt-scr-removeattr-target, stay)',
             setup: function() { spawn('<div class="mbt-scr-removeattr-target" data-mbt-secret="x">remove-attr対象</div>'); },
             check: function() { return { pass: !document.querySelector('.mbt-scr-removeattr-target').hasAttribute('data-mbt-secret') }; } });
-        T({ id: 'scr-remove-class', category: CATS[7], filter: '##+js(remove-class, mbt-secret-class, .mbt-scr-removeclass-target)',
+        T({ id: 'scr-remove-class', category: CATS[7], filter: '##+js(remove-class, mbt-secret-class, .mbt-scr-removeclass-target, stay)',
             setup: function() { spawn('<div class="mbt-scr-removeclass-target mbt-secret-class">remove-class対象</div>'); },
             check: function() { return { pass: !document.querySelector('.mbt-scr-removeclass-target').classList.contains('mbt-secret-class') }; } });
         T({ id: 'scr-remove-node-text', category: CATS[7], filter: '##+js(rmnt, DIV, SECRETTEXT)', manual: true,

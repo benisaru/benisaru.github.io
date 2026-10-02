@@ -195,10 +195,13 @@ benisaru.github.io##+js(acis, mbtAcisTarget, magicToken12345)
 benisaru.github.io##+js(aost, mbtAostTarget, inlineScript)
 ! [id: scr-set-attr] 本家は値を''/true/false/整数/[他属性コピー]に制限するため整数を使う
 benisaru.github.io##+js(set-attr, .mbt-setattr-target, data-mbt-marker, 1)
-! [id: scr-remove-attr] 本家は(属性名/クラス名, selector, behavior)の引数順
-benisaru.github.io##+js(remove-attr, data-mbt-secret, .mbt-scr-removeattr-target)
-! [id: scr-remove-class]
-benisaru.github.io##+js(remove-class, mbt-secret-class, .mbt-scr-removeclass-target)
+! [id: scr-remove-attr] 本家は(属性名/クラス名, selector, behavior)の引数順。
+! 本家のremove-attrはstayを付けないとrun-at時点で1回走るだけでObserverも張らないため、
+! 後からDOMに追加されるテスト要素にはstayが必須
+benisaru.github.io##+js(remove-attr, data-mbt-secret, .mbt-scr-removeattr-target, stay)
+! [id: scr-remove-class] remove-classもstay無しだと、ページがcomplete状態になった後の
+! 最初の処理でObserverをdisconnectするため、後から追加される要素にはstayが必須
+benisaru.github.io##+js(remove-class, mbt-secret-class, .mbt-scr-removeclass-target, stay)
 ! [id: scr-remove-node-text] 既知の課題: 本家のnodeNameは実タグ名/正規表現でDOM全体を
 ! treewalker走査する仕様。MyBrowserは現状CSSセレクタとして扱っており未対応
 benisaru.github.io##+js(rmnt, DIV, SECRETTEXT)
