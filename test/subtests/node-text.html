@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>rmnt / rpnt / trusted-rpnt 単体テスト</title>
+<style>
+    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; line-height: 1.7; }
+    code { background: #eee; padding: 1px 4px; border-radius: 3px; }
+    .ok { color: #1a7f37; font-weight: bold; }
+    .ng { color: #cf222e; font-weight: bold; }
+    .warn { background: #fff8e1; border: 1px solid #e8d074; padding: 10px 14px; border-radius: 6px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; vertical-align: top; font-size: 0.92em; }
+    .specimen { border: 1px dashed #888; padding: 6px 10px; margin: 6px 0; }
+</style>
+</head>
+<body>
+<h1>rmnt / rpnt / trusted-rpnt 単体テスト</h1>
+<p class="warn">
+    本家uBOの <code>remove-node-text</code> / <code>replace-node-text</code> は、第1引数の <code>nodeName</code> を
+    <strong>実際のノード名(DIV, SCRIPT, #text など)</strong>として扱い、一致した全ノードのテキストを処理します。
+    <code>DIV</code> を指定すると<strong>祖先のDIVも一致対象</strong>になり、その中身が丸ごと書き換わってしまうため、
+    下の検証対象はすべて<code>&lt;body&gt;</code>直下に置き、このページにはほかのDIVを置いていません
+    (メインのindex.htmlではDIVが入れ子なので検証できません)。
+</p>
+<p>購読するリスト: <strong>test-filters.txt</strong>(<code>rmnt</code>・<code>rpnt</code>・<code>trusted-rpnt</code>の3行が必要)<br>
+   <a id="sub-link" href="#">🔗 uBlock Originで購読する(abp:subscribe)</a></p>
+
+<div id="t-rmnt">前 MBT_RMNT_TEXT 後</div>
+<div id="t-rpnt">前 MBT_RPNT_WORD 後</div>
+<div id="t-trpnt">前 MBT_TRPNT_WORD 後</div>
+<div id="t-keep">keep-this-text</div>
+
+<table>
+    <thead><tr><th>フィルタ</th><th>期待される結果</th><th>判定</th></tr></thead>
+    <tbody>
+        <tr><td><code>rmnt, DIV, MBT_RMNT_TEXT</code></td><td>1つ目のDIVのテキストが空になる</td><td id="r-rmnt">判定中...</td></tr>
+        <tr><td><code>rpnt, DIV, MBT_RPNT_WORD, [REDACTED]</code></td><td>2つ目のDIVが「前 [REDACTED] 後」になる</td><td id="r-rpnt">判定中...</td></tr>
+        <tr><td><code>trusted-rpnt, DIV, MBT_TRPNT_WORD, [MASKED]</code></td><td>3つ目のDIVが「前 [MASKED] 後」になる</td><td id="r-trpnt">判定中...</td></tr>
+        <tr><td>対照</td><td>どのマーカーも含まない4つ目のDIVは変化しない</td><td id="r-keep">判定中...</td></tr>
+    </tbody>
+</table>
+
+<script>
+    document.getElementById('sub-link').href =
+        'abp:subscribe?location=' + encodeURIComponent(new URL('../test-filters.txt', location.href).href) +
+        '&title=' + encodeURIComponent('test-filters.txt');
+
+    function show(id, pass, actual) {
+        var el = document.getElementById(id);
+        el.innerHTML = (pass ? '<span class="ok">✅ 成功</span>' : '<span class="ng">❌ 失敗</span>') +
+            '<br><small>実際のテキスト: 「' + String(actual).replace(/</g, '&lt;') + '」</small>';
+    }
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            var a = document.getElementById('t-rmnt').textContent;
+            var b = document.getElementById('t-rpnt').textContent;
+            var c = document.getElementById('t-trpnt').textContent;
+            var d = document.getElementById('t-keep').textContent;
+            show('r-rmnt', a === '', a);
+            show('r-rpnt', b === '前 [REDACTED] 後', b);
+            show('r-trpnt', c === '前 [MASKED] 後', c);
+            show('r-keep', d === 'keep-this-text', d);
+        }, 700);
+    });
+</script>
+</body>
+</html>
