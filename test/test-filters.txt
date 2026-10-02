@@ -136,12 +136,16 @@ benisaru.github.io##.mbt-proc-upward-sel-anchor:upward(.mbt-proc-upward-sel-targ
 benisaru.github.io##.mbt-proc-matchescss-box:matches-css(color: /^rgb\(9,\s*8,\s*7\)$/)
 ! [id: proc-matches-css-before]
 benisaru.github.io##.mbt-proc-matchescssbefore-box:matches-css-before(content: /mbt-before-marker/)
-! [id: proc-matches-media]
-benisaru.github.io##.mbt-proc-matchesmedia-box:matches-media((min-width: 1px))
+! [id: proc-matches-media] 本家(1.75.0)は単独のmatches-mediaをCSSの@mediaルールに変換するが、
+! 先頭セレクタ付き+アクション無しの形(.box:matches-media(...))だとセレクタが"undefined"になり
+! 何も隠れない(ロガーにはヒットとして出るが無効)。先頭にmatches-mediaを置く形を使う
+benisaru.github.io##:matches-media((min-width: 1px)) .mbt-proc-matchesmedia-box
 ! [id: proc-matches-prop]
 benisaru.github.io##.mbt-proc-matchesprop-box:matches-prop(title=/^leak$/)
-! [id: proc-xpath]
-benisaru.github.io##*:xpath(//div[@id="mbt-proc-xpath-target"])
+! [id: proc-xpath] 先頭セレクタ無しの形。*:xpath()だとページ内の全要素それぞれに対して
+! XPathを評価する(要素数の2乗のコスト)ため、本家の1フィルタあたり200msの実行予算を
+! 使い切って一時的にスキップされ得る
+benisaru.github.io##:xpath(//div[@id="mbt-proc-xpath-target"])
 ! [id: proc-style]
 benisaru.github.io##.mbt-proc-style-target:style(background-color: rgb(4, 5, 6) !important;)
 ! [id: proc-remove]

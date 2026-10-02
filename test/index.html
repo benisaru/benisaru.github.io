@@ -783,7 +783,7 @@
                 spawn('<div class="mbt-proc-matchescssbefore-box">::beforeのcontentで非表示になるはず</div>');
             },
             check: function() { return { pass: isHidden(document.querySelector('.mbt-proc-matchescssbefore-box')) }; } });
-        T({ id: 'proc-matches-media', category: CATS[4], filter: '##.mbt-proc-matchesmedia-box:matches-media((min-width: 1px))',
+        T({ id: 'proc-matches-media', category: CATS[4], filter: '##:matches-media((min-width: 1px)) .mbt-proc-matchesmedia-box',
             setup: function() { spawn('<div class="mbt-proc-matchesmedia-box">常に真の条件で非表示になるはず</div>'); },
             check: function() { return { pass: isHidden(document.querySelector('.mbt-proc-matchesmedia-box')) }; } });
         T({ id: 'proc-matches-prop', category: CATS[4], filter: '##.mbt-proc-matchesprop-box:matches-prop(title=/^leak$/)',
@@ -798,7 +798,7 @@
                 document.getElementById('mb2-specimen-root').appendChild(el);
             },
             check: function() { return { pass: isHidden(document.querySelector('.mbt-proc-matchesprop-box')) }; } });
-        T({ id: 'proc-xpath', category: CATS[4], filter: '##*:xpath(//div[@id="mbt-proc-xpath-target"])',
+        T({ id: 'proc-xpath', category: CATS[4], filter: '##:xpath(//div[@id="mbt-proc-xpath-target"])',
             setup: function() { spawn('<div id="mbt-proc-xpath-target">XPathで非表示になるはず</div>'); },
             check: function() { return { pass: isHidden(document.getElementById('mbt-proc-xpath-target')) }; } });
         T({ id: 'proc-style', category: CATS[4], filter: '##.mbt-proc-style-target:style(background-color: rgb(4,5,6) !important;)',
