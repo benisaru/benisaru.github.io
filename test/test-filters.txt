@@ -139,7 +139,7 @@ benisaru.github.io##.mbt-proc-matchescssbefore-box:matches-css-before(content: /
 ! [id: proc-matches-media]
 benisaru.github.io##.mbt-proc-matchesmedia-box:matches-media((min-width: 1px))
 ! [id: proc-matches-prop]
-benisaru.github.io##.mbt-proc-matchesprop-box:matches-prop(mbtProcProp=/^leak$/)
+benisaru.github.io##.mbt-proc-matchesprop-box:matches-prop(title=/^leak$/)
 ! [id: proc-xpath]
 benisaru.github.io##*:xpath(//div[@id="mbt-proc-xpath-target"])
 ! [id: proc-style]
@@ -263,8 +263,9 @@ benisaru.github.io##+js(trusted-replace-argument, Element.prototype.setAttribute
 benisaru.github.io##+js(trusted-suppress-native-method, window.alert, 1)
 ! [id: scr-trusted-replace-xhr]
 benisaru.github.io##+js(trusted-replace-xhr-response, mbtSecretValue, REPLACED)
-! [id: scr-trusted-replace-fetch]
-benisaru.github.io##+js(trusted-replace-fetch-response, mbtFetchSecret, REPLACEDFETCH)
+! [id: scr-trusted-replace-fetch] 本家のパターンは/g無しだと最初の1箇所しか置換しない。
+! Workerの応答はmbtFetchSecretをurlとqueryキーの2箇所に含むため/g必須
+benisaru.github.io##+js(trusted-replace-fetch-response, /mbtFetchSecret/g, REPLACEDFETCH)
 ! [id: scr-trusted-click-element]
 benisaru.github.io##+js(trusted-click-element, .mbt-trustedclick-target)
 ! rpnt/trusted-rpntも同じ理由(nodeNameが実タグ名/正規表現でありCSSセレクタでは

@@ -786,10 +786,16 @@
         T({ id: 'proc-matches-media', category: CATS[4], filter: '##.mbt-proc-matchesmedia-box:matches-media((min-width: 1px))',
             setup: function() { spawn('<div class="mbt-proc-matchesmedia-box">常に真の条件で非表示になるはず</div>'); },
             check: function() { return { pass: isHidden(document.querySelector('.mbt-proc-matchesmedia-box')) }; } });
-        T({ id: 'proc-matches-prop', category: CATS[4], filter: '##.mbt-proc-matchesprop-box:matches-prop(mbtProcProp=/^leak$/)',
+        T({ id: 'proc-matches-prop', category: CATS[4], filter: '##.mbt-proc-matchesprop-box:matches-prop(title=/^leak$/)',
             setup: function() {
-                var el = spawn('<div class="mbt-proc-matchesprop-box">JSプロパティ一致で非表示になるはず</div>');
-                el.mbtProcProp = 'leak';
+                // 本家はFirefoxのcontent scriptからXray越しにDOMを見るため、ページ側が付けた
+                // 独自expandoプロパティは見えない可能性がある。ネイティブプロパティ(title)を
+                // DOM挿入前に設定し、属性変更の監視タイミングにも依存しないようにしている
+                var el = document.createElement('div');
+                el.className = 'mbt-proc-matchesprop-box';
+                el.title = 'leak';
+                el.textContent = 'JSプロパティ一致で非表示になるはず';
+                document.getElementById('mb2-specimen-root').appendChild(el);
             },
             check: function() { return { pass: isHidden(document.querySelector('.mbt-proc-matchesprop-box')) }; } });
         T({ id: 'proc-xpath', category: CATS[4], filter: '##*:xpath(//div[@id="mbt-proc-xpath-target"])',
@@ -1028,7 +1034,7 @@
                     xhr.send();
                 });
             } });
-        T({ id: 'scr-trusted-replace-fetch', category: CATS[7], filter: '##+js(trusted-replace-fetch-response, mbtFetchSecret, REPLACEDFETCH)',
+        T({ id: 'scr-trusted-replace-fetch', category: CATS[7], filter: '##+js(trusted-replace-fetch-response, /mbtFetchSecret/g, REPLACEDFETCH)',
             check: function() {
                 if (!WORKER) return { pass: false, detail: 'MB_ECHO_ENDPOINT未設定。' };
                 return fetch(WORKER + '?mbtFetchSecret=1&_cb=' + Date.now()).then(function(r) { return r.text(); })
