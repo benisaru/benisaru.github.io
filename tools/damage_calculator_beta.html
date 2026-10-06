@@ -781,12 +781,24 @@
         </div>
       </div>
       <div class="row">
+        <div class="inputs" style="flex:1 1 auto;">
+          <button id="exportCurrentChartBtn" type="button" style="flex:1;">チャートをエクスポート</button>
+        </div>
+      </div>
+      <div class="row">
         <label>保存済みチャート</label>
         <div class="inputs" style="flex:1 1 auto;">
           <div id="chart_preset_list" class="sortable-list"></div>
         </div>
       </div>
-      <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。</div>
+      <div class="row">
+        <div class="inputs" style="flex:1 1 auto;gap:8px;">
+          <button id="exportDataBtn" type="button" style="flex:1;">全データをエクスポート</button>
+          <button id="importDataBtn" type="button" style="flex:1;">インポート</button>
+          <input type="file" id="importFileInput" accept=".json" style="display:none;">
+        </div>
+      </div>
+      <div class="note">この端末のブラウザ内（localStorage）に保存されます。別の端末やブラウザとは共有されません。エクスポートでJSONファイルとして保存し、インポートで復元できます。</div>
     </div>
   </details>
 
@@ -1086,10 +1098,15 @@ function refreshPresetSelect(){
       item.querySelector('[data-action="delete"]').addEventListener('click', ()=>{
         if(!confirm(`「${name}」を削除しますか？`)) return;
         delete presets[name];
-        const newOrder = names.filter(n=>n!==name);
+        // DOMから直接削除して順序を維持
+        item.remove();
+        // 現在のDOM順序で新しいorderを作成
+        const newOrder = [];
+        $('preset_list').querySelectorAll('.sortable-item').forEach(i=>{
+          newOrder.push(i.dataset.name);
+        });
         savePresetsObj({obj:presets, order:newOrder});
-        refreshPresetSelect();
-        renderChartList();
+        refreshChartSourceSelect();
         showToast(`「${name}」を削除しました`);
       });
       list.appendChild(item);
@@ -1188,8 +1205,18 @@ function renderChartList(){
     removeBtn.setAttribute('aria-label','チャートから削除');
     removeBtn.addEventListener('click', (ev)=>{
       ev.stopPropagation();
-      chartEntries = chartEntries.filter(e=>e.id!==entry.id);
-      renderChartList();
+      // DOMから直接削除して順序を維持
+      chip.remove();
+      // 現在のDOM順序でchartEntriesを更新
+      const newEntries = [];
+      $('chartList').querySelectorAll('.chart-chip').forEach(c=>{
+        const entryId = c.dataset.entryId;
+        const existingEntry = chartEntries.find(e=>e.id===entryId);
+        if(existingEntry){
+          newEntries.push(existingEntry);
+        }
+      });
+      chartEntries = newEntries;
     });
 
     chip.appendChild(dragHandle);
@@ -1239,9 +1266,14 @@ function refreshChartPresetSelect(){
     item.querySelector('[data-action="delete"]').addEventListener('click', ()=>{
       if(!confirm(`チャート「${name}」を削除しますか？`)) return;
       delete charts[name];
-      const newOrder = names.filter(n=>n!==name);
+      // DOMから直接削除して順序を維持
+      item.remove();
+      // 現在のDOM順序で新しいorderを作成
+      const newOrder = [];
+      $('chart_preset_list').querySelectorAll('.sortable-item').forEach(i=>{
+        newOrder.push(i.dataset.name);
+      });
       saveChartsObj({obj:charts, order:newOrder});
-      refreshChartPresetSelect();
       showToast(`チャート「${name}」を削除しました`);
     });
     list.appendChild(item);
@@ -1353,6 +1385,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       animation: 150,
       ghostClass: 'sortable-ghost',
       dragClass: 'sortable-drag',
+      handle: '.drag-handle',
       onEnd: function(evt){
         // ドラッグ後の順序でchartEntriesを更新
         const newEntries = [];
@@ -1415,6 +1448,182 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const result = computeAll(lastSingleSnapshot);
       renderSingleResult(result);
     }
+  });
+
+  // ---- データエクスポート ----
+  $('exportDataBtn').addEventListener('click', ()=>{
+    const {obj:presets, order:presetOrder} = loadPresets();
+    const {obj:charts, order:chartOrder} = loadCharts();
+    const exportData = {
+      version: 1,
+      timestamp: new Date().toISOString(),
+      presets: {
+        order: presetOrder,
+        data: presets
+      },
+      charts: {
+        order: chartOrder,
+        data: charts
+      }
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `damage_calc_data_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('データをエクスポートしました');
+  });
+
+  // ---- 現在のチャートエクスポート ----
+  $('exportCurrentChartBtn').addEventListener('click', ()=>{
+    if(chartEntries.length===0){
+      showToast('チャートに項目がありません');
+      return;
+    }
+    const {obj:presets} = loadPresets();
+    const exportData = {
+      version: 1,
+      type: 'current_chart',
+      timestamp: new Date().toISOString(),
+      chart: chartEntries.map(e=>({presetName: e.presetName})),
+      presets: {}
+    };
+    // チャートで使用されているプリセットデータのみ含める
+    chartEntries.forEach(entry=>{
+      if(presets[entry.presetName]){
+        exportData.presets[entry.presetName] = presets[entry.presetName];
+      }
+    });
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chart_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('現在のチャートをエクスポートしました');
+  });
+
+  // ---- データインポート ----
+  $('importDataBtn').addEventListener('click', ()=>{
+    $('importFileInput').click();
+  });
+
+  $('importFileInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const data = JSON.parse(ev.target.result);
+        // 現在のチャートのみのエクスポート形式の場合
+        if(data.type === 'current_chart' && data.chart && data.presets){
+          const {obj:presets, order:presetOrder} = loadPresets();
+          // 重複チェック
+          const duplicateNames = Object.keys(data.presets).filter(name=> Object.prototype.hasOwnProperty.call(presets, name));
+          let overwrite = false;
+          if(duplicateNames.length > 0){
+            const confirmed = confirm(`以下のデータは既に存在します:\n${duplicateNames.join(', ')}\n\n上書きしますか？（キャンセルでスキップ）`);
+            if(!confirmed){
+              // スキップ：重複を除いて追加
+              Object.keys(data.presets).forEach(name=>{
+                if(!Object.prototype.hasOwnProperty.call(presets, name)){
+                  presets[name] = data.presets[name];
+                  presetOrder.push(name);
+                }
+              });
+              savePresetsObj({obj:presets, order:presetOrder});
+              chartEntries = data.chart.map(e=>({ id: makeEntryId(), presetName: e.presetName }));
+              renderChartList();
+              refreshPresetSelect();
+              showToast('チャートをインポートしました（重複はスキップ）');
+              $('importFileInput').value = '';
+              return;
+            }
+            overwrite = true;
+          }
+          // 上書きまたは新規追加
+          Object.keys(data.presets).forEach(name=>{
+            presets[name] = data.presets[name];
+            if(!presetOrder.includes(name)){
+              presetOrder.push(name);
+            }
+          });
+          savePresetsObj({obj:presets, order:presetOrder});
+          chartEntries = data.chart.map(e=>({ id: makeEntryId(), presetName: e.presetName }));
+          renderChartList();
+          refreshPresetSelect();
+          showToast('チャートをインポートしました');
+          $('importFileInput').value = '';
+          return;
+        }
+        // 全データのエクスポート形式の場合
+        if(!data.presets || !data.charts){
+          showToast('無効なデータ形式です');
+          $('importFileInput').value = '';
+          return;
+        }
+        // プリセットの重複チェック
+        const {obj:presets, order:presetOrder} = loadPresets();
+        const duplicatePresets = data.presets.order.filter(name=> Object.prototype.hasOwnProperty.call(presets, name));
+        let overwritePresets = false;
+        if(duplicatePresets.length > 0){
+          const confirmed = confirm(`以下のプリセットは既に存在します:\n${duplicatePresets.join(', ')}\n\n上書きしますか？（キャンセルでスキップ）`);
+          if(!confirmed){
+            // スキップ：重複を除いて追加
+            data.presets.order.forEach(name=>{
+              if(!Object.prototype.hasOwnProperty.call(presets, name)){
+                presets[name] = data.presets.data[name];
+                presetOrder.push(name);
+              }
+            });
+            savePresetsObj({obj:presets, order:presetOrder});
+          }else{
+            overwritePresets = true;
+            savePresetsObj({obj:data.presets.data, order:data.presets.order});
+          }
+        }else{
+          savePresetsObj({obj:data.presets.data, order:data.presets.order});
+        }
+        // チャートの重複チェック
+        const {obj:charts, order:chartOrder} = loadCharts();
+        const duplicateCharts = data.charts.order.filter(name=> Object.prototype.hasOwnProperty.call(charts, name));
+        let overwriteCharts = false;
+        if(duplicateCharts.length > 0){
+          const confirmed = confirm(`以下のチャートは既に存在します:\n${duplicateCharts.join(', ')}\n\n上書きしますか？（キャンセルでスキップ）`);
+          if(!confirmed){
+            // スキップ：重複を除いて追加
+            data.charts.order.forEach(name=>{
+              if(!Object.prototype.hasOwnProperty.call(charts, name)){
+                charts[name] = data.charts.data[name];
+                chartOrder.push(name);
+              }
+            });
+            saveChartsObj({obj:charts, order:chartOrder});
+          }else{
+            overwriteCharts = true;
+            saveChartsObj({obj:data.charts.data, order:data.charts.order});
+          }
+        }else{
+          saveChartsObj({obj:data.charts.data, order:data.charts.order});
+        }
+        refreshPresetSelect();
+        refreshChartPresetSelect();
+        renderChartList();
+        showToast('データをインポートしました');
+      }catch(err){
+        showToast('データの読み込みに失敗しました');
+        console.error(err);
+      }
+      $('importFileInput').value = '';
+    };
+    reader.readAsText(file);
   });
 });
 
